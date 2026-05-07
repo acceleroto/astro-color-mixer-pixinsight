@@ -1,0 +1,98 @@
+Starter PIDoc source for Astro Color Mixer v0.9.3-beta. Formal PixInsight documentation integration to be validated.
+
+\title Astro Color Mixer Technical Appendix
+
+\section Introduction
+
+This appendix summarizes the practical processing model used by Astro Color Mixer for nonlinear RGB astrophotography refinement.
+
+\section Design Goals
+
+- controlled nonlinear RGB refinement
+- astro-specific color-band workflow
+- reduced arbitrary global color swings
+- support for stars-present and starless workflows
+- visible masks and diagnostics
+- non-destructive output-to-new-image behavior
+
+\section Processing Assumptions
+
+- nonlinear RGB input
+- normalized internal RGB values in the range 0..1
+- source image not overwritten
+- preview uses downsampled data
+- final Apply uses full-resolution data
+
+\section Image Type
+
+Stars Present is more conservative around bright stellar structures. Starless / Star-Reduced allows more freedom in nebulae, galaxies, dust, and faint structures. This setting does not detect stars, remove stars, or create a star mask.
+
+\section Luminance Model
+
+Y = 0.2126 R + 0.7152 G + 0.0722 B
+
+Luminance is used for Range Mask, diagnostics, neutral luminance, and protection terms.
+
+\section Hue and Saturation Selection
+
+Hue is circular and low saturation makes hue unreliable. Band selection uses circular hue distance around practical astro band centers.
+
+\section Astro Color Bands
+
+- red 0 deg
+- orange 30 deg
+- yellow 60 deg
+- green 120 deg
+- cyan 180 deg
+- blue 240 deg
+- purple 275 deg
+- magenta 315 deg
+
+These are practical editing regions, not strict physical line definitions.
+
+\section Hue Band Mask
+
+distance = circularHueDistance(hue, center)
+mask = 1 - smoothstep(innerWidth, outerWidth, distance)
+
+\section Saturation Reliability
+
+Low-saturation pixels are prevented from behaving like stable hue targets, which is why the tool includes a separate Neutral / Low-Saturation luminance path.
+
+\section Range Mask
+
+leftRamp = smoothstep(low - feather, low, Y)
+rightRamp = 1 - smoothstep(high, high + feather, Y)
+rangeMask = clamp01(leftRamp * rightRamp)
+
+\section Neutral / Low-Saturation
+
+neutralMask = 1 - smoothstep(satStart, satFull, saturation)
+
+\section Chroma-Vector Adjustment
+
+Conceptually, the tool separates a luminance-like neutral component from chroma, scales saturation, rotates hue, adjusts luminance, recombines the result, and clamps back into a valid nonlinear RGB range.
+
+\section Combined Mask
+
+finalMask =
+  hueMask *
+  saturationReliability *
+  darkProtection *
+  highlightProtection *
+  rangeMask
+
+\section Refinement Passes
+
+working = original
+for each enabled pass:
+    working = applyPass(working, pass)
+
+\section Limitations
+
+- not intended for linear calibration
+- preview is approximate
+- hue is unreliable in neutral areas
+- Range Mask depends on stretch
+- saturated star cores require care
+- beta software status applies

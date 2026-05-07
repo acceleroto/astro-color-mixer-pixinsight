@@ -1,0 +1,313 @@
+{
+  "version": "acm-recipe-1.0",
+  "imageType": "stars",
+  "sensitivity": "Normal",
+  "globalStrength": 1,
+  "activePassId": "pass-4",
+  "passes": [
+    {
+      "id": "pass-1",
+      "name": "Base Pass",
+      "enabled": true,
+      "selectedBandId": "red",
+      "bands": {
+        "red": {
+          "hueShift": 0,
+          "saturation": 37.358490566037744,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "orange": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "yellow": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "green": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "cyan": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "blue": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "purple": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "magenta": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        }
+      },
+      "neutralLuminance": {
+        "luminance": 0,
+        "satStart": 0.04,
+        "satFull": 0.16
+      },
+      "rangeMask": {
+        "enabled": false,
+        "low": 0,
+        "high": 1,
+        "feather": 0.1,
+        "preset": "All"
+      }
+    },
+    {
+      "id": "pass-2",
+      "name": "Pass 2",
+      "enabled": true,
+      "selectedBandId": "green",
+      "bands": {
+        "red": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "orange": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "yellow": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "green": {
+          "hueShift": 0,
+          "saturation": -49.58490566037736,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "cyan": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "blue": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "purple": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "magenta": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        }
+      },
+      "neutralLuminance": {
+        "luminance": 0,
+        "satStart": 0.04,
+        "satFull": 0.16
+      },
+      "rangeMask": {
+        "enabled": false,
+        "low": 0,
+        "high": 1,
+        "feather": 0.1,
+        "preset": "All"
+      }
+    },
+    {
+      "id": "pass-3",
+      "name": "Pass 3",
+      "enabled": true,
+      "selectedBandId": "red",
+      "bands": {
+        "red": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "orange": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "yellow": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "green": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "cyan": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "blue": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "purple": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "magenta": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        }
+      },
+      "neutralLuminance": {
+        "luminance": -20,
+        "satStart": 0.04,
+        "satFull": 0.16
+      },
+      "rangeMask": {
+        "enabled": true,
+        "low": 0.542,
+        "high": 1,
+        "feather": 0.1,
+        "preset": "Custom"
+      }
+    },
+    {
+      "id": "pass-4",
+      "name": "Pass 4",
+      "enabled": true,
+      "selectedBandId": "red",
+      "bands": {
+        "red": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "orange": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "yellow": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "green": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "cyan": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "blue": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "purple": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        },
+        "magenta": {
+          "hueShift": 0,
+          "saturation": 0,
+          "luminance": 0,
+          "width": 45,
+          "feather": 0.75
+        }
+      },
+      "neutralLuminance": {
+        "luminance": 0,
+        "satStart": 0.04,
+        "satFull": 0.16
+      },
+      "rangeMask": {
+        "enabled": false,
+        "low": 0,
+        "high": 1,
+        "feather": 0.1,
+        "preset": "All"
+      }
+    }
+  ]
+}

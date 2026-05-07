@@ -1,0 +1,53 @@
+Starter PIDoc source for Astro Color Mixer v0.9.3-beta. Formal PixInsight documentation integration to be validated.
+
+\title Astro Color Mixer
+\section Overview
+
+Script name: AstroColorMixer.js
+
+Version: v0.9.3-beta
+
+Astro Color Mixer is a PixInsight script for nonlinear RGB color and luminance refinement in astrophotography. It is intended for post-stretch finishing work on practical astro color bands, luminance-targeted masks, and sequential refinement passes.
+
+\section Installation and Use
+
+- Manual beta install currently uses Script > Execute Script.
+- Repository-style installation will follow after update repository validation.
+- Documentation resources are bundled under rsc/AstroColorMixer/docs/.
+
+\section Basic Workflow
+
+1. Open a nonlinear RGB image.
+2. Choose Image Type: Stars Present or Starless / Star-Reduced.
+3. Start with Base Pass.
+4. Make broad H/S/L adjustments.
+5. Use Width and Feather to refine color selection.
+6. Use Range Mask for luminance-targeted work.
+7. Add Refinement Passes for targeted cleanup.
+8. Inspect preview, masks, histogram, polar plot, and probe.
+9. Apply to New Image.
+10. Save an Adjustment Set if needed.
+
+\section Major Tool Areas
+
+- Color Mixer
+- Neutral / Low-Saturation
+- Selected Band
+- Range Mask
+- Refinement Passes
+- Preview and Mask Views
+- Histogram / Polar Plot / Probe
+- Adjustment Sets
+
+\section Limitations
+
+- not intended for linear calibration
+- preview is downsampled
+- extreme changes can artifact
+- hue is unreliable in low-saturation regions
+- Range Mask depends on stretch
+- beta software status applies
+
+\section Related Documents
+
+See FAQ.pidoc for the practical guide and TechnicalAppendix.pidoc for the processing model summary.

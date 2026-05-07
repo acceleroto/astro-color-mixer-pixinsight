@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Astro Color Mixer FAQ & Practical Guide</title>
+  <style>
+    body { margin: 0; background: #10151b; color: #e8edf3; font: 16px/1.65 Georgia, "Times New Roman", serif; }
+    main { max-width: 960px; margin: 0 auto; padding: 44px 24px 72px; }
+    h1, h2, h3 { color: #f7fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    h1 { font-size: 2.2rem; margin-bottom: 0.4rem; }
+    p, li { color: #d7e0eb; }
+    .lead { color: #9fb3c8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin-bottom: 2rem; }
+    section { background: #151d26; border: 1px solid #263241; border-radius: 14px; padding: 18px 22px; margin: 16px 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Astro Color Mixer FAQ &amp; Practical Guide</h1>
+    <p class="lead">A field guide for nonlinear RGB color and luminance refinement in astrophotography.</p>
+
+    <section>
+      <h2>What is Astro Color Mixer?</h2>
+      <p>Astro Color Mixer is a nonlinear RGB finishing tool built around practical astro color bands, luminance targeting, mask visibility, preview diagnostics, and sequential refinement passes.</p>
+    </section>
+
+    <section>
+      <h2>Where does it fit in a PixInsight workflow?</h2>
+      <p>Use it after calibration, integration, background correction, color calibration, and stretch. It is a post-stretch refinement tool, not a linear calibration tool.</p>
+    </section>
+
+    <section>
+      <h2>What kind of image should I use?</h2>
+      <p>Use nonlinear RGB images. Both stars-present and starless or star-reduced workflows are supported.</p>
+    </section>
+
+    <section>
+      <h2>What is Stars Present vs Starless / Star-Reduced?</h2>
+      <p><strong>Stars Present</strong> uses more conservative protection around bright stellar structures. <strong>Starless / Star-Reduced</strong> allows more freedom when stars have already been removed or reduced. It does not remove stars.</p>
+    </section>
+
+    <section>
+      <h2>What is the basic workflow?</h2>
+      <ol>
+        <li>Open a nonlinear RGB image.</li>
+        <li>Choose Image Type.</li>
+        <li>Start with Base Pass.</li>
+        <li>Make broad H/S/L adjustments.</li>
+        <li>Use diagnostics to understand the image.</li>
+        <li>Refine Width and Feather.</li>
+        <li>Use Range Mask for luminance-targeted work.</li>
+        <li>Add targeted Refinement Passes.</li>
+        <li>Inspect preview and masks.</li>
+        <li>Apply to New Image and save an Adjustment Set if needed.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>What are the color bands?</h2>
+      <ul>
+        <li>Red / H-alpha</li>
+        <li>Orange / Dust &amp; Galaxy Cores</li>
+        <li>Yellow / Warm Stars</li>
+        <li>Green / Cast Control</li>
+        <li>Cyan / OIII</li>
+        <li>Blue / Reflection Nebula</li>
+        <li>Purple / Violet Cleanup</li>
+        <li>Magenta / Halo Cleanup</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>What do Hue, Saturation, and Luminance do?</h2>
+      <p>Hue rotates color direction, Saturation scales color intensity, and Luminance brightens or darkens the active color region inside the current pass.</p>
+    </section>
+
+    <section>
+      <h2>What are Width and Feather?</h2>
+      <p>Width controls how broad the selected hue family is. Feather controls the softness of the falloff into neighboring hues.</p>
+    </section>
+
+    <section>
+      <h2>What is Range Mask?</h2>
+      <p>Range Mask targets a luminance interval using Low, High, and Feather controls. It helps isolate faint signal, background, highlights, bright cores, or stars within the active pass.</p>
+    </section>
+
+    <section>
+      <h2>What is Neutral / Low-Saturation?</h2>
+      <p>It is the luminance adjustment path for weak-color pixels where hue is unreliable, such as sky background, gray dust, and low-color halos.</p>
+    </section>
+
+    <section>
+      <h2>What are Refinement Passes?</h2>
+      <p>They are sequential adjustment passes. Base Pass handles broad work; later passes handle targeted work. They are not Photoshop layers.</p>
+    </section>
+
+    <section>
+      <h2>What does the probe do?</h2>
+      <p>The probe samples a preview pixel, reports luminance, hue, and saturation, places histogram and polar markers, and can auto-select the nearest band when hue is reliable.</p>
+    </section>
+
+    <section>
+      <h2>What are the histogram and polar plot showing?</h2>
+      <p>The histogram shows preview luminance distribution and Range Mask placement. The polar plot shows hue angle and saturation distribution.</p>
+    </section>
+
+    <section>
+      <h2>What are mask views?</h2>
+      <p>Mask views show selected band, Range Mask, or combined influence. White means included more strongly; black means excluded more strongly.</p>
+    </section>
+
+    <section>
+      <h2>Why can preview differ from final output?</h2>
+      <p>Preview is downsampled for speed, while Apply to New Image processes full-resolution source data.</p>
+    </section>
+
+    <section>
+      <h2>What are Adjustment Sets?</h2>
+      <p>Adjustment Sets are JSON files that store passes, sliders, Selected Band settings, Range Mask settings, and related working state.</p>
+    </section>
+  </main>
+</body>
+</html>

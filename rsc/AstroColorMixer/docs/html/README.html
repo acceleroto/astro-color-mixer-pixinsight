@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Astro Color Mixer for PixInsight</title>
+  <style>
+    body { margin: 0; background: #11161d; color: #e7edf5; font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { max-width: 900px; margin: 0 auto; padding: 48px 24px 72px; }
+    h1, h2, h3 { color: #f6f9fc; line-height: 1.2; }
+    h1 { font-size: 2.2rem; margin-bottom: 0.2rem; }
+    .subtitle { color: #9bb0c9; margin-bottom: 2rem; }
+    p, li { color: #d8e1ec; }
+    code, pre { background: #18212c; color: #f5f7fb; border-radius: 8px; }
+    code { padding: 0.1rem 0.35rem; }
+    pre { padding: 16px; overflow-x: auto; }
+    .card { background: #151d27; border: 1px solid #263240; border-radius: 14px; padding: 20px 22px; margin: 18px 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Astro Color Mixer for PixInsight</h1>
+    <p class="subtitle">Nonlinear RGB color refinement for astrophotography</p>
+
+    <div class="card">
+      <h2>Overview</h2>
+      <p>Astro Color Mixer is a PixInsight script for nonlinear RGB color and luminance refinement in astrophotography. It is built for controlled finishing work on color bands, luminance ranges, and sequential refinement passes.</p>
+      <ul>
+        <li>Color-band Hue, Saturation, and Luminance controls</li>
+        <li>Neutral / Low-Saturation luminance adjustment</li>
+        <li>Selected Band width and feather</li>
+        <li>Range Mask targeting</li>
+        <li>Refinement Passes, diagnostics, and mask views</li>
+        <li>Adjustment Set save/load</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Intended Input</h2>
+      <p>Use Astro Color Mixer on nonlinear RGB images after calibration, integration, background correction, color calibration, and stretch. It is not intended for raw linear calibration work.</p>
+      <p>Both <strong>Stars Present</strong> and <strong>Starless / Star-Reduced</strong> workflows are supported.</p>
+    </div>
+
+    <div class="card">
+      <h2>Basic Workflow</h2>
+      <ol>
+        <li>Open a nonlinear RGB image.</li>
+        <li>Choose Image Type.</li>
+        <li>Start with Base Pass.</li>
+        <li>Use H/S/L controls for broad changes.</li>
+        <li>Use the probe, histogram, and polar plot.</li>
+        <li>Refine Width and Feather.</li>
+        <li>Use Range Mask for luminance targeting.</li>
+        <li>Add Refinement Passes for targeted work.</li>
+        <li>Use Preview, mask views, and Original/Adjusted comparison.</li>
+        <li>Apply to New Image and save an Adjustment Set if useful.</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h2>Stars Present vs Starless / Star-Reduced</h2>
+      <p><strong>Stars Present</strong> is the safer mode for images that still contain normal stars, bright cores, and halos. <strong>Starless / Star-Reduced</strong> allows more freedom for nebulae, galaxies, dust, and faint structures after stars have been removed or reduced.</p>
+      <p>This setting does not remove stars and does not create a star mask. It changes protection behavior during adjustment.</p>
+    </div>
+
+    <div class="card">
+      <h2>Known Limitations</h2>
+      <ul>
+        <li>Not intended for linear calibration</li>
+        <li>Extreme hue or saturation changes can create artifacts</li>
+        <li>Preview is downsampled</li>
+        <li>Range Mask depends on stretch</li>
+        <li>Low-saturation pixels have unreliable hue</li>
+        <li>Beta software should be used non-destructively</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Version</h2>
+      <p><strong>v0.9.3-beta</strong></p>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Astro Color Mixer Technical Appendix</title>
+  <style>
+    body { margin: 0; background: #0f1318; color: #e8eef6; font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { max-width: 980px; margin: 0 auto; padding: 48px 24px 72px; }
+    h1, h2, h3 { color: #f8fbfe; }
+    h1 { font-size: 2.15rem; }
+    p, li { color: #d7e1ec; }
+    section { background: #151c24; border: 1px solid #273241; border-radius: 14px; padding: 18px 22px; margin: 16px 0; }
+    pre { background: #0b1117; color: #f5f7fb; padding: 16px; border-radius: 10px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { border: 1px solid #2c3949; padding: 8px 10px; text-align: left; }
+    th { background: #1a2330; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Astro Color Mixer Technical Appendix</h1>
+
+    <section>
+      <h2>Introduction</h2>
+      <p>This appendix describes the practical processing model used by Astro Color Mixer for nonlinear RGB astrophotography refinement.</p>
+    </section>
+
+    <section>
+      <h2>Design Goals</h2>
+      <ul>
+        <li>Controlled nonlinear RGB refinement</li>
+        <li>Astro-specific color-band workflow</li>
+        <li>Reduced arbitrary global color swings</li>
+        <li>Support for both stars-present and starless workflows</li>
+        <li>Visible masks and diagnostics</li>
+        <li>Non-destructive output-to-new-image workflow</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Processing Assumptions</h2>
+      <ul>
+        <li>Nonlinear RGB input</li>
+        <li>Normalized floating-point RGB values in the range 0..1</li>
+        <li>Source image is not overwritten</li>
+        <li>Preview uses downsampled data</li>
+        <li>Final Apply uses full resolution</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Image Type</h2>
+      <p><strong>Stars Present</strong> is more conservative around bright stellar structures. <strong>Starless / Star-Reduced</strong> allows more freedom in nebulae, galaxies, dust, and faint structures. This setting does not detect, remove, or mask stars.</p>
+    </section>
+
+    <section>
+      <h2>Luminance Model</h2>
+      <pre>Y = 0.2126 R + 0.7152 G + 0.0722 B</pre>
+      <p>Luminance is used for Range Mask construction, preview diagnostics, neutral luminance shaping, and protection terms.</p>
+    </section>
+
+    <section>
+      <h2>Astro Color Bands</h2>
+      <table>
+        <tr><th>Band</th><th>Center</th></tr>
+        <tr><td>red</td><td>0°</td></tr>
+        <tr><td>orange</td><td>30°</td></tr>
+        <tr><td>yellow</td><td>60°</td></tr>
+        <tr><td>green</td><td>120°</td></tr>
+        <tr><td>cyan</td><td>180°</td></tr>
+        <tr><td>blue</td><td>240°</td></tr>
+        <tr><td>purple</td><td>275°</td></tr>
+        <tr><td>magenta</td><td>315°</td></tr>
+      </table>
+      <p>These are practical editing regions, not strict physical line definitions.</p>
+    </section>
+
+    <section>
+      <h2>Hue Band Mask</h2>
+      <pre>distance = circularHueDistance(hue, center)
+mask = 1 - smoothstep(innerWidth, outerWidth, distance)</pre>
+      <p>Width controls span, Feather controls falloff softness, and a smoothstep-like transition keeps boundaries usable for nonlinear editing.</p>
+    </section>
+
+    <section>
+      <h2>Range Mask</h2>
+      <pre>leftRamp = smoothstep(low - feather, low, Y)
+rightRamp = 1 - smoothstep(high, high + feather, Y)
+rangeMask = clamp01(leftRamp * rightRamp)</pre>
+      <p>Low and High define the target interval. Feather softens both edges. Presets are starting points.</p>
+    </section>
+
+    <section>
+      <h2>Neutral / Low-Saturation Model</h2>
+      <pre>neutralMask = 1 - smoothstep(satStart, satFull, saturation)</pre>
+      <p>This luminance-focused path is used when hue is unreliable in weak-color pixels.</p>
+    </section>
+
+    <section>
+      <h2>Chroma-Vector Adjustment</h2>
+      <p>Conceptually, Astro Color Mixer separates a luminance-like neutral component from chroma, scales saturation, rotates hue, adjusts luminance, then recombines and clamps to valid RGB.</p>
+    </section>
+
+    <section>
+      <h2>Combined Mask</h2>
+      <pre>finalMask =
+  hueMask *
+  saturationReliability *
+  darkProtection *
+  highlightProtection *
+  rangeMask</pre>
+    </section>
+
+    <section>
+      <h2>Refinement Passes</h2>
+      <pre>working = original
+for each enabled pass:
+    working = applyPass(working, pass)</pre>
+      <p>Passes are sequential and support broad setup followed by targeted cleanup.</p>
+    </section>
+
+    <section>
+      <h2>Limitations</h2>
+      <ul>
+        <li>Not for linear calibration</li>
+        <li>Extreme changes can artifact</li>
+        <li>Preview is approximate</li>
+        <li>Hue is unreliable in neutral areas</li>
+        <li>Range Mask depends on stretch</li>
+        <li>Saturated star cores require care</li>
+        <li>Beta software status</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

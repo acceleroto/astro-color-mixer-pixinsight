@@ -1,0 +1,57 @@
+Starter PIDoc source for Astro Color Mixer v0.9.3-beta. Formal PixInsight documentation integration to be validated.
+
+\title Astro Color Mixer FAQ and Practical Guide
+
+\section What Is Astro Color Mixer?
+
+Astro Color Mixer is a nonlinear RGB color and luminance refinement tool for astrophotography. It is intended for images that have already been calibrated, integrated, color balanced, and stretched.
+
+\section Workflow Position
+
+Use the tool after calibration, integration, background correction, color calibration, and nonlinear stretch. It is a post-stretch finishing tool rather than a linear calibration tool.
+
+\section Image Type
+
+Stars Present is the safer mode for images that still contain normal stars, bright stellar cores, and halos. Starless / Star-Reduced is intended for images where stars have been removed or strongly reduced, allowing more freedom in nebulae, galaxies, dust, and faint structures.
+
+This setting does not remove stars and does not create a star mask.
+
+\section Basic Workflow
+
+1. Open a nonlinear RGB image.
+2. Choose Image Type.
+3. Start with Base Pass.
+4. Make broad H/S/L changes.
+5. Use probe, histogram, and polar plot.
+6. Refine Width and Feather.
+7. Use Range Mask for luminance targeting.
+8. Add targeted Refinement Passes.
+9. Inspect preview and mask views.
+10. Apply to New Image and save an Adjustment Set if needed.
+
+\section Color Bands
+
+- Red / H-alpha
+- Orange / Dust and Galaxy Cores
+- Yellow / Warm Stars
+- Green / Cast Control
+- Cyan / OIII
+- Blue / Reflection Nebula
+- Purple / Violet Cleanup
+- Magenta / Halo Cleanup
+
+\section Core Concepts
+
+Hue rotates color direction. Saturation scales color intensity. Luminance brightens or darkens the active band. Width controls hue span. Feather controls transition softness. Range Mask limits the active pass by luminance. Neutral / Low-Saturation handles weak-color pixels where hue is unreliable.
+
+\section Refinement Passes
+
+Refinement Passes are sequential ordered passes. Base Pass handles broad work, and later passes handle targeted cleanup. They are not Photoshop layers and do not provide blend modes or opacity.
+
+\section Diagnostics
+
+The probe reports luminance, hue, and saturation from preview pixels. The histogram summarizes preview luminance and helps place Range Mask. The polar plot summarizes hue and saturation distribution. Mask views show selected band, Range Mask, or combined influence.
+
+\section Adjustment Sets
+
+Adjustment Sets are JSON files that preserve passes, band values, Width and Feather, Range Mask settings, neutral luminance settings, image type, and related working state.

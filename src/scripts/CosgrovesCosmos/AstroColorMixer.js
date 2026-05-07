@@ -1,11 +1,11 @@
 #feature-id    Cosgrove's Cosmos > Astro Color Mixer
-#feature-info  Astro Color Mixer v0.9.3-beta — nonlinear RGB color refinement for astrophotography.
+#feature-info  Astro Color Mixer v0.9.3-beta. Nonlinear RGB color and luminance refinement for astrophotography.
 
 /*
  * Astro Color Mixer for PixInsight
  *
  * Beta build:
- * Astro Color Mixer v0.9.2-beta
+ * Astro Color Mixer v0.9.3-beta
  */
 
 #include <pjsr/UndoFlag.jsh>
@@ -19,7 +19,7 @@
 #include <pjsr/SampleType.jsh>
 
 function showMessage(text, title, icon) {
-   (new MessageBox(text, title || "Astro Color Mixer v0.9.2-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
+   (new MessageBox(text, title || "Astro Color Mixer v0.9.3-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
 }
 
 var acmHelpHostDialog = null;
@@ -34,7 +34,7 @@ function showHelpTopic(title, text) {
 
 function fail(text) {
    console.criticalln(text);
-   showMessage(text, "Astro Color Mixer v0.9.2-beta", StdIcon_Error);
+   showMessage(text, "Astro Color Mixer v0.9.3-beta", StdIcon_Error);
    var error = new Error(text);
    error.__acmHandled = true;
    throw error;
@@ -143,7 +143,7 @@ function acmCreateInfoBox(parent) {
    return box;
 }
 
-console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.2-beta</b>");
+console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.3-beta</b>");
 
 // -------------------------------------------------------------------------
 // Minimal copied core logic
@@ -1100,7 +1100,7 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
 
 var ACM_ABOUT_TEXT =
 "About Astro Color Mixer\n\n" +
-"Astro Color Mixer v0.9.2-beta\n\n" +
+"Astro Color Mixer v0.9.3-beta\n\n" +
 "A Cosgrove's Cosmos tool for nonlinear RGB chroma-vector color control in astrophotography.\n\n" +
 "Core capabilities:\n" +
 "- H/S/L color-band adjustment\n" +
@@ -2138,7 +2138,7 @@ function AstroColorMixerUI03Dialog() {
    acmHelpHostDialog = this;
 
    var self = this;
-   this.windowTitle = "Astro Color Mixer v0.9.2-beta";
+   this.windowTitle = "Astro Color Mixer v0.9.3-beta";
    this.recipeFilePath = "";
    this.activeTab = ACM_TAB_SAT;
    this.activeToolPanel = "selectedBand";
@@ -2251,7 +2251,7 @@ function AstroColorMixerUI03Dialog() {
    this.headerBrandControl.scaledMinHeight = 64;
    this.headerBrandControl.onPaint = function() {
       var g = new Graphics(this);
-      var titleText = "Astro Color Mixer v0.9.2-beta";
+      var titleText = "Astro Color Mixer v0.9.3-beta";
       g.font = new Font;
       g.font.bold = true;
       g.font.pixelSize = 22;
@@ -4296,6 +4296,6 @@ try {
    if (!(error && error.__acmHandled)) {
       var message = "Unexpected dialog failure: " + (error && error.message ? error.message : String(error));
       console.criticalln(message);
-      showMessage(message, "Astro Color Mixer v0.9.2-beta", StdIcon_Error);
+      showMessage(message, "Astro Color Mixer v0.9.3-beta", StdIcon_Error);
    }
 }

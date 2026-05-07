@@ -1,21 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<repository version="1.0">
+<xri version="1.0">
 
-  <package
-    fileName="AstroColorMixer-0.9.3-beta.zip"
-    sha1="63ed1fdeade03fa901dfbd771caa781a2ec65510"
-    type="script"
-    releaseDate="20260507"
-    remove="src/scripts/CosgrovesCosmos/AstroColorMixer.js"
-    title="Astro Color Mixer v0.9.3-beta">
+  <description>
+    <p>Cosgrove's Cosmos PixInsight script repository</p>
+  </description>
 
-    <description>
-      <p>Astro Color Mixer is a PixInsight script for nonlinear RGB color and luminance refinement in astrophotography.</p>
-      <p>This beta includes H/S/L color-band controls, Neutral / Low-Saturation luminance, Stars Present and Starless / Star-Reduced modes, Selected Band width/feather, Range Mask, Refinement Passes, preview, mask views, histogram, polar plot, probe, pass viewer, Adjustment Set save/load, and Apply to New Image.</p>
-      <p>This is a beta release for testing.</p>
-    </description>
+  <platform os="all" arch="noarch" version="1.8.0:1.9.9">
 
-  </package>
+    <package
+      fileName="AstroColorMixer-0.9.3-beta.zip"
+      sha1="63ed1fdeade03fa901dfbd771caa781a2ec65510"
+      type="script"
+      releaseDate="20260507"
+      remove="src/scripts/CosgrovesCosmos/AstroColorMixer.js">
 
-</repository>
+      <title>Astro Color Mixer v0.9.3-beta</title>
+
+      <description>
+        <p>Astro Color Mixer is a PixInsight script for nonlinear RGB color and luminance refinement in astrophotography.</p>
+        <p>This beta includes H/S/L color-band controls, Neutral / Low-Saturation luminance, Stars Present and Starless / Star-Reduced modes, Selected Band width/feather, Range Mask, Refinement Passes, preview, mask views, histogram, polar plot, probe, pass viewer, Adjustment Set save/load, and Apply to New Image.</p>
+        <p>This is a beta release for testing.</p>
+      </description>
+
+    </package>
+
+  </platform>
+
+</xri>

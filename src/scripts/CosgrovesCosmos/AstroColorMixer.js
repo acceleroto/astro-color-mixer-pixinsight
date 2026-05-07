@@ -1,3 +1,6 @@
+#feature-id    Cosgrove's Cosmos > Astro Color Mixer
+#feature-info  Astro Color Mixer v0.9.3-beta — nonlinear RGB color refinement for astrophotography.
+
 /*
  * Astro Color Mixer for PixInsight
  *

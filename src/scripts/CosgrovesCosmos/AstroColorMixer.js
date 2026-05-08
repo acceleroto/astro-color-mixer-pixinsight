@@ -1187,6 +1187,63 @@ function readActiveRgbImage() {
    return { width: width, height: height, rgb: rgb, viewId: view.fullId };
 }
 
+function acmReadRgbImageFromView(view) {
+   if (!view || view.isNull)
+      fail("No target view is available.");
+   var image = view.image;
+   if (!image || image.numberOfChannels < 3 || !image.isColor)
+      fail("The target image is not an RGB/color image.");
+
+   var width = image.width;
+   var height = image.height;
+   var count = width * height;
+   var rect = new Rect(0, 0, width, height);
+   var r = new Float32Array(count);
+   var g = new Float32Array(count);
+   var b = new Float32Array(count);
+   image.getSamples(r, rect, 0);
+   image.getSamples(g, rect, 1);
+   image.getSamples(b, rect, 2);
+
+   var rgb = new Float32Array(count * 3);
+   for (var i = 0; i < count; ++i) {
+      var base = i * 3;
+      rgb[base] = r[i];
+      rgb[base + 1] = g[i];
+      rgb[base + 2] = b[i];
+   }
+
+   return { width: width, height: height, rgb: rgb, viewId: view.fullId };
+}
+
+function acmFindWindowForViewId(viewId) {
+   if (!viewId || !ImageWindow.windows)
+      return null;
+   for (var i = 0; i < ImageWindow.windows.length; ++i) {
+      var win = ImageWindow.windows[i];
+      if (!win || win.isNull)
+         continue;
+      var mainView = win.mainView;
+      var currentView = win.currentView;
+      if (mainView && !mainView.isNull && (mainView.fullId === viewId || mainView.id === viewId))
+         return win;
+      if (currentView && !currentView.isNull && (currentView.fullId === viewId || currentView.id === viewId))
+         return win;
+   }
+   return null;
+}
+
+function acmFindViewForViewId(viewId) {
+   var win = acmFindWindowForViewId(viewId);
+   if (!win || win.isNull)
+      return null;
+   if (win.currentView && !win.currentView.isNull && (win.currentView.fullId === viewId || win.currentView.id === viewId))
+      return { window: win, view: win.currentView };
+   if (win.mainView && !win.mainView.isNull)
+      return { window: win, view: win.mainView };
+   return null;
+}
+
 function sanitizeViewId(viewId) {
    return String(viewId || "MinimalEditor").replace(/[^A-Za-z0-9_]+/g, "_");
 }
@@ -1651,13 +1708,19 @@ function acmPaintRangeMaskOverlay(g, rangeMask, left, top, plotW, plotH, enabled
          g.brush = new Brush(0x60684612);
          g.fillRect(highX, top, featherRightX, top + plotH, g.brush);
       }
-      g.pen = new Pen(0xffffc24a, 2);
+      g.pen = new Pen(0xffffd15c, 3);
    } else {
       g.pen = new Pen(0xff8c95a6, 2);
    }
 
    g.drawLine(lowX, top, lowX, top + plotH);
+   g.pen = enabled ? new Pen(0xffff9a36, 3) : new Pen(0xff8c95a6, 2);
    g.drawLine(highX, top, highX, top + plotH);
+   if (enabled) {
+      g.pen = new Pen(0x80ffd277, 1);
+      g.drawLine(featherLeftX, top, featherLeftX, top + plotH);
+      g.drawLine(featherRightX, top, featherRightX, top + plotH);
+   }
 }
 
 function acmConfigureNumericRowControl(numeric) {
@@ -1702,6 +1765,115 @@ function writeResultImage(width, height, rgb, outputId) {
    outputWindow.show();
    outputWindow.zoomToOptimalFit();
    return outputWindow;
+}
+
+function acmWriteRgbToView(view, width, height, rgb) {
+   if (!view || view.isNull)
+      fail("No target image view is available for write-back.");
+   var image = view.image;
+   if (!image || image.width !== width || image.height !== height || image.numberOfChannels < 3)
+      fail("Target image dimensions or channels do not match the adjusted result.");
+
+   var count = width * height;
+   var r = new Float32Array(count);
+   var g = new Float32Array(count);
+   var b = new Float32Array(count);
+   for (var i = 0; i < count; ++i) {
+      var base = i * 3;
+      r[i] = acmClamp01(rgb[base]);
+      g[i] = acmClamp01(rgb[base + 1]);
+      b[i] = acmClamp01(rgb[base + 2]);
+   }
+
+   var rect = new Rect(0, 0, width, height);
+   view.beginProcess();
+   try {
+      image.setSamples(r, rect, 0);
+      image.setSamples(g, rect, 1);
+      image.setSamples(b, rect, 2);
+   } finally {
+      view.endProcess();
+   }
+}
+
+function acmReadMaskState(targetWindow, width, height) {
+   var info = {
+      assigned: false,
+      enabled: false,
+      inverted: false,
+      respected: false,
+      values: null,
+      message: "Target apply: no PixInsight mask detected",
+      propertyNames: ["mask", "maskEnabled", "maskInverted"]
+   };
+   if (!targetWindow || targetWindow.isNull)
+      return info;
+
+   try {
+      var maskWindow = targetWindow.mask;
+      if (!maskWindow || maskWindow.isNull)
+         return info;
+      info.assigned = true;
+      info.enabled = targetWindow.maskEnabled === true;
+      info.inverted = targetWindow.maskInverted === true;
+      if (!info.enabled) {
+         info.message = "Target apply: PixInsight mask assigned but disabled";
+         return info;
+      }
+      var maskView = maskWindow.mainView;
+      if (!maskView || maskView.isNull || !maskView.image) {
+         info.message = "Target apply: PixInsight mask assigned but unavailable";
+         return info;
+      }
+      var maskImage = maskView.image;
+      if (maskImage.width !== width || maskImage.height !== height) {
+         info.message = "Target apply: PixInsight mask assigned but size mismatch";
+         return info;
+      }
+      var count = width * height;
+      var rect = new Rect(0, 0, width, height);
+      var maskValues = new Float32Array(count);
+      if (maskImage.numberOfChannels >= 3 && maskImage.isColor) {
+         var mr = new Float32Array(count);
+         var mg = new Float32Array(count);
+         var mb = new Float32Array(count);
+         maskImage.getSamples(mr, rect, 0);
+         maskImage.getSamples(mg, rect, 1);
+         maskImage.getSamples(mb, rect, 2);
+         for (var i = 0; i < count; ++i) {
+            var value = acmClamp01(0.2126 * mr[i] + 0.7152 * mg[i] + 0.0722 * mb[i]);
+            maskValues[i] = info.inverted ? 1 - value : value;
+         }
+      } else {
+         maskImage.getSamples(maskValues, rect, 0);
+         for (var j = 0; j < count; ++j) {
+            var sample = acmClamp01(maskValues[j]);
+            maskValues[j] = info.inverted ? 1 - sample : sample;
+         }
+      }
+      info.values = maskValues;
+      info.respected = true;
+      info.message = info.inverted
+         ? "Target apply: PixInsight mask respected — inverted"
+         : "Target apply: PixInsight mask respected";
+   } catch (error) {
+      info.message = "Target apply: PixInsight mask assigned but unavailable";
+   }
+   return info;
+}
+
+function acmBlendRgbWithMask(originalRgb, adjustedRgb, maskValues) {
+   if (!maskValues)
+      return new Float32Array(adjustedRgb);
+   var output = new Float32Array(adjustedRgb.length);
+   for (var i = 0; i < maskValues.length; ++i) {
+      var t = acmClamp01(maskValues[i]);
+      var base = i * 3;
+      output[base] = originalRgb[base] * (1 - t) + adjustedRgb[base] * t;
+      output[base + 1] = originalRgb[base + 1] * (1 - t) + adjustedRgb[base + 1] * t;
+      output[base + 2] = originalRgb[base + 2] * (1 - t) + adjustedRgb[base + 2] * t;
+   }
+   return output;
 }
 
 function acmRenderBitmapFromRgb(width, height, rgb) {
@@ -2152,9 +2324,16 @@ function AstroColorMixerUI03Dialog() {
    this.previewBitmapBandMask = null;
    this.previewBitmapRangeMask = null;
    this.previewBitmapCombinedMask = null;
+   this.previewBitmapLastPass = null;
    this.previewBandMaskRgb = null;
    this.previewRangeMaskRgb = null;
    this.previewCombinedMaskRgb = null;
+   this.previewLastPassRgb = null;
+   this.previewTempCompare = false;
+   this.previewCompareBitmap = null;
+   this.previewCompareRgb = null;
+   this.previewCompareLabel = "Original";
+   this.compareMode = "auto";
    this.previewDisplayOriginal = null;
    this.previewDisplayAdjusted = null;
    this.previewWidth = 0;
@@ -2183,6 +2362,13 @@ function AstroColorMixerUI03Dialog() {
    this.previewTempOriginal = false;
    this.previewHoldArmed = false;
    this.previewMoveThreshold = 5;
+   this.targetApplyConfirmedThisSession = false;
+   this.targetApplyMaskStatus = {
+      message: "Target apply: no PixInsight mask detected",
+      respected: false,
+      inverted: false,
+      propertyNames: ["mask", "maskEnabled", "maskInverted"]
+   };
    this.histogramData = null;
    this.polarSamples = [];
    this.probeData = null;
@@ -2206,12 +2392,14 @@ function AstroColorMixerUI03Dialog() {
       this.previewHoldTimer.onTimeout = function() {
          var dialog = this.dialog;
          if (dialog.previewMouseDown && !dialog.previewDragging) {
-            dialog.previewTempOriginal = true;
-            dialog.previewModeBeforeHold = dialog.previewMode;
-            dialog.previewMode = "original";
-            dialog.refreshPreviewModeButtons();
+            var compareRef = dialog.getHoldCompareReference();
+            dialog.previewTempOriginal = compareRef.mode === "original";
+            dialog.previewTempCompare = true;
+            dialog.previewCompareBitmap = compareRef.bitmap;
+            dialog.previewCompareRgb = compareRef.rgb;
+            dialog.previewCompareLabel = compareRef.label;
             dialog.refreshPreviewDisplay();
-            dialog.previewStatusLabel.text = "Preview: Original — release to return";
+            dialog.previewStatusLabel.text = "Preview compare: " + compareRef.label + " — release to return";
          }
       };
    }
@@ -2730,15 +2918,15 @@ function AstroColorMixerUI03Dialog() {
    this.previewInteractionHintLabel = new Label(this);
    this.previewInteractionHintLabel.wordWrapping = true;
    this.previewInteractionHintLabel.text =
-      "Click: probe · Hold: original · Drag: pan";
+      "Click: probe · Hold: compare · Drag: pan";
    this.previewInteractionHintLabel.toolTip =
-      "Click a preview pixel to probe it. Click and hold in the preview to temporarily show the Original image. Drag to pan when zoomed.";
+      "Click a preview pixel to probe it. Click and hold in the preview to temporarily show the selected Compare reference. Drag to pan when zoomed.";
 
    this.previewHost = new Control(this);
    this.previewHost.scaledMinWidth = 480;
    this.previewHost.scaledMinHeight = 560;
    this.previewHost.toolTip =
-      "Click to probe a pixel. Click and hold to temporarily show the Original image. Drag to pan when zoomed.";
+      "Click to probe a pixel. Click and hold to temporarily show the selected Compare reference. Drag to pan when zoomed.";
    this.previewHost.onPaint = function() {
       var g = new Graphics(this);
       g.pen = new Pen(0xff404854);
@@ -2765,6 +2953,7 @@ function AstroColorMixerUI03Dialog() {
       dialog.previewMouseDown = true;
       dialog.previewDragging = false;
       dialog.previewTempOriginal = false;
+      dialog.previewTempCompare = false;
       dialog.previewDragStartX = x;
       dialog.previewDragStartY = y;
       dialog.previewPanStartX = dialog.previewPanX;
@@ -2782,9 +2971,11 @@ function AstroColorMixerUI03Dialog() {
          dialog.previewDragging = true;
          if (dialog.previewHoldTimer)
             dialog.previewHoldTimer.stop();
-         if (dialog.previewTempOriginal) {
+         if (dialog.previewTempCompare) {
             dialog.previewTempOriginal = false;
-            dialog.previewMode = dialog.previewModeBeforeHold;
+            dialog.previewTempCompare = false;
+            dialog.previewCompareBitmap = null;
+            dialog.previewCompareRgb = null;
          }
       }
       if (dialog.previewDragging) {
@@ -2798,13 +2989,14 @@ function AstroColorMixerUI03Dialog() {
       if (dialog.previewHoldTimer)
          dialog.previewHoldTimer.stop();
       var wasDragging = dialog.previewDragging;
-      var hadTempOriginal = dialog.previewTempOriginal;
+      var hadTempCompare = dialog.previewTempCompare;
       dialog.previewMouseDown = false;
       dialog.previewDragging = false;
-      if (hadTempOriginal) {
+      if (hadTempCompare) {
          dialog.previewTempOriginal = false;
-         dialog.previewMode = dialog.previewModeBeforeHold;
-         dialog.refreshPreviewModeButtons();
+         dialog.previewTempCompare = false;
+         dialog.previewCompareBitmap = null;
+         dialog.previewCompareRgb = null;
          dialog.refreshPreviewDisplay();
          return;
       }
@@ -2861,8 +3053,11 @@ function AstroColorMixerUI03Dialog() {
          }
          if (data.probeY !== null) {
             var probeX = left + Math.round(data.probeY * plotW);
-            g.pen = new Pen(0xffffff66);
+            g.pen = new Pen(0xff00f5ff, 3);
+            g.drawLine(probeX - 1, top, probeX - 1, top + plotH);
             g.drawLine(probeX, top, probeX, top + plotH);
+            g.pen = new Pen(0xffffffff, 1);
+            g.drawLine(probeX + 1, top, probeX + 1, top + plotH);
          }
       }
       g.end();
@@ -2936,9 +3131,15 @@ function AstroColorMixerUI03Dialog() {
          var probeR = dialog.probeData.s * radius;
          var mx = cx + Math.round(Math.cos(probeRad) * probeR);
          var my = cy - Math.round(Math.sin(probeRad) * probeR);
-         g.pen = new Pen(0xffffff66, 2);
-         g.drawLine(mx - 6, my, mx + 6, my);
-         g.drawLine(mx, my - 6, mx, my + 6);
+         g.pen = new Pen(0xffffd86a, 2);
+         g.drawEllipse(mx - 7, my - 7, mx + 7, my + 7);
+         g.pen = new Pen(0xfffff3c2, 1);
+         g.drawEllipse(mx - 3, my - 3, mx + 3, my + 3);
+         g.pen = new Pen(0xffffd86a, 2);
+         g.drawLine(mx - 9, my, mx - 4, my);
+         g.drawLine(mx + 4, my, mx + 9, my);
+         g.drawLine(mx, my - 9, mx, my - 4);
+         g.drawLine(mx, my + 4, mx, my + 9);
       }
       g.end();
    };
@@ -3001,7 +3202,7 @@ function AstroColorMixerUI03Dialog() {
 
    this.previewOutputHelpLabel = new Label(this);
    this.previewOutputHelpLabel.wordWrapping = true;
-   this.previewOutputHelpLabel.text = "Use the visible preview on the right to judge settings. Update Preview uses a downsampled source. Apply to New Image uses the full-resolution image.";
+   this.previewOutputHelpLabel.text = "Use the visible preview on the right to judge settings. 'Create Image' creates a new adjusted image window. 'Apply to Target' changes the source image, and any active PixInsight mask on that image will be respected.";
 
    this.updatePreviewButton = new PushButton(this);
    this.updatePreviewButton.text = "Update Preview";
@@ -3015,19 +3216,25 @@ function AstroColorMixerUI03Dialog() {
          self.requestPreviewUpdate(true);
    };
 
-   this.showOriginalButton = new PushButton(this);
-   this.showOriginalButton.text = "Original";
-   this.showOriginalButton.onClick = function() {
-      self.previewMode = "original";
-      self.refreshPreviewModeButtons();
-      self.refreshPreviewDisplay();
-   };
+   this.compareModeLabel = new Label(this);
+   this.compareModeLabel.text = "Compare";
+   this.compareModeLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
 
-   this.showAdjustedButton = new PushButton(this);
-   this.showAdjustedButton.text = "Adjusted";
-   this.showAdjustedButton.onClick = function() {
-      self.previewMode = "adjusted";
-      self.refreshPreviewModeButtons();
+   this.compareModeHelpButton = acmCreateHelpButton(
+      this,
+      "Compare",
+      "Controls what click-and-hold shows while previewing. Auto chooses the most useful reference, Original compares against the loaded source, and Last Pass compares against the result before the active refinement pass.",
+      "compare"
+   );
+
+   this.compareModeCombo = new ComboBox(this);
+   this.compareModeCombo.addItem("Auto");
+   this.compareModeCombo.addItem("Original");
+   this.compareModeCombo.addItem("Last Pass");
+   this.compareModeCombo.currentItem = 0;
+   this.compareModeCombo.onItemSelected = function(index) {
+      self.compareMode = index === 1 ? "original" : index === 2 ? "lastPass" : "auto";
+      self.refreshCompareModeControls();
       self.refreshPreviewDisplay();
    };
 
@@ -3087,10 +3294,31 @@ function AstroColorMixerUI03Dialog() {
       })(ACM_BAND_DEFS[i], this);
    }
 
+   this.outputModeHelpButton = acmCreateHelpButton(
+      this,
+      "Output Mode",
+      "'Create Image' creates a new adjusted image window and leaves the source image unchanged. 'Apply to Target' changes the source image. If the source image has an active PixInsight mask, that mask will be respected.",
+      "outputMode"
+   );
+
    this.applyButton = new PushButton(this);
-   this.applyButton.text = "Save Adjusted Image";
+   this.applyButton.text = "Create Image";
    this.applyButton.defaultButton = true;
+   this.applyButton.toolTip = "Create New Image";
    this.applyButton.onClick = function() { self.handlePrimaryOutputAction(); };
+
+   this.applyToTargetButton = new PushButton(this);
+   this.applyToTargetButton.text = "Apply to Target";
+   this.applyToTargetButton.toolTip = "Apply to Target Image";
+   this.applyToTargetButton.onClick = function() { self.applyToTargetImage(); };
+
+   this.targetApplyMaskStatusLabel = new Label(this);
+   this.targetApplyMaskStatusLabel.wordWrapping = true;
+   this.targetApplyMaskStatusLabel.text = "Target apply: no PixInsight mask detected";
+
+   this.outputFeedbackLabel = new Label(this);
+   this.outputFeedbackLabel.wordWrapping = true;
+   this.outputFeedbackLabel.text = "";
 
    this.resetActivePassButton = new PushButton(this);
    this.resetActivePassButton.text = "Reset Active Pass";
@@ -3202,8 +3430,9 @@ function AstroColorMixerUI03Dialog() {
    previewButtonsRow.add(this.previewZoomControl, 100);
    previewButtonsRow.add(this.previewZoomReadout);
    previewButtonsRow.addSpacing(8);
-   previewButtonsRow.add(this.showOriginalButton);
-   previewButtonsRow.add(this.showAdjustedButton);
+   previewButtonsRow.add(this.compareModeLabel);
+   previewButtonsRow.add(this.compareModeHelpButton);
+   previewButtonsRow.add(this.compareModeCombo);
    previewButtonsRow.addStretch();
 
    var buttonsRow = new HorizontalSizer;
@@ -3337,6 +3566,8 @@ function AstroColorMixerUI03Dialog() {
    var previewOutputButtonsRow = new HorizontalSizer;
    previewOutputButtonsRow.spacing = 6;
    previewOutputButtonsRow.add(this.applyButton);
+   previewOutputButtonsRow.add(this.applyToTargetButton);
+   previewOutputButtonsRow.add(this.outputModeHelpButton);
    previewOutputButtonsRow.addStretch();
 
    var recipeButtonsRow = new HorizontalSizer;
@@ -3363,6 +3594,8 @@ function AstroColorMixerUI03Dialog() {
    this.previewOutputPanel.sizer.spacing = 6;
    this.previewOutputPanel.sizer.add(previewOutputHeaderRow);
    this.previewOutputPanel.sizer.add(this.previewOutputHelpLabel);
+   this.previewOutputPanel.sizer.add(this.targetApplyMaskStatusLabel);
+   this.previewOutputPanel.sizer.add(this.outputFeedbackLabel);
    this.previewOutputPanel.sizer.addSpacing(4);
    this.previewOutputPanel.sizer.add(previewOutputButtonsRow);
    this.previewOutputPanel.sizer.addSpacing(10);
@@ -3569,6 +3802,8 @@ AstroColorMixerPOC8Dialog.prototype.refreshPassViewer = function() {
 };
 
 AstroColorMixerPOC8Dialog.prototype.getCurrentPreviewBitmap = function() {
+   if (this.previewTempCompare && this.previewCompareBitmap)
+      return this.previewCompareBitmap;
    if (this.previewTempOriginal)
       return this.previewBitmapOriginal;
    switch (this.previewMode) {
@@ -3736,6 +3971,8 @@ AstroColorMixerPOC8Dialog.prototype.updateActiveStatus = function() {
       : this.activeStatus.message;
    this.applyButton.enabled = !!(this.activeStatus && this.activeStatus.ok);
    this.updatePreviewButton.enabled = !!(this.activeStatus && this.activeStatus.ok);
+   if (this.applyToTargetButton)
+      this.applyToTargetButton.enabled = !!(this.activeStatus && this.activeStatus.ok) && !this.currentPreviewModeIsMask();
 };
 
 AstroColorMixerPOC8Dialog.prototype.refreshActiveSource = function() {
@@ -3761,8 +3998,10 @@ AstroColorMixerPOC8Dialog.prototype.refreshActiveSource = function() {
    this.previewBandMaskRgb = null;
    this.previewRangeMaskRgb = null;
    this.previewCombinedMaskRgb = null;
+   this.previewLastPassRgb = null;
    this.previewBitmapOriginal = acmRenderBitmapFromRgb(preview.width, preview.height, preview.rgb);
    this.previewBitmapAdjusted = null;
+   this.previewBitmapLastPass = null;
     this.previewBitmapBandMask = null;
     this.previewBitmapRangeMask = null;
     this.previewBitmapCombinedMask = null;
@@ -3771,6 +4010,9 @@ AstroColorMixerPOC8Dialog.prototype.refreshActiveSource = function() {
    this.previewMode = "adjusted";
    this.previewIsStale = true;
    this.probeData = null;
+   this.previewTempCompare = false;
+   this.previewCompareBitmap = null;
+   this.previewCompareRgb = null;
    this.refreshPreviewModeButtons();
    this.refreshDiagnosticsData();
    this.previewHost.update();
@@ -3908,22 +4150,106 @@ AstroColorMixerPOC8Dialog.prototype.refreshPreviewModeButtons = function() {
          selectedIndex = i;
    }
    this.previewModeCombo.currentItem = selectedIndex;
-   this.showOriginalButton.enabled = this.previewMode !== "original";
-   this.showAdjustedButton.enabled = this.previewMode !== "adjusted";
+   this.refreshCompareModeControls();
    this.refreshOutputButtons();
    this.refreshViewportControls();
+};
+
+AstroColorMixerPOC8Dialog.prototype.refreshCompareModeControls = function() {
+   var hasLastPass = this.hasLastPassCompareAvailable();
+   if (!hasLastPass && this.compareMode === "lastPass")
+      this.compareMode = "auto";
+   if (this.compareModeCombo) {
+      this.compareModeCombo.currentItem =
+         this.compareMode === "original" ? 1 :
+         this.compareMode === "lastPass" ? 2 : 0;
+      this.compareModeCombo.toolTip = hasLastPass
+         ? "Auto chooses the most useful compare reference. Original uses the loaded source. Last Pass compares against the result before the active pass."
+         : "Auto chooses the most useful compare reference. Original uses the loaded source. Last Pass becomes available when a previous enabled pass exists.";
+   }
+};
+
+AstroColorMixerPOC8Dialog.prototype.getPreviousEnabledPassIndex = function() {
+   var activeIndex = -1;
+   for (var i = 0; i < this.editorState.passes.length; ++i)
+      if (this.editorState.passes[i].id === this.editorState.activePassId)
+         activeIndex = i;
+   if (activeIndex <= 0)
+      return -1;
+   for (var j = activeIndex - 1; j >= 0; --j)
+      if (this.editorState.passes[j].enabled !== false)
+         return j;
+   return -1;
+};
+
+AstroColorMixerPOC8Dialog.prototype.hasLastPassCompareAvailable = function() {
+   return this.getPreviousEnabledPassIndex() >= 0;
+};
+
+AstroColorMixerPOC8Dialog.prototype.buildLastPassPreviewReference = function() {
+   var previousIndex = this.getPreviousEnabledPassIndex();
+   if (previousIndex < 0 || !this.previewSource)
+      return null;
+   var tempState = {
+      version: this.editorState.version,
+      imageType: this.editorState.imageType,
+      sensitivity: this.editorState.sensitivity,
+      globalStrength: this.editorState.globalStrength,
+      activePassId: this.editorState.passes[previousIndex].id,
+      passes: this.editorState.passes.slice(0, previousIndex + 1)
+   };
+   var result = applyAstroColorMixerPasses(this.previewSource.rgb, this.previewSource.width, this.previewSource.height, acmBuildRecipeFromEditorState(tempState));
+   return {
+      label: "Last Pass",
+      rgb: result.rgb,
+      bitmap: acmRenderBitmapFromRgb(this.previewSource.width, this.previewSource.height, result.rgb)
+   };
+};
+
+AstroColorMixerPOC8Dialog.prototype.getHoldCompareReference = function() {
+   if (this.compareMode === "original")
+      return {
+         mode: "original",
+         label: "Original",
+         rgb: this.previewOriginalRgb,
+         bitmap: this.previewBitmapOriginal
+      };
+   if (this.compareMode === "lastPass" && this.previewBitmapLastPass && this.previewLastPassRgb)
+      return {
+         mode: "lastPass",
+         label: "Last Pass",
+         rgb: this.previewLastPassRgb,
+         bitmap: this.previewBitmapLastPass
+      };
+   if (this.previewBitmapLastPass && this.previewLastPassRgb)
+      return {
+         mode: "lastPass",
+         label: "Last Pass",
+         rgb: this.previewLastPassRgb,
+         bitmap: this.previewBitmapLastPass
+      };
+   return {
+      mode: "original",
+      label: "Original",
+      rgb: this.previewOriginalRgb,
+      bitmap: this.previewBitmapOriginal
+   };
 };
 
 AstroColorMixerPOC8Dialog.prototype.refreshOutputButtons = function() {
    if (this.currentPreviewModeIsMask()) {
       if (this.previewMode === "rangeMask")
-         this.applyButton.text = "Save Range Mask";
+         this.applyButton.text = "Create Range Mask";
       else if (this.previewMode === "combinedMask")
-         this.applyButton.text = "Save Combined Mask";
+         this.applyButton.text = "Create Combined Mask";
       else
-         this.applyButton.text = "Save Band Mask";
+         this.applyButton.text = "Create Band Mask";
+      if (this.applyToTargetButton)
+         this.applyToTargetButton.enabled = false;
    } else {
-      this.applyButton.text = "Save Adjusted Image";
+      this.applyButton.text = "Create New Image";
+      if (this.applyToTargetButton)
+         this.applyToTargetButton.enabled = !!(this.activeStatus && this.activeStatus.ok);
    }
 };
 
@@ -3966,8 +4292,8 @@ AstroColorMixerPOC8Dialog.prototype.refreshPreviewDisplay = function() {
    if (!this.getCurrentPreviewBitmap())
       return;
    this.previewHost.update();
-   if (this.previewTempOriginal)
-      this.previewStatusLabel.text = "Preview: Original — release to return";
+   if (this.previewTempCompare)
+      this.previewStatusLabel.text = "Preview compare: " + (this.previewCompareLabel || "Original") + " — release to return";
    else if (this.previewMode === "original")
       this.previewStatusLabel.text = this.previewIsStale ? "Preview: Original · Adjusted stale" : "Preview: Original";
    else
@@ -3976,6 +4302,8 @@ AstroColorMixerPOC8Dialog.prototype.refreshPreviewDisplay = function() {
 };
 
 AstroColorMixerPOC8Dialog.prototype.getDiagnosticsRgb = function() {
+   if (this.previewTempCompare && this.previewCompareRgb)
+      return this.previewCompareRgb;
    if (this.previewMode === "adjusted" && this.previewAdjustedRgb)
       return this.previewAdjustedRgb;
    if (this.previewMode === "bandMask" && this.previewBandMaskRgb)
@@ -4062,6 +4390,7 @@ AstroColorMixerPOC8Dialog.prototype.renderPreview = function() {
       this.previewStatusLabel.text = "Rendering preview...";
       var recipe = acmBuildRecipeFromEditorState(this.editorState);
       var result = applyAstroColorMixerPasses(this.previewSource.rgb, this.previewSource.width, this.previewSource.height, recipe);
+      var lastPassPreview = this.buildLastPassPreviewReference();
       var activePass = this.getActivePassState();
       var bandMaskValues = acmComputeSelectedBandMaskData(this.previewSource.rgb, this.previewSource.width, this.previewSource.height, activePass, this.editorState.imageType, "bandMask");
       var rangeMaskValues = acmComputeSelectedBandMaskData(this.previewSource.rgb, this.previewSource.width, this.previewSource.height, activePass, this.editorState.imageType, "rangeMask");
@@ -4080,6 +4409,8 @@ AstroColorMixerPOC8Dialog.prototype.renderPreview = function() {
       }
       this.previewBitmapOriginal = this.previewBitmapOriginal || acmRenderBitmapFromRgb(this.previewSource.width, this.previewSource.height, this.previewSource.rgb);
       this.previewBitmapAdjusted = acmRenderBitmapFromRgb(this.previewSource.width, this.previewSource.height, result.rgb);
+      this.previewLastPassRgb = lastPassPreview ? lastPassPreview.rgb : null;
+      this.previewBitmapLastPass = lastPassPreview ? lastPassPreview.bitmap : null;
       this.previewBitmapBandMask = acmRenderGrayBitmapFromMask(this.previewSource.width, this.previewSource.height, bandMaskValues);
       this.previewBitmapRangeMask = acmRenderGrayBitmapFromMask(this.previewSource.width, this.previewSource.height, rangeMaskValues);
       this.previewBitmapCombinedMask = acmRenderGrayBitmapFromMask(this.previewSource.width, this.previewSource.height, combinedMaskValues);
@@ -4259,6 +4590,30 @@ AstroColorMixerPOC8Dialog.prototype.loadRecipeJson = function() {
    this.loadRecipePath(selected);
 };
 
+AstroColorMixerPOC8Dialog.prototype.setOutputFeedback = function(text) {
+   if (this.outputFeedbackLabel)
+      this.outputFeedbackLabel.text = text || "";
+   if (text)
+      console.noteln(text);
+};
+
+AstroColorMixerPOC8Dialog.prototype.confirmApplyToTarget = function() {
+   if (this.targetApplyConfirmedThisSession)
+      return true;
+   var response = (new MessageBox(
+      "This will change the source image by writing the current Astro Color Mixer result back into it. Any active PixInsight mask on that image will be respected. 'Create Image' is safer for experimentation.",
+      "Apply adjustments to the target image?",
+      StdIcon_Warning,
+      StdButton_Yes,
+      StdButton_Cancel
+   )).execute();
+   if (response === StdButton_Yes) {
+      this.targetApplyConfirmedThisSession = true;
+      return true;
+   }
+   return false;
+};
+
 AstroColorMixerPOC8Dialog.prototype.applyRecipe = function() {
    try {
       this.updateActiveStatus();
@@ -4279,11 +4634,64 @@ AstroColorMixerPOC8Dialog.prototype.applyRecipe = function() {
       var outputId = "AstroColorMixer_" + sanitizeViewId(active.viewId);
       var outputWindow = writeResultImage(active.width, active.height, result.rgb, outputId);
       console.noteln("Created output image: " + outputWindow.mainView.id);
+      this.setOutputFeedback("Created adjusted image: " + outputWindow.mainView.id);
       console.noteln("Astro Color Mixer beta apply complete.");
    } catch (error) {
       if (!(error && error.__acmHandled)) {
          var message = "Unexpected processing failure: " + (error && error.message ? error.message : String(error));
          console.criticalln(message);
+         showMessage(message, this.windowTitle, StdIcon_Error);
+      }
+   }
+};
+
+AstroColorMixerPOC8Dialog.prototype.applyToTargetImage = function() {
+   try {
+      if (this.currentPreviewModeIsMask()) {
+         showMessage("Apply to Target Image is only available for the adjusted image preview.", this.windowTitle, StdIcon_Warning);
+         return;
+      }
+      if (!this.confirmApplyToTarget())
+         return;
+      if (!this.sourceView || !this.sourceView.viewId) {
+         showMessage("Target image is no longer available. Refresh the active image or use Create New Image.", this.windowTitle, StdIcon_Warning);
+         return;
+      }
+      var targetInfo = acmFindViewForViewId(this.sourceView.viewId);
+      if (!targetInfo || !targetInfo.view) {
+         showMessage("Target image is no longer available. Refresh the active image or use Create New Image.", this.windowTitle, StdIcon_Warning);
+         return;
+      }
+
+      var target = acmReadRgbImageFromView(targetInfo.view);
+      var recipe = acmBuildRecipeFromEditorState(this.editorState);
+      var result = applyAstroColorMixerPasses(target.rgb, target.width, target.height, recipe);
+      var maskInfo = acmReadMaskState(targetInfo.window, target.width, target.height);
+      var outputRgb = maskInfo.respected
+         ? acmBlendRgbWithMask(target.rgb, result.rgb, maskInfo.values)
+         : result.rgb;
+
+      acmWriteRgbToView(targetInfo.view, target.width, target.height, outputRgb);
+      this.targetApplyMaskStatus = maskInfo;
+      if (this.targetApplyMaskStatusLabel)
+         this.targetApplyMaskStatusLabel.text = maskInfo.message;
+
+      if (maskInfo.respected)
+         this.setOutputFeedback(maskInfo.inverted
+            ? "Applied adjustments to target image using inverted PixInsight mask."
+            : "Applied adjustments to target image using active PixInsight mask.");
+      else
+         this.setOutputFeedback("Applied adjustments to target image.");
+
+      if (this.activeStatus && this.activeStatus.ok && this.activeStatus.viewId === target.viewId)
+         this.refreshActiveSource();
+      else
+         this.markPreviewStale();
+   } catch (error) {
+      if (!(error && error.__acmHandled)) {
+         var message = "Target apply failed: " + (error && error.message ? error.message : String(error));
+         console.criticalln(message);
+         this.setOutputFeedback(message);
          showMessage(message, this.windowTitle, StdIcon_Error);
       }
    }

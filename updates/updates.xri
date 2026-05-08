@@ -10,9 +10,9 @@
 
     <package
       fileName="AstroColorMixer-0.9.3-beta.zip"
-      sha1="2ebd373960a5ae1bac31afe67b77b4010e13d932"
+      sha1="f19d44ebf7af5715e22d8a8bf877d44dcde53d21"
       type="script"
-      releaseDate="20260507"
+      releaseDate="20260508"
       remove="src/scripts/CosgrovesCosmos/AstroColorMixer.js">
 
       <title>Astro Color Mixer v0.9.3-beta</title>

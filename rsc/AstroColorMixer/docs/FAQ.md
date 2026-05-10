@@ -66,7 +66,7 @@ This setting does **not** remove stars. It does **not** create a star mask. It o
 3. Start with **Base Pass**.
 4. Make broad H/S/L changes.
 5. Use the probe, histogram, and polar plot to understand the current target.
-6. Refine the selected hue family with Width and Feather.
+6. Refine the selected hue family with **Hue Radius** and **Feather**.
 7. Use Range Mask for luminance-specific targeting.
 8. Add new Refinement Passes for targeted work.
 9. Inspect preview and mask views.
@@ -94,17 +94,25 @@ These are practical editing regions, not strict physical emission-line labels.
 
 These adjustments apply to the currently active pass, which is why broad work and targeted work are often separated into different passes.
 
-## 8. What are Width and Feather?
+## 8. What are Hue Radius and Feather?
 
-Width and Feather control how the active color band is selected.
+Hue Radius and Feather control how the active color band is selected.
 
-- **Width** determines how broad the selected hue family is.
-- **Feather** determines how softly the selection falls off into neighboring hues.
+- **Hue Radius** sets the outer limit on each side of the hue center.
+- **Feather** determines how quickly the selection falls from the strong core to that outer limit.
+
+The current mask model has three practical regions:
+
+- a **strong core** near the hue center
+- a **falloff zone** between the strong core and the outer radius
+- **unaffected hues** outside the outer radius
+
+So if **Hue Radius = 45°** and **Feather = 0.75**, the affected range reaches `±45°`, but full-strength influence occupies only the inner part of that span. The rest is a smooth feathered falloff.
 
 Practical guidance:
 
-- narrow Width for selective edits
-- wider Width for broader color-family edits
+- lower Hue Radius for more selective edits
+- higher Hue Radius for a broader color-family reach
 - lower Feather for firmer boundaries
 - higher Feather for smoother transitions
 
@@ -214,7 +222,7 @@ They can preserve:
 - pass order and enabled state
 - H/S/L band values
 - selected band behavior
-- Width and Feather
+- Hue Radius and Feather
 - Range Mask settings
 - Neutral / Low-Saturation settings
 - image type and related tool state
@@ -237,14 +245,14 @@ They are useful for repeatability, documentation, testing, and returning to comp
 1. Start in Base Pass or create a dedicated reflection pass.
 2. Increase **Blue / Reflection Nebula** saturation modestly.
 3. Inspect the band mask.
-4. Reduce Width if blue stars are moving more than the nebulosity.
+4. Reduce **Hue Radius** if blue stars are moving more than the nebulosity.
 5. Use Range Mask if the goal is faint blue structure rather than highlights.
 
 ### B. Magenta halo cleanup
 
 1. Create a new Refinement Pass.
 2. Work mainly in **Magenta / Halo Cleanup**, with **Purple / Violet Cleanup** if needed.
-3. Use narrower Width and enough Feather to keep the transition smooth.
+3. Use a narrower **Hue Radius** and enough Feather to keep the transition smooth.
 4. Use Range Mask if the artifact is concentrated in brighter star-adjacent regions.
 
 ### C. Neutral background luminance control with Range Mask

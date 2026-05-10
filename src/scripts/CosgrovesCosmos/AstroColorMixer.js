@@ -322,6 +322,99 @@ function acmCircularHueDistance(h1, h2) {
    return Math.min(delta, 360 - delta);
 }
 
+function acmNormalizeAngle360(deg) {
+   deg = deg % 360;
+   if (deg < 0)
+      deg += 360;
+   return deg;
+}
+
+function acmAppendAnnularSectorPolygons(polygons, cx, cy, innerR, outerR, startDeg, endDeg) {
+   var start = acmNormalizeAngle360(startDeg);
+   var end = acmNormalizeAngle360(endDeg);
+   var spans = [];
+   if (end <= start) {
+      spans.push({ start: start, end: 360 });
+      spans.push({ start: 0, end: end });
+   } else {
+      spans.push({ start: start, end: end });
+   }
+
+   for (var spanIndex = 0; spanIndex < spans.length; ++spanIndex) {
+      var span = spans[spanIndex];
+      var delta = span.end - span.start;
+      if (delta <= 0)
+         continue;
+      var steps = Math.max(32, Math.ceil(delta / 1));
+      var points = [];
+      for (var i = 0; i <= steps; ++i) {
+         var deg = span.start + (delta * i / steps);
+         var a = deg * Math.PI / 180;
+         points.push(new Point(
+            cx + Math.cos(a) * outerR,
+            cy - Math.sin(a) * outerR
+         ));
+      }
+      for (var j = steps; j >= 0; --j) {
+         var degIn = span.start + (delta * j / steps);
+         var aIn = degIn * Math.PI / 180;
+         points.push(new Point(
+            cx + Math.cos(aIn) * innerR,
+            cy - Math.sin(aIn) * innerR
+         ));
+      }
+      polygons.push(points);
+   }
+}
+
+function acmRgb01ToArgb(r, g, b, a) {
+   var alpha = a == null ? 255 : Math.max(0, Math.min(255, Math.round(a)));
+   var rr = Math.max(0, Math.min(255, Math.round(r * 255)));
+   var gg = Math.max(0, Math.min(255, Math.round(g * 255)));
+   var bb = Math.max(0, Math.min(255, Math.round(b * 255)));
+   return ((alpha & 0xff) << 24) | ((rr & 0xff) << 16) | ((gg & 0xff) << 8) | (bb & 0xff);
+}
+
+function acmLerpColorArgb(colorA, colorB, t) {
+   t = acmClamp01(t);
+   var aA = (colorA >>> 24) & 0xff;
+   var rA = (colorA >>> 16) & 0xff;
+   var gA = (colorA >>> 8) & 0xff;
+   var bA = colorA & 0xff;
+   var aB = (colorB >>> 24) & 0xff;
+   var rB = (colorB >>> 16) & 0xff;
+   var gB = (colorB >>> 8) & 0xff;
+   var bB = colorB & 0xff;
+   var a = Math.round(aA + (aB - aA) * t) & 0xff;
+   var r = Math.round(rA + (rB - rA) * t) & 0xff;
+   var g = Math.round(gA + (gB - gA) * t) & 0xff;
+   var b = Math.round(bA + (bB - bA) * t) & 0xff;
+   return (a << 24) | (r << 16) | (g << 8) | b;
+}
+
+function acmNormalizeHueDegrees(deg) {
+   deg = deg % 360;
+   if (deg < 0)
+      deg += 360;
+   return Math.round(deg);
+}
+
+function acmFormatAngleDegrees(value) {
+   if (Math.abs(value - Math.round(value)) < 0.005)
+      return "" + Math.round(value);
+   var text = value.toFixed(2);
+   text = text.replace(/0+$/, "");
+   text = text.replace(/\.$/, "");
+   return text;
+}
+
+function acmComputeSelectedBandRange(centerDeg, widthDeg) {
+   return {
+      low: acmNormalizeHueDegrees(centerDeg - widthDeg),
+      high: acmNormalizeHueDegrees(centerDeg + widthDeg)
+   };
+}
+
 function acmMakeHueMask(distance, widthDeg, feather) {
    var outerWidth = widthDeg;
    var innerWidth = widthDeg * (1 - feather);
@@ -1147,7 +1240,7 @@ function getActiveImageStatus() {
       viewId: view.fullId,
       width: image.width,
       height: image.height,
-      message: "Active RGB image: " + view.fullId + " (" + image.width + "×" + image.height + ")",
+      message: "Target Image: " + view.fullId + " (" + image.width + "×" + image.height + ")",
       warning: false
    };
 }
@@ -1276,11 +1369,21 @@ function acmCreateColorSwatch(parent, hex) {
 function acmAttachPreviewSliderHooks(dialog, numericControl) {
    if (!numericControl || !numericControl.slider)
       return;
+   var previousPress = numericControl.slider.onMousePress;
+   var previousRelease = numericControl.slider.onMouseRelease;
    numericControl.slider.onMousePress = function() {
+      if (typeof previousPress === "function")
+         previousPress.apply(this, arguments);
       dialog.previewSliderInteraction = true;
+      if (typeof numericControl.__acmOnSliderPress === "function")
+         numericControl.__acmOnSliderPress();
    };
    numericControl.slider.onMouseRelease = function() {
+      if (typeof previousRelease === "function")
+         previousRelease.apply(this, arguments);
       dialog.previewSliderInteraction = false;
+      if (typeof numericControl.__acmOnSliderRelease === "function")
+         numericControl.__acmOnSliderRelease();
       if (dialog.autoPreviewCheck && dialog.autoPreviewCheck.checked && dialog.previewIsStale)
          dialog.requestPreviewUpdate();
    };
@@ -1803,7 +1906,7 @@ function acmReadMaskState(targetWindow, width, height) {
       inverted: false,
       respected: false,
       values: null,
-      message: "Target apply: no PixInsight mask detected",
+      message: "Target Mask: none",
       propertyNames: ["mask", "maskEnabled", "maskInverted"]
    };
    if (!targetWindow || targetWindow.isNull)
@@ -1813,21 +1916,22 @@ function acmReadMaskState(targetWindow, width, height) {
       var maskWindow = targetWindow.mask;
       if (!maskWindow || maskWindow.isNull)
          return info;
+      var maskId = maskWindow.mainView && !maskWindow.mainView.isNull ? maskWindow.mainView.id : "";
       info.assigned = true;
       info.enabled = targetWindow.maskEnabled === true;
       info.inverted = targetWindow.maskInverted === true;
       if (!info.enabled) {
-         info.message = "Target apply: PixInsight mask assigned but disabled";
+         info.message = maskId ? "Target Mask: assigned, disabled — " + maskId : "Target Mask: assigned, disabled";
          return info;
       }
       var maskView = maskWindow.mainView;
       if (!maskView || maskView.isNull || !maskView.image) {
-         info.message = "Target apply: PixInsight mask assigned but unavailable";
+         info.message = maskId ? "Target Mask: assigned, unavailable — " + maskId : "Target Mask: assigned, unavailable";
          return info;
       }
       var maskImage = maskView.image;
       if (maskImage.width !== width || maskImage.height !== height) {
-         info.message = "Target apply: PixInsight mask assigned but size mismatch";
+         info.message = maskId ? "Target Mask: assigned, size mismatch — " + maskId : "Target Mask: assigned, size mismatch";
          return info;
       }
       var count = width * height;
@@ -1854,10 +1958,10 @@ function acmReadMaskState(targetWindow, width, height) {
       info.values = maskValues;
       info.respected = true;
       info.message = info.inverted
-         ? "Target apply: PixInsight mask respected — inverted"
-         : "Target apply: PixInsight mask respected";
+         ? (maskId ? "Target Mask: active, inverted — " + maskId : "Target Mask: active, inverted")
+         : (maskId ? "Target Mask: active — " + maskId : "Target Mask: active");
    } catch (error) {
-      info.message = "Target apply: PixInsight mask assigned but unavailable";
+      info.message = "Target Mask: assigned, unavailable";
    }
    return info;
 }
@@ -2454,7 +2558,8 @@ function AstroColorMixerUI03Dialog() {
    this.floatingHelpBoxParent = null;
 
    this.refreshButton = new PushButton(this);
-   this.refreshButton.text = "Refresh Active";
+   this.refreshButton.text = "Refresh Target";
+   this.refreshButton.toolTip = "Refresh the current target image and update mask status.";
    this.refreshButton.onClick = function() { self.refreshActiveSource(); };
 
    this.imageTypeLabel = new Label(this);
@@ -2590,14 +2695,100 @@ function AstroColorMixerUI03Dialog() {
    this.selectedBandHelpButton = acmCreateHelpButton(
       this,
       "Selected Band",
-      "Selected Band controls which hue region is being shaped. The color sliders set how much to change; the selected-band controls define the hue range affected by that band. Width controls how broad the hue selection is, and Feather controls how softly it falls off.",
+      "Selected Band controls which hue region is being shaped. The color sliders set how much to change; Hue Radius sets the outer limit on each side of the hue center, and Feather controls how quickly the selection falls from the strong core to that outer limit. Neutral / Low-Saturation is selected by low chroma rather than hue angle, so Hue Radius does not apply there.",
       "selectedBand"
    );
    this.selectedBandHelpBox = acmCreateHelpBox(this);
 
    this.selectedBandHelpLabel = new Label(this);
    this.selectedBandHelpLabel.wordWrapping = true;
-   this.selectedBandHelpLabel.text = "Width controls hue range. Feather controls edge softness.";
+   this.selectedBandHelpLabel.text = "Hue Radius sets the outer limit on each side of the hue center. Feather controls how quickly the selection falls from the strong core to that outer limit.";
+
+   this.selectedBandReadoutTitle = new Label(this);
+   this.selectedBandReadoutTitle.useRichText = true;
+   this.selectedBandReadoutTitle.text = "<b>Selection</b>";
+
+   this.selectedBandReadoutPrimary = new Label(this);
+   this.selectedBandReadoutPrimary.useRichText = true;
+   this.selectedBandReadoutPrimary.text = "<b>Hue center:</b> 0°\n<b>Hue Radius:</b> ±45°\n<b>Strong core:</b> ±11.25°";
+
+   this.selectedBandReadoutSecondary = new Label(this);
+   this.selectedBandReadoutSecondary.useRichText = true;
+   this.selectedBandReadoutSecondary.text = "<b>Falloff:</b> 11.25°–45°\n<b>Affected range:</b> 315°–45°\n<b>Feather:</b> 0.75";
+
+   this.selectedBandProfileBar = new Control(this);
+   this.selectedBandProfileBar.scaledMinHeight = 26;
+   this.selectedBandProfileBar.scaledMinWidth = 150;
+   this.selectedBandProfileBar.acmDialogRef = this;
+   this.selectedBandProfileBar.toolTip = "Mask response profile. Bright center = strong core, darker shoulders = feather falloff, dark ends = off.";
+   this.selectedBandProfileBar.onPaint = function() {
+      var g = new Graphics(this);
+      g.pen = new Pen(0xff404854);
+      g.brush = new Brush(0xff161a22);
+      g.drawRect(this.boundsRect);
+      var left = 6;
+      var right = this.width - 6;
+      var top = 7;
+      var bottom = this.height - 9;
+      var w = Math.max(1, right - left);
+      var h = Math.max(1, bottom - top);
+      var neutral = this.acmDialogRef.activeTab === ACM_TAB_LUM && this.acmDialogRef.getHighlightedRowId && this.acmDialogRef.getHighlightedRowId() === "neutral";
+      g.pen = new Pen(0x00000000, 0);
+      if (neutral) {
+         g.brush = new Brush(0xff2d333c);
+         g.fillRect(left, top, right, bottom, g.brush);
+         g.brush = new Brush(0xffd7d9dd);
+         g.fillRect(left, top, left + Math.round(w * 0.35), bottom, g.brush);
+      } else {
+         var band = this.acmDialogRef.getSelectedBand();
+         var outerWidth = Math.max(0, band.width);
+         var innerWidth = band.feather <= ACM_EPSILON ? outerWidth : outerWidth * (1 - band.feather);
+         innerWidth = acmClamp(innerWidth, 0, outerWidth);
+         var domain = Math.max(75, 1);
+         var coreColor = 0xfff5be2d;
+         var featherStartColor = 0xffc7972d;
+         var featherEndColor = 0xff4d4127;
+         for (var x = left; x < right; ++x) {
+            var t = ((x - left) / Math.max(1, w - 1)) * 2 - 1;
+            var distance = Math.abs(t) * domain;
+            var color = 0xff232831;
+            if (distance <= innerWidth + ACM_EPSILON) {
+               color = coreColor;
+            } else if (distance <= outerWidth + ACM_EPSILON) {
+               var falloffT = outerWidth <= innerWidth + ACM_EPSILON ? 1 : (distance - innerWidth) / (outerWidth - innerWidth);
+               color = acmLerpColorArgb(featherStartColor, featherEndColor, falloffT);
+            }
+            g.brush = new Brush(color);
+            g.fillRect(x, top, x + 1, bottom, g.brush);
+         }
+         var innerFrac = domain > 0 ? acmClamp01(innerWidth / domain) : 0;
+         var outerFrac = domain > 0 ? acmClamp01(outerWidth / domain) : 0;
+         var innerDx = Math.round(innerFrac * (w * 0.5));
+         var outerDx = Math.round(outerFrac * (w * 0.5));
+         var centerX = Math.round((left + right) * 0.5);
+         g.pen = new Pen(0xfff5f5f5, 1);
+         g.drawLine(centerX, top - 1, centerX, bottom + 1);
+         g.pen = new Pen(0xffd9dce2, 1);
+         g.drawLine(centerX - innerDx, top - 1, centerX - innerDx, bottom + 1);
+         g.drawLine(centerX + innerDx, top - 1, centerX + innerDx, bottom + 1);
+         g.pen = new Pen(0xff8f97a3, 1);
+         g.drawLine(centerX - outerDx, top - 1, centerX - outerDx, bottom + 1);
+         g.drawLine(centerX + outerDx, top - 1, centerX + outerDx, bottom + 1);
+      }
+      g.end();
+   };
+
+   this.selectedBandReadoutPanel = new Control(this);
+   this.selectedBandReadoutPanel.scaledMinWidth = 150;
+   this.selectedBandReadoutPanel.sizer = new VerticalSizer;
+   this.selectedBandReadoutPanel.sizer.margin = 8;
+   this.selectedBandReadoutPanel.sizer.spacing = 6;
+   this.selectedBandReadoutPanel.sizer.addStretch();
+   this.selectedBandReadoutPanel.sizer.add(this.selectedBandReadoutTitle);
+   this.selectedBandReadoutPanel.sizer.add(this.selectedBandReadoutPrimary);
+   this.selectedBandReadoutPanel.sizer.add(this.selectedBandReadoutSecondary);
+   this.selectedBandReadoutPanel.sizer.add(this.selectedBandProfileBar);
+   this.selectedBandReadoutPanel.sizer.addStretch();
 
    this.selectedBandViz = new Control(this);
    this.selectedBandViz.scaledMinHeight = 112;
@@ -2609,62 +2800,127 @@ function AstroColorMixerUI03Dialog() {
       g.drawRect(this.boundsRect);
       var cx = Math.round(this.width * 0.5);
       var cy = Math.round(this.height * 0.54);
-      var outerR = Math.max(18, Math.min(this.width, this.height) * 0.34);
-      var innerR = Math.max(9, outerR * 0.63);
-      for (var deg = 0; deg < 360; deg += 2) {
-         var rgb = acmHueToRgb01(deg);
-         var a0 = deg * Math.PI / 180;
-         var a1 = (deg + 2) * Math.PI / 180;
-         var x0o = cx + Math.cos(a0) * outerR;
-         var y0o = cy - Math.sin(a0) * outerR;
-         var x1o = cx + Math.cos(a1) * outerR;
-         var y1o = cy - Math.sin(a1) * outerR;
-         var x0i = cx + Math.cos(a0) * innerR;
-         var y0i = cy - Math.sin(a0) * innerR;
-         var x1i = cx + Math.cos(a1) * innerR;
-         var y1i = cy - Math.sin(a1) * innerR;
-         g.pen = new Pen(0xff000000 | ((Math.round(rgb.r * 255) & 0xff) << 16) | ((Math.round(rgb.g * 255) & 0xff) << 8) | (Math.round(rgb.b * 255) & 0xff));
-         g.drawLine(Math.round(x0o), Math.round(y0o), Math.round(x1o), Math.round(y1o));
-         g.drawLine(Math.round(x0i), Math.round(y0i), Math.round(x1i), Math.round(y1i));
-         g.drawLine(Math.round(x0i), Math.round(y0i), Math.round(x0o), Math.round(y0o));
+      var baseOuterR = Math.max(20, Math.min(this.width, this.height) * 0.325);
+      var baseInnerR = Math.max(10, baseOuterR * 0.64);
+      var trackInnerR = baseOuterR + 2;
+      var trackOuterR = baseOuterR + 12;
+      var neutralActive = this.acmDialogRef.activeTab === ACM_TAB_LUM && this.acmDialogRef.getHighlightedRowId && this.acmDialogRef.getHighlightedRowId() === "neutral";
+
+      for (var deg = 0; deg < 360; deg += 6) {
+         var basePolygons = [];
+         acmAppendAnnularSectorPolygons(basePolygons, cx, cy, baseInnerR, baseOuterR, deg, deg + 6);
+         var rgb = acmHueToRgb01(deg + 3);
+         var baseColor = acmRgb01ToArgb(0.20 + rgb.r * 0.72, 0.20 + rgb.g * 0.72, 0.20 + rgb.b * 0.72, neutralActive ? 90 : 175);
+         g.brush = new Brush(baseColor);
+         g.pen = new Pen(0x00000000, 0);
+         for (var bp = 0; bp < basePolygons.length; ++bp)
+            g.fillPolygon(basePolygons[bp]);
       }
-      var band = this.acmDialogRef.getSelectedBand();
+
+      var trackPolygons = [];
+      acmAppendAnnularSectorPolygons(trackPolygons, cx, cy, trackInnerR, trackOuterR, 0, 360);
+      g.brush = new Brush(0xff343943);
+      g.pen = new Pen(0x00000000, 0);
+      for (var tp = 0; tp < trackPolygons.length; ++tp)
+         g.fillPolygon(trackPolygons[tp]);
+
+      var band = neutralActive ? null : this.acmDialogRef.getSelectedBand();
       if (band) {
          var centerA = band.center * Math.PI / 180;
-         var fullHalfWidth = Math.max(6, Math.min(175, band.width));
-         var featherHalfWidth = Math.max(fullHalfWidth + 2, Math.min(179, fullHalfWidth / Math.max(0.18, band.feather)));
-         var strongR = outerR + 7;
-         var featherR = outerR + 13;
-         g.pen = new Pen(0x90c8ced8, 4);
-         for (var featherDeg = -Math.round(featherHalfWidth); featherDeg < Math.round(featherHalfWidth); featherDeg += 2) {
-            var fa0 = (band.center + featherDeg) * Math.PI / 180;
-            var fa1 = (band.center + featherDeg + 2) * Math.PI / 180;
-            var fxa0 = cx + Math.cos(fa0) * featherR;
-            var fya0 = cy - Math.sin(fa0) * featherR;
-            var fxa1 = cx + Math.cos(fa1) * featherR;
-            var fya1 = cy - Math.sin(fa1) * featherR;
-            g.drawLine(Math.round(fxa0), Math.round(fya0), Math.round(fxa1), Math.round(fya1));
+         var outerWidth = Math.max(0, Math.min(175, band.width));
+         var innerWidth = band.feather <= ACM_EPSILON ? outerWidth : outerWidth * (1 - band.feather);
+         innerWidth = acmClamp(innerWidth, 0, outerWidth);
+         var featherInnerR = trackInnerR + 1;
+         var featherOuterR = trackOuterR - 2;
+         var sectorInnerR = trackInnerR;
+         var sectorOuterR = trackOuterR;
+         var coreColor = 0xfff5be2d;
+         var featherStartColor = 0xffc7972d;
+         var featherEndColor = 0xff4d4127;
+         if (innerWidth + ACM_EPSILON < outerWidth) {
+            var featherSegments = Math.max(12, Math.ceil((outerWidth - innerWidth) / 2));
+            for (var fs = 0; fs < featherSegments; ++fs) {
+               var t0 = fs / featherSegments;
+               var t1 = (fs + 1) / featherSegments;
+               var segColor = acmLerpColorArgb(featherStartColor, featherEndColor, (t0 + t1) * 0.5);
+               var lowSegPolygons = [];
+               acmAppendAnnularSectorPolygons(
+                  lowSegPolygons,
+                  cx,
+                  cy,
+                  featherInnerR,
+                  featherOuterR,
+                  band.center - (innerWidth + (outerWidth - innerWidth) * t1),
+                  band.center - (innerWidth + (outerWidth - innerWidth) * t0)
+               );
+               var highSegPolygons = [];
+               acmAppendAnnularSectorPolygons(
+                  highSegPolygons,
+                  cx,
+                  cy,
+                  featherInnerR,
+                  featherOuterR,
+                  band.center + (innerWidth + (outerWidth - innerWidth) * t0),
+                  band.center + (innerWidth + (outerWidth - innerWidth) * t1)
+               );
+               g.brush = new Brush(segColor);
+               g.pen = new Pen(0x00000000, 0);
+               for (var lsp = 0; lsp < lowSegPolygons.length; ++lsp)
+                  g.fillPolygon(lowSegPolygons[lsp]);
+               for (var hsp = 0; hsp < highSegPolygons.length; ++hsp)
+                  g.fillPolygon(highSegPolygons[hsp]);
+            }
          }
-         g.pen = new Pen(0xe8ffd24d, 5);
-         for (var widthDeg = -Math.round(fullHalfWidth); widthDeg < Math.round(fullHalfWidth); widthDeg += 2) {
-            var wa0 = (band.center + widthDeg) * Math.PI / 180;
-            var wa1 = (band.center + widthDeg + 2) * Math.PI / 180;
-            var wxa0 = cx + Math.cos(wa0) * strongR;
-            var wya0 = cy - Math.sin(wa0) * strongR;
-            var wxa1 = cx + Math.cos(wa1) * strongR;
-            var wya1 = cy - Math.sin(wa1) * strongR;
-            g.drawLine(Math.round(wxa0), Math.round(wya0), Math.round(wxa1), Math.round(wya1));
+
+         if (innerWidth > ACM_EPSILON) {
+            var corePolygons = [];
+            acmAppendAnnularSectorPolygons(corePolygons, cx, cy, sectorInnerR, sectorOuterR, band.center - innerWidth, band.center + innerWidth);
+            g.brush = new Brush(coreColor);
+            g.pen = new Pen(0x00000000, 0);
+            for (var cp = 0; cp < corePolygons.length; ++cp)
+               g.fillPolygon(corePolygons[cp]);
          }
-         g.pen = new Pen(0xff20242c);
-         g.pen = new Pen(0xff20242c);
+
          g.brush = new Brush(0xff0f1218);
-         g.drawEllipse(Math.round(cx - innerR + 3), Math.round(cy - innerR + 3), Math.round(cx + innerR - 3), Math.round(cy + innerR - 3));
-         g.pen = new Pen(0xf0ffffff, 2);
-         var xCenter0 = cx + Math.cos(centerA) * (innerR - 8);
-         var yCenter0 = cy - Math.sin(centerA) * (innerR - 8);
-         var xCenter1 = cx + Math.cos(centerA) * featherR;
-         var yCenter1 = cy - Math.sin(centerA) * featherR;
+         g.pen = new Pen(0xff20242c);
+         g.drawEllipse(Math.round(cx - baseInnerR + 2), Math.round(cy - baseInnerR + 2), Math.round(cx + baseInnerR - 2), Math.round(cy + baseInnerR - 2));
+         g.pen = new Pen(0xffd6b366, 2);
+         var lowOuterA = (band.center - outerWidth) * Math.PI / 180;
+         var highOuterA = (band.center + outerWidth) * Math.PI / 180;
+         var tickInnerR = trackOuterR - 3;
+         var tickOuterR = trackOuterR + 4;
+         g.drawLine(
+            Math.round(cx + Math.cos(lowOuterA) * tickInnerR),
+            Math.round(cy - Math.sin(lowOuterA) * tickInnerR),
+            Math.round(cx + Math.cos(lowOuterA) * tickOuterR),
+            Math.round(cy - Math.sin(lowOuterA) * tickOuterR)
+         );
+         g.drawLine(
+            Math.round(cx + Math.cos(highOuterA) * tickInnerR),
+            Math.round(cy - Math.sin(highOuterA) * tickInnerR),
+            Math.round(cx + Math.cos(highOuterA) * tickOuterR),
+            Math.round(cy - Math.sin(highOuterA) * tickOuterR)
+         );
+         g.pen = new Pen(0xfff5f5f5, 2);
+         var xCenter0 = cx + Math.cos(centerA) * (baseInnerR - 2);
+         var yCenter0 = cy - Math.sin(centerA) * (baseInnerR - 2);
+         var xCenter1 = cx + Math.cos(centerA) * (trackOuterR + 2);
+         var yCenter1 = cy - Math.sin(centerA) * (trackOuterR + 2);
          g.drawLine(Math.round(xCenter0), Math.round(yCenter0), Math.round(xCenter1), Math.round(yCenter1));
+      } else {
+         g.brush = new Brush(0xff0f1218);
+         g.pen = new Pen(0xff20242c);
+         g.drawEllipse(Math.round(cx - baseInnerR + 2), Math.round(cy - baseInnerR + 2), Math.round(cx + baseInnerR - 2), Math.round(cy + baseInnerR - 2));
+         var centerFont = new Font;
+         centerFont.pixelSize = 9;
+         centerFont.bold = true;
+         g.font = centerFont;
+         g.pen = new Pen(0xffc4c8cf);
+         var centerText = "LOW SAT";
+         var tw = g.font.width(centerText);
+         var tx = Math.round(cx - tw * 0.5);
+         var ty = Math.round(cy + (g.font.ascent - g.font.descent) * 0.5);
+         g.drawText(tx, ty, centerText);
       }
       g.end();
    };
@@ -2683,13 +2939,21 @@ function AstroColorMixerUI03Dialog() {
     };
 
     this.widthControl = new NumericControl(this);
-    this.widthControl.label.text = "Width:";
+    this.widthControl.label.text = "Hue Radius:";
     this.widthControl.real = false;
-    this.widthControl.setRange(10, 75);
-    this.widthControl.slider.setRange(0, 65);
-    this.widthControl.setValue(45);
+   this.widthControl.setRange(10, 75);
+   this.widthControl.slider.setRange(0, 65);
+   this.widthControl.setValue(45);
+   this.widthControl.__acmOnSliderPress = function() {
+      self.deferSelectedBandTextUpdates = true;
+   };
+   this.widthControl.__acmOnSliderRelease = function() {
+      self.deferSelectedBandTextUpdates = false;
+      self.refreshSelectedBandReadoutAndVisualization(true);
+   };
    this.widthControl.onValueUpdated = function(value) {
       self.getSelectedBand().width = value;
+      self.refreshSelectedBandReadoutAndVisualization(!self.deferSelectedBandTextUpdates);
       self.markPreviewStale();
    };
    acmAttachPreviewSliderHooks(this, this.widthControl);
@@ -2698,11 +2962,19 @@ function AstroColorMixerUI03Dialog() {
     this.featherControl.label.text = "Feather:";
     this.featherControl.real = true;
     this.featherControl.setPrecision(2);
-    this.featherControl.setRange(0.35, 1.0);
-    this.featherControl.slider.setRange(0, 100);
-    this.featherControl.setValue(0.75);
+   this.featherControl.setRange(0.15, 1.0);
+   this.featherControl.slider.setRange(0, 100);
+   this.featherControl.setValue(0.75);
+   this.featherControl.__acmOnSliderPress = function() {
+      self.deferSelectedBandTextUpdates = true;
+   };
+   this.featherControl.__acmOnSliderRelease = function() {
+      self.deferSelectedBandTextUpdates = false;
+      self.refreshSelectedBandReadoutAndVisualization(true);
+   };
    this.featherControl.onValueUpdated = function(value) {
       self.getSelectedBand().feather = value;
+      self.refreshSelectedBandReadoutAndVisualization(!self.deferSelectedBandTextUpdates);
       self.markPreviewStale();
    };
    acmAttachPreviewSliderHooks(this, this.featherControl);
@@ -3202,7 +3474,7 @@ function AstroColorMixerUI03Dialog() {
 
    this.previewOutputHelpLabel = new Label(this);
    this.previewOutputHelpLabel.wordWrapping = true;
-   this.previewOutputHelpLabel.text = "Use the visible preview on the right to judge settings. 'Create Image' creates a new adjusted image window. 'Apply to Target' changes the source image, and any active PixInsight mask on that image will be respected.";
+   this.previewOutputHelpLabel.text = "Use the preview to judge settings before creating a new image or applying to the target image. 'Create Image' creates a new adjusted image window and leaves the target unchanged. 'Apply to Target' writes back into the target image and respects the active PixInsight mask.";
 
    this.updatePreviewButton = new PushButton(this);
    this.updatePreviewButton.text = "Update Preview";
@@ -3297,24 +3569,25 @@ function AstroColorMixerUI03Dialog() {
    this.outputModeHelpButton = acmCreateHelpButton(
       this,
       "Output Mode",
-      "'Create Image' creates a new adjusted image window and leaves the source image unchanged. 'Apply to Target' changes the source image. If the source image has an active PixInsight mask, that mask will be respected.",
+      "'Create Image' creates a new adjusted image window and leaves the target image unchanged. 'Apply to Target' writes the adjusted result back into the target image. If the target image has an active PixInsight mask, that mask is respected.",
       "outputMode"
    );
 
    this.applyButton = new PushButton(this);
    this.applyButton.text = "Create Image";
    this.applyButton.defaultButton = true;
-   this.applyButton.toolTip = "Create New Image";
+   this.applyButton.toolTip = "Creates a new adjusted image window and leaves the target unchanged.";
    this.applyButton.onClick = function() { self.handlePrimaryOutputAction(); };
 
    this.applyToTargetButton = new PushButton(this);
    this.applyToTargetButton.text = "Apply to Target";
-   this.applyToTargetButton.toolTip = "Apply to Target Image";
+   this.applyToTargetButton.toolTip = "Writes the adjusted result back into the target image. If the target has an active PixInsight mask, it is respected.";
    this.applyToTargetButton.onClick = function() { self.applyToTargetImage(); };
 
    this.targetApplyMaskStatusLabel = new Label(this);
    this.targetApplyMaskStatusLabel.wordWrapping = true;
-   this.targetApplyMaskStatusLabel.text = "Target apply: no PixInsight mask detected";
+   this.targetApplyMaskStatusLabel.text = "Target Mask: none";
+   this.targetApplyMaskStatusLabel.toolTip = "Apply to Target respects the active PixInsight mask on the target image.";
 
    this.outputFeedbackLabel = new Label(this);
    this.outputFeedbackLabel.wordWrapping = true;
@@ -3399,6 +3672,11 @@ function AstroColorMixerUI03Dialog() {
    selectedBandControlsRow.spacing = 8;
    selectedBandControlsRow.add(this.widthControl, 100);
    selectedBandControlsRow.add(this.featherControl, 100);
+
+   var selectedBandVizRow = new HorizontalSizer;
+   selectedBandVizRow.spacing = 10;
+   selectedBandVizRow.add(this.selectedBandViz, 100);
+   selectedBandVizRow.add(this.selectedBandReadoutPanel);
 
    var tabsRow = new HorizontalSizer;
    tabsRow.spacing = 6;
@@ -3503,7 +3781,7 @@ function AstroColorMixerUI03Dialog() {
    this.selectedBandPanel.sizer.add(selectedBandRow);
    this.selectedBandPanel.sizer.add(selectedBandControlsRow);
    this.selectedBandPanel.sizer.add(this.selectedBandHelpLabel);
-   this.selectedBandPanel.sizer.add(this.selectedBandViz, 100);
+   this.selectedBandPanel.sizer.add(selectedBandVizRow, 100);
    this.selectedBandPanel.visible = true;
 
    this.rangeMaskPanel = new Control(this);
@@ -3568,6 +3846,8 @@ function AstroColorMixerUI03Dialog() {
    previewOutputButtonsRow.add(this.applyButton);
    previewOutputButtonsRow.add(this.applyToTargetButton);
    previewOutputButtonsRow.add(this.outputModeHelpButton);
+   previewOutputButtonsRow.addSpacing(8);
+   previewOutputButtonsRow.add(this.targetApplyMaskStatusLabel, 100);
    previewOutputButtonsRow.addStretch();
 
    var recipeButtonsRow = new HorizontalSizer;
@@ -3594,10 +3874,9 @@ function AstroColorMixerUI03Dialog() {
    this.previewOutputPanel.sizer.spacing = 6;
    this.previewOutputPanel.sizer.add(previewOutputHeaderRow);
    this.previewOutputPanel.sizer.add(this.previewOutputHelpLabel);
-   this.previewOutputPanel.sizer.add(this.targetApplyMaskStatusLabel);
-   this.previewOutputPanel.sizer.add(this.outputFeedbackLabel);
    this.previewOutputPanel.sizer.addSpacing(4);
    this.previewOutputPanel.sizer.add(previewOutputButtonsRow);
+   this.previewOutputPanel.sizer.add(this.outputFeedbackLabel);
    this.previewOutputPanel.sizer.addSpacing(10);
    this.previewOutputPanel.sizer.add(recipeHeaderRow);
    this.previewOutputPanel.sizer.addSpacing(2);
@@ -3973,6 +4252,39 @@ AstroColorMixerPOC8Dialog.prototype.updateActiveStatus = function() {
    this.updatePreviewButton.enabled = !!(this.activeStatus && this.activeStatus.ok);
    if (this.applyToTargetButton)
       this.applyToTargetButton.enabled = !!(this.activeStatus && this.activeStatus.ok) && !this.currentPreviewModeIsMask();
+   this.refreshTargetMaskStatus();
+};
+
+AstroColorMixerPOC8Dialog.prototype.refreshTargetMaskStatus = function() {
+   if (!this.targetApplyMaskStatusLabel)
+      return;
+   if (!(this.activeStatus && this.activeStatus.ok) || !this.sourceView || !this.sourceView.viewId) {
+      this.targetApplyMaskStatus = {
+         assigned: false,
+         enabled: false,
+         inverted: false,
+         respected: false,
+         values: null,
+         message: "Target Mask: none"
+      };
+      this.targetApplyMaskStatusLabel.text = this.targetApplyMaskStatus.message;
+      return;
+   }
+   var targetInfo = acmFindViewForViewId(this.sourceView.viewId);
+   if (!targetInfo || !targetInfo.window || !targetInfo.view || targetInfo.view.isNull || !targetInfo.view.image) {
+      this.targetApplyMaskStatus = {
+         assigned: false,
+         enabled: false,
+         inverted: false,
+         respected: false,
+         values: null,
+         message: "Target Mask: unavailable"
+      };
+      this.targetApplyMaskStatusLabel.text = this.targetApplyMaskStatus.message;
+      return;
+   }
+   this.targetApplyMaskStatus = acmReadMaskState(targetInfo.window, targetInfo.view.image.width, targetInfo.view.image.height);
+   this.targetApplyMaskStatusLabel.text = this.targetApplyMaskStatus.message;
 };
 
 AstroColorMixerPOC8Dialog.prototype.refreshActiveSource = function() {
@@ -3984,11 +4296,11 @@ AstroColorMixerPOC8Dialog.prototype.refreshActiveSource = function() {
       this.previewBitmapOriginal = null;
       this.previewBitmapAdjusted = null;
       this.previewHost.update();
-      this.previewStatusLabel.text = "Preview failed: no active RGB image";
+      this.previewStatusLabel.text = "Preview failed: no target RGB image";
       return;
    }
 
-   this.previewStatusLabel.text = "Reading preview source...";
+   this.previewStatusLabel.text = "Reading target preview...";
    var active = readActiveRgbImage();
    var preview = acmDownsampleRgbNearest(active.rgb, active.width, active.height, this.previewCacheMaxEdge);
    this.sourceView = { viewId: active.viewId, width: active.width, height: active.height };
@@ -4015,6 +4327,7 @@ AstroColorMixerPOC8Dialog.prototype.refreshActiveSource = function() {
    this.previewCompareRgb = null;
    this.refreshPreviewModeButtons();
    this.refreshDiagnosticsData();
+   this.refreshTargetMaskStatus();
    this.previewHost.update();
    this.previewStatusLabel.text = "Preview stale";
 };
@@ -4056,8 +4369,40 @@ AstroColorMixerPOC8Dialog.prototype.setActiveToolPanel = function(panelKey) {
    this.adjustToContents();
 };
 
+AstroColorMixerPOC8Dialog.prototype.refreshSelectedBandReadoutAndVisualization = function(updateText) {
+   if (updateText == null)
+      updateText = !this.deferSelectedBandTextUpdates;
+   var selectedBand = this.getSelectedBand();
+   var neutralActive = this.activeTab === ACM_TAB_LUM && this.getHighlightedRowId && this.getHighlightedRowId() === "neutral";
+   var effectiveRange = acmComputeSelectedBandRange(selectedBand.center, selectedBand.width);
+   if (updateText) {
+      if (neutralActive) {
+         this.selectedBandHelpLabel.text = "Neutral / Low-Saturation is selected by low chroma, not hue angle. Feather softens the transition into more saturated color.";
+         if (this.selectedBandReadoutPrimary)
+            this.selectedBandReadoutPrimary.text = "<b>Selection:</b> Low-saturation\n<b>Hue Radius:</b> Not used";
+         if (this.selectedBandReadoutSecondary)
+            this.selectedBandReadoutSecondary.text = "<b>Feather:</b> " + selectedBand.feather.toFixed(2);
+      } else {
+         var outerWidth = selectedBand.width;
+         var innerWidth = selectedBand.feather <= ACM_EPSILON ? outerWidth : outerWidth * (1 - selectedBand.feather);
+         innerWidth = acmClamp(innerWidth, 0, outerWidth);
+         this.selectedBandHelpLabel.text = "Hue Radius sets the outer limit on each side of the hue center. Feather controls how quickly the selection falls from the strong core to that outer limit.";
+         if (this.selectedBandReadoutPrimary)
+            this.selectedBandReadoutPrimary.text = "<b>Hue center:</b> " + selectedBand.center + "°\n<b>Hue Radius:</b> ±" + acmFormatAngleDegrees(outerWidth) + "°\n<b>Strong core:</b> ±" + acmFormatAngleDegrees(innerWidth) + "°";
+         if (this.selectedBandReadoutSecondary)
+            this.selectedBandReadoutSecondary.text = "<b>Falloff:</b> " + acmFormatAngleDegrees(innerWidth) + "°–" + acmFormatAngleDegrees(outerWidth) + "°\n<b>Affected range:</b> " + effectiveRange.low + "°–" + effectiveRange.high + "°\n<b>Feather:</b> " + selectedBand.feather.toFixed(2);
+      }
+   }
+   this.setHighlightedRowId(this.getHighlightedRowId());
+   if (this.selectedBandProfileBar)
+      this.selectedBandProfileBar.update();
+   if (this.selectedBandViz)
+      this.selectedBandViz.update();
+};
+
 AstroColorMixerPOC8Dialog.prototype.refreshSelectedBandControls = function() {
    var selectedBand = this.getSelectedBand();
+   var neutralActive = this.activeTab === ACM_TAB_LUM && this.getHighlightedRowId && this.getHighlightedRowId() === "neutral";
    var selectedIndex = 0;
    for (var i = 0; i < ACM_BAND_DEFS.length; ++i) {
       if (ACM_BAND_DEFS[i].id === selectedBand.id) {
@@ -4068,11 +4413,15 @@ AstroColorMixerPOC8Dialog.prototype.refreshSelectedBandControls = function() {
    this.selectedBandCombo.currentItem = selectedIndex;
    if (this.getHighlightedRowId() !== "neutral")
       this.highlightedRowId = selectedBand.id;
+   this.widthControl.label.text = neutralActive ? "Hue Radius: Not used" : "Hue Radius:";
+   this.widthControl.enabled = !neutralActive;
+   if (this.widthControl.slider)
+      this.widthControl.slider.enabled = !neutralActive;
+   if (this.widthControl.edit)
+      this.widthControl.edit.enabled = !neutralActive;
    this.widthControl.setValue(selectedBand.width);
    this.featherControl.setValue(selectedBand.feather);
-   this.setHighlightedRowId(this.getHighlightedRowId());
-   if (this.selectedBandViz)
-      this.selectedBandViz.update();
+   this.refreshSelectedBandReadoutAndVisualization();
 };
 
 AstroColorMixerPOC8Dialog.prototype.applyRangeMaskPreset = function(presetName) {
@@ -4601,7 +4950,7 @@ AstroColorMixerPOC8Dialog.prototype.confirmApplyToTarget = function() {
    if (this.targetApplyConfirmedThisSession)
       return true;
    var response = (new MessageBox(
-      "This will change the source image by writing the current Astro Color Mixer result back into it. Any active PixInsight mask on that image will be respected. 'Create Image' is safer for experimentation.",
+      "This will write the current Astro Color Mixer result back into the target image. PixInsight undo should be available, but Create Image is safer for experimentation.",
       "Apply adjustments to the target image?",
       StdIcon_Warning,
       StdButton_Yes,
@@ -4618,11 +4967,11 @@ AstroColorMixerPOC8Dialog.prototype.applyRecipe = function() {
    try {
       this.updateActiveStatus();
       if (!(this.activeStatus && this.activeStatus.ok))
-         fail("No active RGB image is available.");
+         fail("No target RGB image is available.");
 
       var active = readActiveRgbImage();
       var recipe = acmBuildRecipeFromEditorState(this.editorState);
-      console.writeln("Applying Astro Color Mixer beta recipe to active image...");
+      console.writeln("Applying Astro Color Mixer beta recipe to target image...");
       console.writeln("Image type: " + recipe.imageType);
       console.writeln("Sensitivity: " + recipe.sensitivity);
       var normalized = acmNormalizeRecipe(recipe);
@@ -4634,12 +4983,13 @@ AstroColorMixerPOC8Dialog.prototype.applyRecipe = function() {
       var outputId = "AstroColorMixer_" + sanitizeViewId(active.viewId);
       var outputWindow = writeResultImage(active.width, active.height, result.rgb, outputId);
       console.noteln("Created output image: " + outputWindow.mainView.id);
-      this.setOutputFeedback("Created adjusted image: " + outputWindow.mainView.id);
+      this.setOutputFeedback("Created image: " + outputWindow.mainView.id);
       console.noteln("Astro Color Mixer beta apply complete.");
    } catch (error) {
       if (!(error && error.__acmHandled)) {
          var message = "Unexpected processing failure: " + (error && error.message ? error.message : String(error));
          console.criticalln(message);
+         this.setOutputFeedback(message);
          showMessage(message, this.windowTitle, StdIcon_Error);
       }
    }
@@ -4648,18 +4998,21 @@ AstroColorMixerPOC8Dialog.prototype.applyRecipe = function() {
 AstroColorMixerPOC8Dialog.prototype.applyToTargetImage = function() {
    try {
       if (this.currentPreviewModeIsMask()) {
-         showMessage("Apply to Target Image is only available for the adjusted image preview.", this.windowTitle, StdIcon_Warning);
+         this.setOutputFeedback("Apply to Target is only available from the adjusted image preview.");
+         showMessage("Apply to Target is only available for the adjusted image preview.", this.windowTitle, StdIcon_Warning);
          return;
       }
       if (!this.confirmApplyToTarget())
          return;
       if (!this.sourceView || !this.sourceView.viewId) {
-         showMessage("Target image is no longer available. Refresh the active image or use Create New Image.", this.windowTitle, StdIcon_Warning);
+         this.setOutputFeedback("Target image is no longer available. Refresh the target image or use Create Image.");
+         showMessage("Target image is no longer available. Refresh the target image or use Create Image.", this.windowTitle, StdIcon_Warning);
          return;
       }
       var targetInfo = acmFindViewForViewId(this.sourceView.viewId);
       if (!targetInfo || !targetInfo.view) {
-         showMessage("Target image is no longer available. Refresh the active image or use Create New Image.", this.windowTitle, StdIcon_Warning);
+         this.setOutputFeedback("Target image is no longer available. Refresh the target image or use Create Image.");
+         showMessage("Target image is no longer available. Refresh the target image or use Create Image.", this.windowTitle, StdIcon_Warning);
          return;
       }
 

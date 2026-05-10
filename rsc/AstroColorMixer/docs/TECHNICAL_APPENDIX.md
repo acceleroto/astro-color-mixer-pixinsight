@@ -89,18 +89,26 @@ These bands are practical editing regions, not strict physical line assignments.
 
 Each active color band is built around circular hue distance from a band center.
 
-- **Width** controls the stronger selected span
-- **Feather** controls the transition into neighboring hues
+- **Hue Radius** sets the outer affected angular radius on each side of the hue center
+- **Feather** controls how much of that radius is used for falloff instead of full-strength influence
 - a `smoothstep`-style falloff is used for soft selection boundaries
 
 Conceptual pseudocode:
 
 ```text
 distance = circularHueDistance(hue, center)
+outerWidth = widthDeg
+innerWidth = widthDeg * (1 - feather)
 mask = 1 - smoothstep(innerWidth, outerWidth, distance)
 ```
 
-The practical effect is strongest influence near the band center, with smooth reduction toward adjacent colors.
+This produces three practical regions:
+
+- **strong core**: `distance <= innerWidth`
+- **falloff zone**: `innerWidth < distance < outerWidth`
+- **off**: `distance >= outerWidth`
+
+So a setting such as `Hue Radius = 45°` and `Feather = 0.75` does **not** mean full-strength influence across the whole `±45°` span. Instead, the strong core occupies only the inner portion, and the rest falls smoothly to zero by the outer radius.
 
 ## 9. Saturation Reliability
 
@@ -228,7 +236,7 @@ Adjustment Set JSON stores the working state of the tool. This can include:
 - sensitivity
 - pass ordering and enabled state
 - band values
-- width and feather
+- hue radius and feather
 - Range Mask state
 - Neutral / Low-Saturation state
 - related working settings

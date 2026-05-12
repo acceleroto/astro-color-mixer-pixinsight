@@ -1,11 +1,11 @@
 #feature-id    Cosgrove's Cosmos > Astro Color Mixer
-#feature-info  Astro Color Mixer v0.9.4-beta. Nonlinear RGB color and luminance refinement for astrophotography.
+#feature-info  Astro Color Mixer v0.9.5-beta. Nonlinear RGB color and luminance refinement for astrophotography.
 
 /*
  * Astro Color Mixer for PixInsight
  *
  * Beta build:
- * Astro Color Mixer v0.9.4-beta
+ * Astro Color Mixer v0.9.5-beta
  */
 
 #include <pjsr/UndoFlag.jsh>
@@ -19,7 +19,7 @@
 #include <pjsr/SampleType.jsh>
 
 function showMessage(text, title, icon) {
-   (new MessageBox(text, title || "Astro Color Mixer v0.9.4-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
+   (new MessageBox(text, title || "Astro Color Mixer v0.9.5-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
 }
 
 var acmHelpHostDialog = null;
@@ -34,7 +34,7 @@ function showHelpTopic(title, text) {
 
 function fail(text) {
    console.criticalln(text);
-   showMessage(text, "Astro Color Mixer v0.9.4-beta", StdIcon_Error);
+   showMessage(text, "Astro Color Mixer v0.9.5-beta", StdIcon_Error);
    var error = new Error(text);
    error.__acmHandled = true;
    throw error;
@@ -164,7 +164,7 @@ function acmCreateInfoBox(parent) {
    return box;
 }
 
-console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.4-beta</b>");
+console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.5-beta</b>");
 
 // -------------------------------------------------------------------------
 // Minimal copied core logic
@@ -1214,7 +1214,7 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
 
 var ACM_ABOUT_TEXT =
       "About Astro Color Mixer\n\n" +
-      "Astro Color Mixer v0.9.4-beta\n\n" +
+      "Astro Color Mixer v0.9.5-beta\n\n" +
 "A Cosgrove's Cosmos tool for nonlinear RGB chroma-vector color control in astrophotography.\n\n" +
 "Core capabilities:\n" +
 "- H/S/L color-band adjustment\n" +
@@ -2069,6 +2069,17 @@ function acmTryLoadBitmap(path) {
    }
 }
 
+function acmTryLoadFirstBitmap(paths) {
+   if (!(paths instanceof Array))
+      return null;
+   for (var i = 0; i < paths.length; ++i) {
+      var bmp = acmTryLoadBitmap(paths[i]);
+      if (bmp)
+         return bmp;
+   }
+   return null;
+}
+
 function acmDrawBitmapContained(graphics, panel, bitmap) {
    if (!bitmap || bitmap.width <= 0 || bitmap.height <= 0)
       return;
@@ -2563,12 +2574,13 @@ function AstroColorMixerUI03Dialog() {
    acmHelpHostDialog = this;
 
    var self = this;
-   this.windowTitle = "Astro Color Mixer v0.9.4-beta";
+   this.windowTitle = "Astro Color Mixer v0.9.5-beta";
    this.recipeFilePath = "";
    this.activeTab = ACM_TAB_SAT;
    this.activeToolPanel = "selectedBand";
    this.editorState = acmCreateBaseEditorState();
    this.bandControls = [];
+   this.targetViewId = null;
    this.previewSource = null;
    this.previewOriginalRgb = null;
    this.previewAdjustedRgb = null;
@@ -2664,7 +2676,13 @@ function AstroColorMixerUI03Dialog() {
    this.activeStatusLabel.minWidth = 170;
    this.activeStatusLabel.scaledMinHeight = 20;
 
-   this.logoBitmap = acmTryLoadBitmap("/Users/patrickcosgrove/Documents/Playground/astro-color-mixer-web-prototype/pixinsight/logo.png");
+   this.logoBitmap = acmTryLoadFirstBitmap([
+      "C:/Program Files/PixInsight/rsc/AstroColorMixer/logo/logo.png",
+      "/Applications/PixInsight/rsc/AstroColorMixer/logo/logo.png",
+      "/Users/patrickcosgrove/Github/astro-color-mixer-pixinsight/astro-color-mixer-pixinsight/rsc/AstroColorMixer/logo/logo.png",
+      "/Users/patrickcosgrove/Library/CloudStorage/Dropbox/Astronomy/Webpage Codeblocks/Colormixer/pixinsight_repo/rsc/AstroColorMixer/logo/logo.png",
+      "/Users/patrickcosgrove/Documents/Playground/astro-color-mixer-web-prototype/pixinsight/logo.png"
+   ]);
    this.headerLogoControl = new Control(this);
    this.headerLogoControl.acmDialogRef = this;
    this.headerLogoControl.scaledMinWidth = 170;
@@ -2693,7 +2711,7 @@ function AstroColorMixerUI03Dialog() {
    this.headerBrandControl.onPaint = function() {
       var g = new Graphics(this);
       var mainTitle = "Astro Color Mixer";
-      var versionText = "v0.9.4-beta";
+      var versionText = "v0.9.5-beta";
       var titleFont = new Font;
       titleFont.bold = true;
       titleFont.pixelSize = 27;
@@ -2977,6 +2995,7 @@ function AstroColorMixerUI03Dialog() {
    this.selectedBandReadoutPanel.sizer.addStretch();
 
    this.selectedBandViz = new Control(this);
+   this.selectedBandViz.scaledMinWidth = 112;
    this.selectedBandViz.scaledMinHeight = 112;
    this.selectedBandViz.acmDialogRef = this;
    this.selectedBandViz.onPaint = function() {
@@ -5396,20 +5415,20 @@ AstroColorMixerPOC8Dialog.prototype.applyToTargetImage = function() {
       if (this.currentPreviewModeIsMask()) {
          this.setOutputFeedback("Apply to Target is only available from the adjusted image preview.");
          showMessage("Apply to Target is only available for the adjusted image preview.", this.windowTitle, StdIcon_Warning);
-         return;
+         return false;
       }
       if (!this.confirmApplyToTarget())
-         return;
+         return false;
       if (!this.sourceView || !this.sourceView.viewId) {
          this.setOutputFeedback("Target image is no longer available. Refresh the target image or use Create Image.");
          showMessage("Target image is no longer available. Refresh the target image or use Create Image.", this.windowTitle, StdIcon_Warning);
-         return;
+         return false;
       }
       var targetInfo = acmFindViewForViewId(this.sourceView.viewId);
       if (!targetInfo || !targetInfo.view) {
          this.setOutputFeedback("Target image is no longer available. Refresh the target image or use Create Image.");
          showMessage("Target image is no longer available. Refresh the target image or use Create Image.", this.windowTitle, StdIcon_Warning);
-         return;
+         return false;
       }
 
       var target = acmReadRgbImageFromView(targetInfo.view);
@@ -5456,6 +5475,6 @@ try {
    if (!(error && error.__acmHandled)) {
       var message = "Unexpected dialog failure: " + (error && error.message ? error.message : String(error));
       console.criticalln(message);
-      showMessage(message, "Astro Color Mixer v0.9.4-beta", StdIcon_Error);
+      showMessage(message, "Astro Color Mixer v0.9.5-beta", StdIcon_Error);
    }
 }

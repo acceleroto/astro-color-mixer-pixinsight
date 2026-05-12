@@ -9,13 +9,13 @@
   <platform os="all" arch="noarch" version="1.8.0:1.9.9">
 
     <package
-      fileName="AstroColorMixer-0.9.4-beta.zip"
-      sha1="fb4335da97c1148f8c8e9143257ccf0b839ff30b"
+      fileName="AstroColorMixer-0.9.5-beta.zip"
+      sha1="851a542b6fd9576c11de4f23595a6893beaf4b52"
       type="script"
-      releaseDate="20260510"
+      releaseDate="20260512"
       remove="src/scripts/CosgrovesCosmos/AstroColorMixer.js">
 
-      <title>Astro Color Mixer v0.9.4-beta</title>
+      <title>Astro Color Mixer v0.9.5-beta</title>
 
       <description>
         <p>Astro Color Mixer is a PixInsight script for nonlinear RGB color and luminance refinement in astrophotography.</p>

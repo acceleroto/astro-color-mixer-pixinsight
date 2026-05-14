@@ -1,11 +1,11 @@
 #feature-id    Cosgrove's Cosmos > Astro Color Mixer
-#feature-info  Astro Color Mixer v0.9.5-beta. Nonlinear RGB color and luminance refinement for astrophotography.
+#feature-info  Astro Color Mixer v0.9.6-beta. Nonlinear RGB color and luminance refinement for astrophotography.
 
 /*
  * Astro Color Mixer for PixInsight
  *
  * Beta build:
- * Astro Color Mixer v0.9.5-beta
+ * Astro Color Mixer v0.9.6-beta
  */
 
 #include <pjsr/UndoFlag.jsh>
@@ -19,7 +19,7 @@
 #include <pjsr/SampleType.jsh>
 
 function showMessage(text, title, icon) {
-   (new MessageBox(text, title || "Astro Color Mixer v0.9.5-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
+   (new MessageBox(text, title || "Astro Color Mixer v0.9.6-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
 }
 
 var acmHelpHostDialog = null;
@@ -34,7 +34,7 @@ function showHelpTopic(title, text) {
 
 function fail(text) {
    console.criticalln(text);
-   showMessage(text, "Astro Color Mixer v0.9.5-beta", StdIcon_Error);
+   showMessage(text, "Astro Color Mixer v0.9.6-beta", StdIcon_Error);
    var error = new Error(text);
    error.__acmHandled = true;
    throw error;
@@ -164,7 +164,7 @@ function acmCreateInfoBox(parent) {
    return box;
 }
 
-console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.5-beta</b>");
+console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.6-beta</b>");
 
 // -------------------------------------------------------------------------
 // Minimal copied core logic
@@ -1214,7 +1214,7 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
 
 var ACM_ABOUT_TEXT =
       "About Astro Color Mixer\n\n" +
-      "Astro Color Mixer v0.9.5-beta\n\n" +
+      "Astro Color Mixer v0.9.6-beta\n\n" +
 "A Cosgrove's Cosmos tool for nonlinear RGB chroma-vector color control in astrophotography.\n\n" +
 "Core capabilities:\n" +
 "- H/S/L color-band adjustment\n" +
@@ -1337,6 +1337,48 @@ function acmReadRgbImageFromView(view) {
    }
 
    return { width: width, height: height, rgb: rgb, viewId: view.fullId };
+}
+
+function acmReadRgbCropFromView(view, cropRect) {
+   if (!view || view.isNull)
+      fail("No target view is available.");
+   var image = view.image;
+   if (!image || image.numberOfChannels < 3 || !image.isColor)
+      fail("The target image is not an RGB/color image.");
+
+   var x0 = acmClamp(Math.floor(cropRect.x0), 0, image.width - 1);
+   var y0 = acmClamp(Math.floor(cropRect.y0), 0, image.height - 1);
+   var x1 = acmClamp(Math.ceil(cropRect.x1), x0 + 1, image.width);
+   var y1 = acmClamp(Math.ceil(cropRect.y1), y0 + 1, image.height);
+   var width = Math.max(1, x1 - x0);
+   var height = Math.max(1, y1 - y0);
+   var count = width * height;
+   var rect = new Rect(x0, y0, x1, y1);
+   var r = new Float32Array(count);
+   var g = new Float32Array(count);
+   var b = new Float32Array(count);
+   image.getSamples(r, rect, 0);
+   image.getSamples(g, rect, 1);
+   image.getSamples(b, rect, 2);
+
+   var rgb = new Float32Array(count * 3);
+   for (var i = 0; i < count; ++i) {
+      var base = i * 3;
+      rgb[base] = r[i];
+      rgb[base + 1] = g[i];
+      rgb[base + 2] = b[i];
+   }
+
+   return {
+      x0: x0,
+      y0: y0,
+      x1: x1,
+      y1: y1,
+      width: width,
+      height: height,
+      rgb: rgb,
+      viewId: view.fullId
+   };
 }
 
 function acmFindWindowForViewId(viewId) {
@@ -2248,6 +2290,22 @@ function acmGetViewportRectForScale(panelWidth, panelHeight, bitmapWidth, bitmap
    return new Rect(x, y, x + targetWidth, y + targetHeight);
 }
 
+function acmGetVisibleBitmapRectForScale(panelWidth, panelHeight, bitmapWidth, bitmapHeight, scale, panX, panY) {
+   var viewportRect = acmGetViewportRectForScale(panelWidth, panelHeight, bitmapWidth, bitmapHeight, scale, panX, panY);
+   var left = acmClamp((0 - viewportRect.x0) / Math.max(ACM_EPSILON, scale), 0, bitmapWidth);
+   var top = acmClamp((0 - viewportRect.y0) / Math.max(ACM_EPSILON, scale), 0, bitmapHeight);
+   var right = acmClamp((panelWidth - viewportRect.x0) / Math.max(ACM_EPSILON, scale), 0, bitmapWidth);
+   var bottom = acmClamp((panelHeight - viewportRect.y0) / Math.max(ACM_EPSILON, scale), 0, bitmapHeight);
+   return {
+      x0: left,
+      y0: top,
+      x1: right,
+      y1: bottom,
+      width: Math.max(0, right - left),
+      height: Math.max(0, bottom - top)
+   };
+}
+
 function acmGetFitScale(panelWidth, panelHeight, bitmapWidth, bitmapHeight) {
    var usableWidth = Math.max(1, panelWidth - 8);
    var usableHeight = Math.max(1, panelHeight - 8);
@@ -2574,7 +2632,7 @@ function AstroColorMixerUI03Dialog() {
    acmHelpHostDialog = this;
 
    var self = this;
-   this.windowTitle = "Astro Color Mixer v0.9.5-beta";
+   this.windowTitle = "Astro Color Mixer v0.9.6-beta";
    this.recipeFilePath = "";
    this.activeTab = ACM_TAB_SAT;
    this.activeToolPanel = "selectedBand";
@@ -2603,6 +2661,13 @@ function AstroColorMixerUI03Dialog() {
    this.previewDisplayAdjusted = null;
    this.previewWidth = 0;
    this.previewHeight = 0;
+   this.previewQualityMode = "auto";
+   this.previewDetailThreshold = 4;
+   this.previewDetailMaxPixels = 1600000;
+   this.previewDetailCache = null;
+   this.previewDetailStamp = 0;
+   this.previewDetailRenderPending = false;
+   this.previewZoomPresetSyncing = false;
    this.previewMode = "adjusted";
    this.previewModeBeforeHold = "adjusted";
    this.previewIsStale = true;
@@ -2646,6 +2711,17 @@ function AstroColorMixerUI03Dialog() {
       this.previewDebounceTimer.dialog = this;
       this.previewDebounceTimer.onTimeout = function() {
          this.dialog.renderPreview();
+      };
+   }
+   this.previewDetailDebounceTimer = null;
+   if (typeof Timer !== "undefined") {
+      this.previewDetailDebounceTimer = new Timer;
+      this.previewDetailDebounceTimer.interval = 0.15;
+      this.previewDetailDebounceTimer.periodic = false;
+      this.previewDetailDebounceTimer.dialog = this;
+      this.previewDetailDebounceTimer.onTimeout = function() {
+         this.dialog.previewDetailRenderPending = false;
+         this.dialog.renderDetailPreviewForCurrentViewport();
       };
    }
    this.previewHoldTimer = null;
@@ -2711,7 +2787,7 @@ function AstroColorMixerUI03Dialog() {
    this.headerBrandControl.onPaint = function() {
       var g = new Graphics(this);
       var mainTitle = "Astro Color Mixer";
-      var versionText = "v0.9.5-beta";
+      var versionText = "v0.9.6-beta";
       var titleFont = new Font;
       titleFont.bold = true;
       titleFont.pixelSize = 27;
@@ -3311,7 +3387,7 @@ function AstroColorMixerUI03Dialog() {
    this.previewHelpButton = acmCreateHelpButton(
       this,
       "Preview / Mask Views",
-      "Preview uses downsampled data for speed. Apply to New Image processes the full-resolution image. Mask views show what the active selection or Range Mask is affecting.",
+      "Preview uses downsampled data for speed. At 6x and higher, Auto preview switches to Detail Crop Preview and renders the visible region from source pixels instead of only enlarging the fast preview. Apply to New Image processes the full-resolution image. Mask views show what the active selection or Range Mask is affecting.",
       "preview"
    );
    this.previewHelpBox = acmCreateHelpBox(this);
@@ -3336,55 +3412,43 @@ function AstroColorMixerUI03Dialog() {
       self.refreshPreviewDisplay();
    };
 
-   this.previewFitButton = new PushButton(this);
-   this.previewFitButton.text = "Fit";
-   this.previewFitButton.onClick = function() {
-      self.previewZoomMode = "fit";
-      self.previewPanX = 0;
-      self.previewPanY = 0;
-      self.refreshViewportControls();
-      self.previewHost.update();
-   };
-
-   this.preview1xButton = new PushButton(this);
-   this.preview1xButton.text = "1x";
-   this.preview1xButton.onClick = function() {
-      self.previewZoomMode = "manual";
-      self.previewZoomScale = 1;
-      self.previewPanX = 0;
-      self.previewPanY = 0;
-      self.refreshViewportControls();
-      self.previewHost.update();
-   };
-
-   this.preview2xButton = new PushButton(this);
-   this.preview2xButton.text = "2x";
-   this.preview2xButton.onClick = function() {
-      self.previewZoomMode = "manual";
-      self.previewZoomScale = 2;
-      self.previewPanX = 0;
-      self.previewPanY = 0;
-      self.refreshViewportControls();
-      self.previewHost.update();
-   };
-
    this.previewZoomLabel = new Label(this);
    this.previewZoomLabel.text = "Zoom";
    this.previewZoomLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
    this.previewZoomLabel.scaledMinHeight = 20;
 
+   this.previewZoomPresetCombo = new ComboBox(this);
+   this.previewZoomPresetCombo.addItem("Fit");
+   this.previewZoomPresetCombo.addItem("1x");
+   this.previewZoomPresetCombo.addItem("2x");
+   this.previewZoomPresetCombo.addItem("4x");
+   this.previewZoomPresetCombo.addItem("6x");
+   this.previewZoomPresetCombo.addItem("8x");
+   this.previewZoomPresetCombo.addItem("12x");
+   this.previewZoomPresetCombo.addItem("16x");
+   this.previewZoomPresetCombo.currentItem = 0;
+   this.previewZoomPresetCombo.toolTip =
+      "Higher zoom levels use Detail Crop Preview in Auto mode, rendering the visible region from source pixels instead of simply enlarging the fast preview.";
+   this.previewZoomPresetCombo.onItemSelected = function(index) {
+      if (self.previewZoomPresetSyncing)
+         return;
+      var label = self.previewZoomPresetCombo.itemText(index);
+      if (label === "Fit")
+         self.setPreviewZoomState("fit", 1, true);
+      else
+         self.setPreviewZoomState("manual", parseFloat(label), false);
+   };
+
    this.previewZoomControl = new NumericControl(this);
    this.previewZoomControl.label.visible = false;
    this.previewZoomControl.edit.visible = false;
-   this.previewZoomControl.setRange(0.25, 4.0);
+   this.previewZoomControl.setRange(0.25, 16.0);
    this.previewZoomControl.setPrecision(2);
-   this.previewZoomControl.slider.setRange(25, 400);
+   this.previewZoomControl.slider.setRange(25, 1600);
    this.previewZoomControl.setValue(1.0);
+   this.previewZoomControl.toolTip = this.previewZoomPresetCombo.toolTip;
    this.previewZoomControl.onValueUpdated = function(value) {
-      self.previewZoomMode = "manual";
-      self.previewZoomScale = value;
-      self.refreshViewportControls();
-      self.previewHost.update();
+      self.setPreviewZoomState("manual", value, false);
    };
 
    this.previewZoomReadout = new Label(this);
@@ -3398,6 +3462,11 @@ function AstroColorMixerUI03Dialog() {
       "Click: probe · Hold: compare · Drag: pan";
    this.previewInteractionHintLabel.toolTip =
       "Click a preview pixel to probe it. Click and hold in the preview to temporarily show the selected Compare reference. Drag to pan when zoomed.";
+
+   this.previewSamplingStatusLabel = new Label(this);
+   this.previewSamplingStatusLabel.wordWrapping = true;
+   this.previewSamplingStatusLabel.text = "Preview: Fast";
+   this.previewSamplingStatusLabel.toolTip = this.previewZoomPresetCombo.toolTip;
 
    this.previewHost = new Control(this);
    this.previewHost.scaledMinWidth = 480;
@@ -3415,9 +3484,10 @@ function AstroColorMixerUI03Dialog() {
          this.dialog.previewDisplayRect = this.dialog.getCurrentViewportRect(bmp);
          g.drawScaledBitmap(this.dialog.previewDisplayRect, bmp);
          if (this.dialog.probeData && this.dialog.previewDisplayRect) {
+            var metrics = this.dialog.getCurrentPreviewMetrics();
             var rect = this.dialog.previewDisplayRect;
-            var px = rect.x0 + Math.round((this.dialog.probeData.x / Math.max(1, this.dialog.previewWidth - 1)) * (rect.x1 - rect.x0));
-            var py = rect.y0 + Math.round((this.dialog.probeData.y / Math.max(1, this.dialog.previewHeight - 1)) * (rect.y1 - rect.y0));
+            var px = rect.x0 + Math.round((this.dialog.probeData.x / Math.max(1, metrics.width - 1)) * (rect.x1 - rect.x0));
+            var py = rect.y0 + Math.round((this.dialog.probeData.y / Math.max(1, metrics.height - 1)) * (rect.y1 - rect.y0));
             g.pen = new Pen(0xffffff66);
             g.drawLine(px - 4, py, px + 4, py);
             g.drawLine(px, py - 4, px, py + 4);
@@ -3458,6 +3528,10 @@ function AstroColorMixerUI03Dialog() {
       if (dialog.previewDragging) {
          dialog.previewPanX = dialog.previewPanStartX + dx;
          dialog.previewPanY = dialog.previewPanStartY + dy;
+         if (dialog.shouldUseDetailCropPreview() && !dialog.previewIsStale) {
+            dialog.previewSamplingStatusLabel.text = "Preview: Detail Crop moved — release to update";
+            dialog.requestDetailPreviewUpdate(false);
+         }
          dialog.previewHost.update();
       }
    };
@@ -3477,11 +3551,13 @@ function AstroColorMixerUI03Dialog() {
          dialog.refreshPreviewDisplay();
          return;
       }
+      if (dialog.shouldUseDetailCropPreview() && !dialog.previewIsStale)
+         dialog.renderDetailPreviewForCurrentViewport();
       if (!wasDragging)
          dialog.setProbeFromPreviewClick(x, y);
    };
 
-   this.previewStatusLabel = { text: "" };
+   this.previewStatusLabel = this.previewSamplingStatusLabel;
 
    this.diagnosticsSectionLabel = new Label(this);
    this.diagnosticsSectionLabel.useRichText = true;
@@ -3956,10 +4032,8 @@ function AstroColorMixerUI03Dialog() {
    previewButtonsRow.add(this.previewModeCombo);
    previewButtonsRow.add(this.updatePreviewButton);
    previewButtonsRow.add(this.autoPreviewCheck);
-   previewButtonsRow.add(this.previewFitButton);
-   previewButtonsRow.add(this.preview1xButton);
-   previewButtonsRow.add(this.preview2xButton);
    previewButtonsRow.add(this.previewZoomLabel);
+    previewButtonsRow.add(this.previewZoomPresetCombo);
    previewButtonsRow.add(this.previewZoomControl, 100);
    previewButtonsRow.add(this.previewZoomReadout);
    previewButtonsRow.addSpacing(8);
@@ -4177,6 +4251,7 @@ function AstroColorMixerUI03Dialog() {
    this.rightPanel.sizer.margin = 0;
    this.rightPanel.sizer.spacing = 1;
    this.rightPanel.sizer.add(previewButtonsRow);
+   this.rightPanel.sizer.add(this.previewSamplingStatusLabel);
    this.rightPanel.sizer.add(this.previewInteractionHintLabel);
    this.rightPanel.sizer.add(this.previewHost, 100);
    this.rightPanel.sizer.add(this.diagnosticsPanel);
@@ -4398,6 +4473,8 @@ AstroColorMixerPOC8Dialog.prototype.loadTargetByViewId = function(viewId, resetZ
    this.previewBitmapCombinedMask = null;
    this.previewWidth = preview.width;
    this.previewHeight = preview.height;
+   this.previewDetailCache = null;
+   ++this.previewDetailStamp;
    this.previewMode = "adjusted";
    this.previewIsStale = true;
    this.probeData = null;
@@ -4405,7 +4482,7 @@ AstroColorMixerPOC8Dialog.prototype.loadTargetByViewId = function(viewId, resetZ
    this.previewCompareBitmap = null;
    this.previewCompareRgb = null;
    if (resetZoom)
-      this.previewScaleMode = "fit";
+      this.previewZoomMode = "fit";
    this.refreshPreviewModeButtons();
    this.refreshDiagnosticsData();
    this.refreshTargetMaskStatus();
@@ -4509,7 +4586,24 @@ AstroColorMixerPOC8Dialog.prototype.getCurrentPreviewBitmap = function() {
    if (this.previewTempCompare && this.previewCompareBitmap)
       return this.previewCompareBitmap;
    if (this.previewTempOriginal)
-      return this.previewBitmapOriginal;
+      return this.shouldUseDetailCropPreview() && this.previewDetailCache && this.previewDetailCache.originalBitmap
+         ? this.previewDetailCache.originalBitmap
+         : this.previewBitmapOriginal;
+   if (this.shouldUseDetailCropPreview() && this.previewDetailCache) {
+      switch (this.previewMode) {
+      case "original":
+         return this.previewDetailCache.originalBitmap || this.previewBitmapOriginal;
+      case "bandMask":
+         return this.previewDetailCache.bandMaskBitmap || this.previewBitmapBandMask || this.previewBitmapOriginal;
+      case "rangeMask":
+         return this.previewDetailCache.rangeMaskBitmap || this.previewBitmapRangeMask || this.previewBitmapOriginal;
+      case "combinedMask":
+         return this.previewDetailCache.combinedMaskBitmap || this.previewBitmapCombinedMask || this.previewBitmapOriginal;
+      case "adjusted":
+      default:
+         return this.previewDetailCache.adjustedBitmap || this.previewBitmapAdjusted || this.previewBitmapOriginal;
+      }
+   }
    switch (this.previewMode) {
    case "original":
       return this.previewBitmapOriginal;
@@ -4528,14 +4622,26 @@ AstroColorMixerPOC8Dialog.prototype.getCurrentPreviewBitmap = function() {
 AstroColorMixerPOC8Dialog.prototype.getCurrentViewportScale = function(bitmap) {
    if (!bitmap)
       return 1;
-   if (this.previewZoomMode === "fit")
-      return acmGetFitScale(this.previewHost.width, this.previewHost.height, bitmap.width, bitmap.height);
-   return this.previewZoomScale;
+   if (this.shouldUseDetailCropPreview() && this.previewDetailCache && bitmap === this.getCurrentPreviewBitmap() && this.previewSource && this.sourceView) {
+      var sourceScale = this.sourceView.width / Math.max(1, this.previewSource.width);
+      return this.previewZoomScale / Math.max(ACM_EPSILON, sourceScale);
+   }
+   return this.getPreviewZoomValue(bitmap);
 };
 
 AstroColorMixerPOC8Dialog.prototype.getCurrentViewportRect = function(bitmap) {
    if (!bitmap)
       return null;
+   if (this.shouldUseDetailCropPreview() && this.previewDetailCache && bitmap === this.getCurrentPreviewBitmap())
+      return acmGetViewportRectForScale(
+         this.previewHost.width,
+         this.previewHost.height,
+         bitmap.width,
+         bitmap.height,
+         this.getCurrentViewportScale(bitmap),
+         0,
+         0
+      );
    return acmGetViewportRectForScale(
       this.previewHost.width,
       this.previewHost.height,
@@ -4553,6 +4659,151 @@ AstroColorMixerPOC8Dialog.prototype.refreshViewportControls = function() {
    else
       this.previewZoomReadout.text = this.previewZoomScale.toFixed(2) + "x";
    this.previewZoomControl.setValue(this.previewZoomMode === "fit" ? 1 : this.previewZoomScale);
+   if (this.previewZoomPresetCombo) {
+      var matchLabel = this.previewZoomMode === "fit" ? "Fit" : this.previewZoomScale.toFixed(0) + "x";
+      var selectedIndex = -1;
+      for (var i = 0; i < this.previewZoomPresetCombo.numberOfItems; ++i)
+         if (this.previewZoomPresetCombo.itemText(i) === matchLabel) {
+            selectedIndex = i;
+            break;
+         }
+      if (selectedIndex >= 0) {
+         this.previewZoomPresetSyncing = true;
+         this.previewZoomPresetCombo.currentItem = selectedIndex;
+         this.previewZoomPresetSyncing = false;
+      }
+   }
+};
+
+AstroColorMixerPOC8Dialog.prototype.getPreviewZoomValue = function(bitmap) {
+   if (!bitmap)
+      return 1;
+   return this.previewZoomMode === "fit"
+      ? acmGetFitScale(this.previewHost.width, this.previewHost.height, bitmap.width, bitmap.height)
+      : this.previewZoomScale;
+};
+
+AstroColorMixerPOC8Dialog.prototype.getPreviewBitmapCenter = function(bitmap) {
+   if (!bitmap)
+      return { x: 0, y: 0 };
+   var scale = this.getPreviewZoomValue(bitmap);
+   return {
+      x: bitmap.width * 0.5 - this.previewPanX / Math.max(ACM_EPSILON, scale),
+      y: bitmap.height * 0.5 - this.previewPanY / Math.max(ACM_EPSILON, scale)
+   };
+};
+
+AstroColorMixerPOC8Dialog.prototype.setPreviewZoomState = function(mode, scale, resetPan) {
+   var bitmap = this.previewBitmapOriginal || this.getCurrentPreviewBitmap();
+   var center = this.getPreviewBitmapCenter(bitmap);
+   this.previewZoomMode = mode === "fit" ? "fit" : "manual";
+   this.previewZoomScale = acmClamp(scale, 0.25, 16.0);
+   if (this.previewZoomMode === "fit" || resetPan) {
+      this.previewPanX = 0;
+      this.previewPanY = 0;
+   } else if (bitmap) {
+      this.previewPanX = (bitmap.width * 0.5 - center.x) * this.previewZoomScale;
+      this.previewPanY = (bitmap.height * 0.5 - center.y) * this.previewZoomScale;
+   }
+   this.refreshViewportControls();
+   this.handleViewportInteractionChange(true);
+};
+
+AstroColorMixerPOC8Dialog.prototype.shouldUseDetailCropPreview = function() {
+   if (this.previewQualityMode === "fast")
+      return false;
+   if (this.previewZoomMode === "fit")
+      return false;
+   if (this.previewTempCompare)
+      return false;
+   if (this.previewZoomScale <= this.previewDetailThreshold)
+      return this.previewQualityMode === "detail";
+   return true;
+};
+
+AstroColorMixerPOC8Dialog.prototype.getCurrentPreviewMetrics = function() {
+   if (this.previewTempCompare)
+      return {
+         width: this.previewSource ? this.previewSource.width : this.previewWidth,
+         height: this.previewSource ? this.previewSource.height : this.previewHeight,
+         sourceX0: 0,
+         sourceY0: 0,
+         sourceWidth: this.sourceView ? this.sourceView.width : (this.previewSource ? this.previewSource.width : this.previewWidth),
+         sourceHeight: this.sourceView ? this.sourceView.height : (this.previewSource ? this.previewSource.height : this.previewHeight),
+         fullWidth: this.sourceView ? this.sourceView.width : (this.previewSource ? this.previewSource.width : this.previewWidth),
+         fullHeight: this.sourceView ? this.sourceView.height : (this.previewSource ? this.previewSource.height : this.previewHeight)
+      };
+   if (this.shouldUseDetailCropPreview() && this.previewDetailCache && this.previewDetailCache.width > 0 && this.previewDetailCache.height > 0)
+      return this.previewDetailCache;
+   return {
+      width: this.previewSource ? this.previewSource.width : this.previewWidth,
+      height: this.previewSource ? this.previewSource.height : this.previewHeight,
+      sourceX0: 0,
+      sourceY0: 0,
+      sourceWidth: this.sourceView ? this.sourceView.width : (this.previewSource ? this.previewSource.width : this.previewWidth),
+      sourceHeight: this.sourceView ? this.sourceView.height : (this.previewSource ? this.previewSource.height : this.previewHeight),
+      fullWidth: this.sourceView ? this.sourceView.width : (this.previewSource ? this.previewSource.width : this.previewWidth),
+      fullHeight: this.sourceView ? this.sourceView.height : (this.previewSource ? this.previewSource.height : this.previewHeight)
+   };
+};
+
+AstroColorMixerPOC8Dialog.prototype.getDetailCropRequest = function() {
+   if (!this.previewSource || !this.sourceView || this.previewZoomMode === "fit")
+      return null;
+   var scale = this.previewZoomScale;
+   var visiblePreviewRect = acmGetVisibleBitmapRectForScale(
+      this.previewHost.width,
+      this.previewHost.height,
+      this.previewSource.width,
+      this.previewSource.height,
+      scale,
+      this.previewPanX,
+      this.previewPanY
+   );
+   if (visiblePreviewRect.width <= 0 || visiblePreviewRect.height <= 0)
+      return null;
+   var scaleX = this.sourceView.width / Math.max(1, this.previewSource.width);
+   var scaleY = this.sourceView.height / Math.max(1, this.previewSource.height);
+   var x0 = acmClamp(Math.floor(visiblePreviewRect.x0 * scaleX), 0, this.sourceView.width - 1);
+   var y0 = acmClamp(Math.floor(visiblePreviewRect.y0 * scaleY), 0, this.sourceView.height - 1);
+   var x1 = acmClamp(Math.ceil(visiblePreviewRect.x1 * scaleX), x0 + 1, this.sourceView.width);
+   var y1 = acmClamp(Math.ceil(visiblePreviewRect.y1 * scaleY), y0 + 1, this.sourceView.height);
+   var width = Math.max(1, x1 - x0);
+   var height = Math.max(1, y1 - y0);
+   return {
+      x0: x0,
+      y0: y0,
+      x1: x1,
+      y1: y1,
+      width: width,
+      height: height,
+      key: [x0, y0, x1, y1, this.previewMode, this.previewZoomScale.toFixed(3), this.previewDetailStamp].join(":")
+   };
+};
+
+AstroColorMixerPOC8Dialog.prototype.requestDetailPreviewUpdate = function(immediate) {
+   if (!this.shouldUseDetailCropPreview() || this.previewIsStale)
+      return;
+   if (immediate || !this.previewDetailDebounceTimer) {
+      this.previewDetailRenderPending = false;
+      this.renderDetailPreviewForCurrentViewport();
+      return;
+   }
+   this.previewDetailRenderPending = true;
+   this.previewDetailDebounceTimer.stop();
+   this.previewDetailDebounceTimer.start();
+};
+
+AstroColorMixerPOC8Dialog.prototype.handleViewportInteractionChange = function(immediate) {
+   if (!this.shouldUseDetailCropPreview()) {
+      this.refreshPreviewDisplay();
+      return;
+   }
+   if (this.previewIsStale) {
+      this.refreshPreviewDisplay();
+      return;
+   }
+   this.requestDetailPreviewUpdate(immediate);
 };
 
 AstroColorMixerPOC8Dialog.prototype.makeNextPassId = function() {
@@ -5015,6 +5266,8 @@ AstroColorMixerPOC8Dialog.prototype.currentPreviewModeIsMask = function() {
 
 AstroColorMixerPOC8Dialog.prototype.markPreviewStale = function() {
    this.previewIsStale = true;
+   this.previewDetailCache = null;
+   ++this.previewDetailStamp;
    this.syncPendingChangesIndicator();
    this.refreshPassSummary();
    this.refreshPassViewer();
@@ -5029,6 +5282,8 @@ AstroColorMixerPOC8Dialog.prototype.requestPreviewUpdate = function(immediate) {
       return;
    if (this.previewSliderInteraction && !immediate)
       return;
+   if (this.previewDetailDebounceTimer)
+      this.previewDetailDebounceTimer.stop();
    if (this.previewDebounceTimer && !immediate) {
       this.previewRenderPending = true;
       this.previewDebounceTimer.stop();
@@ -5044,16 +5299,37 @@ AstroColorMixerPOC8Dialog.prototype.refreshPreviewDisplay = function() {
    this.previewHost.update();
    if (this.previewTempCompare)
       this.previewStatusLabel.text = "Preview compare: " + (this.previewCompareLabel || "Original") + " — release to return";
-   else if (this.previewMode === "original")
-      this.previewStatusLabel.text = this.previewIsStale ? "Preview: Original · Adjusted stale" : "Preview: Original";
+   else if (this.shouldUseDetailCropPreview()) {
+      if (this.previewDetailCache && this.previewDetailCache.fallbackToFast)
+         this.previewStatusLabel.text = "Preview: Fast fallback — detail region too large";
+      else if (this.previewIsStale)
+         this.previewStatusLabel.text = "Preview: Detail Crop pending";
+      else
+         this.previewStatusLabel.text = this.previewMode === "original" ? "Preview: Original · Detail Crop" : "Preview: Detail Crop";
+   } else if (this.previewMode === "original")
+      this.previewStatusLabel.text = this.previewIsStale ? "Preview: Original · Adjusted stale" : "Preview: Original · Fast";
    else
-      this.previewStatusLabel.text = this.previewIsStale ? "Preview stale — click Update Preview" : "Preview updated";
+      this.previewStatusLabel.text = this.previewIsStale ? "Preview stale — click Update Preview" : "Preview: Fast";
    this.refreshDiagnosticsData();
 };
 
 AstroColorMixerPOC8Dialog.prototype.getDiagnosticsRgb = function() {
    if (this.previewTempCompare && this.previewCompareRgb)
       return this.previewCompareRgb;
+   if (this.shouldUseDetailCropPreview() && this.previewDetailCache) {
+      if (this.previewTempOriginal && this.previewDetailCache.originalRgb)
+         return this.previewDetailCache.originalRgb;
+      if (this.previewMode === "adjusted" && this.previewDetailCache.adjustedRgb)
+         return this.previewDetailCache.adjustedRgb;
+      if (this.previewMode === "original" && this.previewDetailCache.originalRgb)
+         return this.previewDetailCache.originalRgb;
+      if (this.previewMode === "bandMask" && this.previewDetailCache.bandMaskRgb)
+         return this.previewDetailCache.bandMaskRgb;
+      if (this.previewMode === "rangeMask" && this.previewDetailCache.rangeMaskRgb)
+         return this.previewDetailCache.rangeMaskRgb;
+      if (this.previewMode === "combinedMask" && this.previewDetailCache.combinedMaskRgb)
+         return this.previewDetailCache.combinedMaskRgb;
+   }
    if (this.previewMode === "adjusted" && this.previewAdjustedRgb)
       return this.previewAdjustedRgb;
    if (this.previewMode === "bandMask" && this.previewBandMaskRgb)
@@ -5067,7 +5343,8 @@ AstroColorMixerPOC8Dialog.prototype.getDiagnosticsRgb = function() {
 
 AstroColorMixerPOC8Dialog.prototype.refreshDiagnosticsData = function() {
    var rgb = this.getDiagnosticsRgb();
-   if (!rgb || !this.previewWidth || !this.previewHeight) {
+   var metrics = this.getCurrentPreviewMetrics();
+   if (!rgb || !metrics.width || !metrics.height) {
       this.histogramData = null;
       this.polarSamples = [];
       this.probeReadoutLabel.text = "Preview-resolution diagnostics · Probe: none";
@@ -5081,16 +5358,24 @@ AstroColorMixerPOC8Dialog.prototype.refreshDiagnosticsData = function() {
    var rangeMaskState = this.getActivePassState().rangeMask;
    var histogramRangeMaskState = this.previewMode === "rangeMask" ? rangeMaskState : { enabled: false, low: rangeMaskState.low, high: rangeMaskState.high, feather: rangeMaskState.feather };
    var probeY = this.probeData ? this.probeData.y709 : null;
-   this.histogramData = acmComputeHistogramData(rgb, this.previewWidth, this.previewHeight, 256, histogramRangeMaskState, probeY);
-   this.polarSamples = acmComputePolarSamplesData(rgb, this.previewWidth, this.previewHeight, 1800);
+   this.histogramData = acmComputeHistogramData(rgb, metrics.width, metrics.height, 256, histogramRangeMaskState, probeY);
+   this.polarSamples = acmComputePolarSamplesData(rgb, metrics.width, metrics.height, 1800);
 
    if (this.probeData) {
-      this.probeData = acmComputeProbeData(rgb, this.previewWidth, this.previewHeight, this.probeData.x, this.probeData.y, rangeMaskState);
+      var localX = this.probeData.sourceX != null
+         ? ((this.probeData.sourceX - metrics.sourceX0) / Math.max(1, metrics.sourceWidth - 1)) * Math.max(1, metrics.width - 1)
+         : this.probeData.x;
+      var localY = this.probeData.sourceY != null
+         ? ((this.probeData.sourceY - metrics.sourceY0) / Math.max(1, metrics.sourceHeight - 1)) * Math.max(1, metrics.height - 1)
+         : this.probeData.y;
+      this.probeData = acmComputeProbeData(rgb, metrics.width, metrics.height, localX, localY, rangeMaskState);
+      this.probeData.sourceX = metrics.sourceX0 + (this.probeData.x / Math.max(1, metrics.width - 1)) * Math.max(1, metrics.sourceWidth - 1);
+      this.probeData.sourceY = metrics.sourceY0 + (this.probeData.y / Math.max(1, metrics.height - 1)) * Math.max(1, metrics.sourceHeight - 1);
       this.probeReadoutLabel.text = this.probeData.suggestedNeutral
-         ? "Preview-resolution diagnostics · Probe: L " + this.probeData.y709.toFixed(2) + " · Sat " + this.probeData.s.toFixed(2) + " · Hue unreliable"
-         : "Preview-resolution diagnostics · Probe: L " + this.probeData.y709.toFixed(2) + " · Hue " + this.probeData.h.toFixed(0) + "° · Sat " + this.probeData.s.toFixed(2);
+         ? "Preview diagnostics · Px " + Math.round(this.probeData.sourceX) + "," + Math.round(this.probeData.sourceY) + " · L " + this.probeData.y709.toFixed(2) + " · Sat " + this.probeData.s.toFixed(2) + " · Hue unreliable"
+         : "Preview diagnostics · Px " + Math.round(this.probeData.sourceX) + "," + Math.round(this.probeData.sourceY) + " · L " + this.probeData.y709.toFixed(2) + " · Hue " + this.probeData.h.toFixed(0) + "° · Sat " + this.probeData.s.toFixed(2);
    } else {
-      this.probeReadoutLabel.text = "Preview-resolution diagnostics · Probe: none";
+      this.probeReadoutLabel.text = "Preview diagnostics · Probe: none";
    }
 
    if (this.selectedBandViz)
@@ -5102,14 +5387,17 @@ AstroColorMixerPOC8Dialog.prototype.refreshDiagnosticsData = function() {
 AstroColorMixerPOC8Dialog.prototype.setProbeFromPreviewClick = function(x, y) {
    var rgb = this.getDiagnosticsRgb();
    var bmp = this.getCurrentPreviewBitmap();
+   var metrics = this.getCurrentPreviewMetrics();
    if (!rgb || !bmp)
       return;
    var rect = this.getCurrentViewportRect(bmp);
    if (x < rect.x0 || x > rect.x1 || y < rect.y0 || y > rect.y1)
       return;
-   var px = ((x - rect.x0) / Math.max(1, rect.x1 - rect.x0)) * (this.previewWidth - 1);
-   var py = ((y - rect.y0) / Math.max(1, rect.y1 - rect.y0)) * (this.previewHeight - 1);
-   this.probeData = acmComputeProbeData(rgb, this.previewWidth, this.previewHeight, px, py, this.getActivePassState().rangeMask);
+   var px = ((x - rect.x0) / Math.max(1, rect.x1 - rect.x0)) * (metrics.width - 1);
+   var py = ((y - rect.y0) / Math.max(1, rect.y1 - rect.y0)) * (metrics.height - 1);
+   this.probeData = acmComputeProbeData(rgb, metrics.width, metrics.height, px, py, this.getActivePassState().rangeMask);
+   this.probeData.sourceX = metrics.sourceX0 + (this.probeData.x / Math.max(1, metrics.width - 1)) * Math.max(1, metrics.sourceWidth - 1);
+   this.probeData.sourceY = metrics.sourceY0 + (this.probeData.y / Math.max(1, metrics.height - 1)) * Math.max(1, metrics.sourceHeight - 1);
    if (this.autoSelectProbeBandCheck.checked && this.probeData.reliableColor && this.probeData.nearestBand) {
       this.getActivePassState().selectedBandId = this.probeData.nearestBand.id;
       this.setHighlightedRowId(this.probeData.nearestBand.id);
@@ -5117,6 +5405,81 @@ AstroColorMixerPOC8Dialog.prototype.setProbeFromPreviewClick = function(x, y) {
    }
    this.refreshDiagnosticsData();
    this.previewHost.update();
+};
+
+AstroColorMixerPOC8Dialog.prototype.renderDetailPreviewForCurrentViewport = function() {
+   if (!this.shouldUseDetailCropPreview() || this.previewIsStale || !this.sourceView || !this.sourceView.viewId || !this.previewSource)
+      return;
+   var cropRequest = this.getDetailCropRequest();
+   if (!cropRequest)
+      return;
+   if (this.previewDetailCache && this.previewDetailCache.key === cropRequest.key) {
+      this.refreshPreviewDisplay();
+      return;
+   }
+
+   if (cropRequest.width * cropRequest.height > this.previewDetailMaxPixels) {
+      this.previewDetailCache = {
+         key: cropRequest.key,
+         width: this.previewSource.width,
+         height: this.previewSource.height,
+         sourceX0: 0,
+         sourceY0: 0,
+         sourceWidth: this.sourceView.width,
+         sourceHeight: this.sourceView.height,
+         fullWidth: this.sourceView.width,
+         fullHeight: this.sourceView.height,
+         fallbackToFast: true
+      };
+      this.previewStatusLabel.text = "Preview: Fast fallback — detail region too large";
+      this.refreshPreviewDisplay();
+      return;
+   }
+
+   var targetInfo = acmFindViewForViewId(this.sourceView.viewId);
+   if (!targetInfo || !targetInfo.view)
+      return;
+
+   this.previewStatusLabel.text = "Preview: Detail Crop rendering...";
+   var crop = acmReadRgbCropFromView(targetInfo.view, cropRequest);
+   var recipe = acmBuildRecipeFromEditorState(this.editorState);
+   var result = applyAstroColorMixerPasses(crop.rgb, crop.width, crop.height, recipe);
+   var activePass = this.getActivePassState();
+   var bandMaskValues = acmComputeSelectedBandMaskData(crop.rgb, crop.width, crop.height, activePass, this.editorState.imageType, "bandMask");
+   var rangeMaskValues = acmComputeSelectedBandMaskData(crop.rgb, crop.width, crop.height, activePass, this.editorState.imageType, "rangeMask");
+   var combinedMaskValues = acmComputeSelectedBandMaskData(crop.rgb, crop.width, crop.height, activePass, this.editorState.imageType, "combinedMask");
+   var bandMaskRgb = new Float32Array(crop.width * crop.height * 3);
+   var rangeMaskRgb = new Float32Array(crop.width * crop.height * 3);
+   var combinedMaskRgb = new Float32Array(crop.width * crop.height * 3);
+   for (var i = 0; i < bandMaskValues.length; ++i) {
+      var base = i * 3;
+      bandMaskRgb[base] = bandMaskRgb[base + 1] = bandMaskRgb[base + 2] = bandMaskValues[i];
+      rangeMaskRgb[base] = rangeMaskRgb[base + 1] = rangeMaskRgb[base + 2] = rangeMaskValues[i];
+      combinedMaskRgb[base] = combinedMaskRgb[base + 1] = combinedMaskRgb[base + 2] = combinedMaskValues[i];
+   }
+
+   this.previewDetailCache = {
+      key: cropRequest.key,
+      width: crop.width,
+      height: crop.height,
+      sourceX0: crop.x0,
+      sourceY0: crop.y0,
+      sourceWidth: crop.width,
+      sourceHeight: crop.height,
+      fullWidth: this.sourceView.width,
+      fullHeight: this.sourceView.height,
+      originalRgb: crop.rgb,
+      adjustedRgb: result.rgb,
+      bandMaskRgb: bandMaskRgb,
+      rangeMaskRgb: rangeMaskRgb,
+      combinedMaskRgb: combinedMaskRgb,
+      originalBitmap: acmRenderBitmapFromRgb(crop.width, crop.height, crop.rgb),
+      adjustedBitmap: acmRenderBitmapFromRgb(crop.width, crop.height, result.rgb),
+      bandMaskBitmap: acmRenderGrayBitmapFromMask(crop.width, crop.height, bandMaskValues),
+      rangeMaskBitmap: acmRenderGrayBitmapFromMask(crop.width, crop.height, rangeMaskValues),
+      combinedMaskBitmap: acmRenderGrayBitmapFromMask(crop.width, crop.height, combinedMaskValues)
+   };
+   this.refreshPreviewDisplay();
 };
 
 AstroColorMixerPOC8Dialog.prototype.renderPreview = function() {
@@ -5166,7 +5529,10 @@ AstroColorMixerPOC8Dialog.prototype.renderPreview = function() {
       this.previewBitmapCombinedMask = acmRenderGrayBitmapFromMask(this.previewSource.width, this.previewSource.height, combinedMaskValues);
       this.previewWidth = this.previewSource.width;
       this.previewHeight = this.previewSource.height;
+      this.previewDetailCache = null;
       this.previewIsStale = false;
+      if (this.shouldUseDetailCropPreview())
+         this.renderDetailPreviewForCurrentViewport();
       this.refreshPreviewModeButtons();
       this.refreshPreviewDisplay();
    } catch (error) {
@@ -5475,6 +5841,6 @@ try {
    if (!(error && error.__acmHandled)) {
       var message = "Unexpected dialog failure: " + (error && error.message ? error.message : String(error));
       console.criticalln(message);
-      showMessage(message, "Astro Color Mixer v0.9.5-beta", StdIcon_Error);
+      showMessage(message, "Astro Color Mixer v0.9.6-beta", StdIcon_Error);
    }
 }

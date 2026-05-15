@@ -122,6 +122,76 @@ function acmCreateHelpBox(parent) {
    return box;
 }
 
+function acmGetOptionalDialogRect(dialog, propertyName) {
+   if (!dialog)
+      return null;
+   try {
+      return (propertyName in dialog) ? dialog[propertyName] : null;
+   } catch (ex) {
+      return null;
+   }
+}
+
+function acmGetDialogAvailableScreenSize(dialog) {
+   var candidates = [
+      acmGetOptionalDialogRect(dialog, "availableScreenRect"),
+      acmGetOptionalDialogRect(dialog, "availableScreenBounds"),
+      acmGetOptionalDialogRect(dialog, "availableRect"),
+      acmGetOptionalDialogRect(dialog, "screenRect"),
+      acmGetOptionalDialogRect(dialog, "screenBounds")
+   ];
+   for (var i = 0; i < candidates.length; ++i) {
+      var rect = candidates[i];
+      if (rect && typeof rect.width === "number" && typeof rect.height === "number" && rect.width > 0 && rect.height > 0)
+         return { width: rect.width, height: rect.height };
+   }
+   return null;
+}
+
+function acmGetControlPositionRelativeToDialog(control, dialog) {
+   var x = 0;
+   var y = 0;
+   var current = control;
+   while (current && current !== dialog) {
+      if (current.boundsRect) {
+         x += current.boundsRect.x0;
+         y += current.boundsRect.y0;
+      }
+      current = current.parent;
+   }
+   return { x: x, y: y };
+}
+
+function acmConfigureResponsiveDialogBounds(dialog) {
+   var safeMargin = 72;
+   var targetMinWidth = 1240;
+   var targetMinHeight = 780;
+   var defaultWidth = 2000;
+   var defaultHeight = 920;
+   var screenSize = acmGetDialogAvailableScreenSize(dialog);
+   var minWidth = targetMinWidth;
+   var minHeight = targetMinHeight;
+   var width = defaultWidth;
+   var height = defaultHeight;
+
+   if (screenSize) {
+      minWidth = Math.max(1120, Math.min(targetMinWidth, screenSize.width - safeMargin));
+      minHeight = Math.max(720, Math.min(targetMinHeight, screenSize.height - safeMargin));
+      width = Math.max(minWidth, Math.min(defaultWidth, screenSize.width - safeMargin));
+      height = Math.max(minHeight, Math.min(defaultHeight, screenSize.height - safeMargin));
+   }
+
+   dialog.setMinWidth(minWidth);
+   dialog.setMinHeight(minHeight);
+   if (typeof dialog.resize === "function")
+      dialog.resize(width, height);
+
+   dialog.acmMinDialogWidth = minWidth;
+   dialog.acmMinDialogHeight = minHeight;
+   dialog.acmDefaultDialogWidth = width;
+   dialog.acmDefaultDialogHeight = height;
+}
+
 function acmCreateInfoBox(parent) {
    var box = new Control(parent);
    box.visible = false;
@@ -188,9 +258,11 @@ var ACM_SQRT3 = Math.sqrt(3);
 var ACM_AXIS = [1 / ACM_SQRT3, 1 / ACM_SQRT3, 1 / ACM_SQRT3];
 var ACM_SWATCH_WIDTH = 10;
 var ACM_ROW_LABEL_WIDTH = 0;
-var ACM_ROW_EDIT_WIDTH = 40;
-var ACM_ROW_RESET_WIDTH = 34;
-var ACM_ROW_SPACING = 4;
+var ACM_ROW_EDIT_WIDTH = 38;
+var ACM_ROW_RESET_WIDTH = 18;
+var ACM_ROW_SPACING = 2;
+var ACM_MIXER_LABEL_WIDTH = 84;
+var ACM_MIXER_SLIDER_MIN_WIDTH = 252;
 
 var ACM_PROTECTION_PRESETS = {
    stars: {
@@ -1469,6 +1541,34 @@ function acmCreateColorSwatch(parent, hex) {
    return swatch;
 }
 
+function acmCreateMiniResetButton(parent) {
+   var button = new Control(parent);
+   button.setFixedSize(ACM_ROW_RESET_WIDTH, 16);
+   button.toolTip = "Reset this band";
+   button.onPaint = function() {
+      var g = new Graphics(this);
+      g.pen = new Pen(0xff7a7f89);
+      g.brush = new Brush(0xffececec);
+      g.drawRect(this.boundsRect);
+
+      var f = new Font;
+      f.pixelSize = 10;
+      g.font = f;
+      var glyph = "\u21ba";
+      var tw = g.font.width(glyph);
+      var x = Math.round((this.width - tw) * 0.5);
+      var y = Math.round((this.height + g.font.ascent - g.font.descent) * 0.5);
+      g.pen = new Pen(0xff222222);
+      g.drawText(x, y, glyph);
+      g.end();
+   };
+   button.onMousePress = function() {
+      if (typeof this.onClick === "function")
+         this.onClick();
+   };
+   return button;
+}
+
 function acmAttachPreviewSliderHooks(dialog, numericControl) {
    if (!numericControl || !numericControl.slider)
       return;
@@ -1655,7 +1755,7 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
    row.host.sizer = new HorizontalSizer;
    row.host.sizer.margin = 0;
    row.host.sizer.spacing = ACM_ROW_SPACING;
-   row.host.scaledMinHeight = 34;
+   row.host.scaledMinHeight = 25;
 
    if (row.isNeutral) {
       row.swatch = new Control(row.host);
@@ -1671,24 +1771,25 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
    row.labelHost.useRichText = false;
    row.labelHost.text = row.primaryLabelText;
    row.labelHost.textAlignment = TextAlign_Right | TextAlign_VertCenter;
-   row.labelHost.minWidth = 118;
-   row.labelHost.scaledMinHeight = 20;
+   row.labelHost.minWidth = ACM_MIXER_LABEL_WIDTH;
+   row.labelHost.scaledMinHeight = 18;
    row.labelHost.toolTip = acmMixerLabelTooltip(row.bandDef, row.isNeutral);
 
    row.edit = new Edit(row.host);
    row.edit.setFixedWidth(ACM_ROW_EDIT_WIDTH);
+   row.edit.setFixedHeight(20);
    row.edit.text = acmFormatMixerDisplayValue(row.value, row.precision);
 
    row.field = new Control(row.host);
    row.field.rowRef = row;
-   row.field.minWidth = 286;
-   row.field.scaledMinHeight = 28;
+   row.field.minWidth = ACM_MIXER_SLIDER_MIN_WIDTH;
+   row.field.scaledMinHeight = 18;
    row.field.onPaint = function() {
       var g = new Graphics(this);
       var r = this.rowRef;
-      var fieldTop = 2;
-      var fieldBottom = this.height - 2;
-      var fieldHeight = Math.max(18, fieldBottom - fieldTop);
+      var fieldTop = 3;
+      var fieldBottom = this.height - 3;
+      var fieldHeight = Math.max(12, fieldBottom - fieldTop);
       var fieldRect = new Rect(0, fieldTop, this.width - 1, fieldTop + fieldHeight);
       var key = r.dialog.activeTab + ":" + this.width + ":" + fieldHeight + ":" + (r.isNeutral ? "neutral" : r.bandDef.id);
       if (r.cachedKey !== key) {
@@ -1711,7 +1812,7 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
       var knobX = fieldRect.left + 10 + Math.round(t * Math.max(1, (fieldRect.right - fieldRect.left - 20)));
       g.pen = new Pen(0xff5f646d, 1);
       g.brush = new Brush(0xfff1f2f4);
-      g.drawCircle(knobX, cy, 7);
+      g.drawCircle(knobX, cy, 5);
       var selectedRowId = r.dialog && r.dialog.getHighlightedRowId ? r.dialog.getHighlightedRowId() : "";
       if ((r.isNeutral && selectedRowId === "neutral") || (!r.isNeutral && r.bandId === selectedRowId)) {
          g.pen = new Pen(0xff000000, 2);
@@ -1723,10 +1824,7 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
       g.end();
    };
 
-   row.resetButton = new PushButton(row.host);
-   row.resetButton.text = "Reset";
-   row.resetButton.setFixedWidth(ACM_ROW_RESET_WIDTH);
-   row.resetButton.scaledMinHeight = 8;
+   row.resetButton = acmCreateMiniResetButton(row.host);
 
    row.host.sizer.add(row.swatch);
    row.host.sizer.add(row.labelHost);
@@ -1938,7 +2036,7 @@ function acmConfigureNumericRowControl(numeric) {
    if (numeric.edit && typeof numeric.edit.setFixedWidth === "function")
       numeric.edit.setFixedWidth(ACM_ROW_EDIT_WIDTH);
    if (numeric.slider)
-      numeric.slider.minWidth = 288;
+      numeric.slider.minWidth = 252;
 }
 
 function writeResultImage(width, height, rgb, outputId) {
@@ -2655,6 +2753,7 @@ function AstroColorMixerUI03Dialog() {
    this.previewTempCompare = false;
    this.previewCompareBitmap = null;
    this.previewCompareRgb = null;
+   this.previewCompareMetrics = null;
    this.previewCompareLabel = "Original";
    this.compareMode = "auto";
    this.previewDisplayOriginal = null;
@@ -2676,6 +2775,9 @@ function AstroColorMixerUI03Dialog() {
    this.activeToolPanel = "selectedBand";
    this.previewCacheMaxEdge = 1000;
    this.previewSliderInteraction = false;
+   this.userResizable = true;
+   this.lastPreviewHostWidth = 0;
+   this.lastPreviewHostHeight = 0;
    this.previewRenderInProgress = false;
    this.previewRenderPending = false;
    this.previewDisplayRect = null;
@@ -2738,6 +2840,7 @@ function AstroColorMixerUI03Dialog() {
             dialog.previewTempCompare = true;
             dialog.previewCompareBitmap = compareRef.bitmap;
             dialog.previewCompareRgb = compareRef.rgb;
+            dialog.previewCompareMetrics = compareRef.metrics || null;
             dialog.previewCompareLabel = compareRef.label;
             dialog.refreshPreviewDisplay();
             dialog.previewStatusLabel.text = "Preview compare: " + compareRef.label + " — release to return";
@@ -2829,7 +2932,8 @@ function AstroColorMixerUI03Dialog() {
    this.targetImageLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
 
    this.targetImageCombo = new ComboBox(this);
-   this.targetImageCombo.minWidth = 180;
+   this.targetImageCombo.minWidth = 320;
+   this.targetImageCombo.setFixedWidth(320);
    this.targetImageCombo.toolTip = "Selects the PixInsight image/view Astro Color Mixer will process. Switching targets will prompt if there are unapplied adjustments.";
    this.targetImageCombo.onItemSelected = function(index) {
       if (self.targetComboSyncing)
@@ -2863,13 +2967,15 @@ function AstroColorMixerUI03Dialog() {
 
    this.sensitivityLabel = new Label(this);
    this.sensitivityLabel.text = "Sensitivity";
-   this.sensitivityLabel.minWidth = 50;
+   this.sensitivityLabel.setFixedWidth(56);
    this.sensitivityLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
    this.sensitivityCombo = new ComboBox(this);
    this.sensitivityCombo.addItem("Fine");
    this.sensitivityCombo.addItem("Normal");
    this.sensitivityCombo.addItem("Advanced");
    this.sensitivityCombo.currentItem = 1;
+   this.sensitivityCombo.setFixedHeight(24);
+   this.sensitivityCombo.setFixedWidth(104);
    this.sensitivityCombo.onItemSelected = function(index) {
       var sensitivity = self.sensitivityCombo.itemText(index);
       self.editorState.sensitivity = sensitivity;
@@ -2929,14 +3035,20 @@ function AstroColorMixerUI03Dialog() {
 
    this.tabHueButton = new PushButton(this);
    this.tabHueButton.text = "Hue";
+   this.tabHueButton.setFixedWidth(54);
+   this.tabHueButton.setFixedHeight(24);
    this.tabHueButton.onClick = function() { self.setActiveTab(ACM_TAB_HUE); };
 
    this.tabSaturationButton = new PushButton(this);
    this.tabSaturationButton.text = "Saturation";
+   this.tabSaturationButton.setFixedWidth(68);
+   this.tabSaturationButton.setFixedHeight(24);
    this.tabSaturationButton.onClick = function() { self.setActiveTab(ACM_TAB_SAT); };
 
    this.tabLuminanceButton = new PushButton(this);
    this.tabLuminanceButton.text = "Luminance";
+   this.tabLuminanceButton.setFixedWidth(70);
+   this.tabLuminanceButton.setFixedHeight(24);
    this.tabLuminanceButton.onClick = function() { self.setActiveTab(ACM_TAB_LUM); };
 
    this.toolSelectedBandButton = new PushButton(this);
@@ -2961,6 +3073,7 @@ function AstroColorMixerUI03Dialog() {
 
    this.bandSectionLabel = new Label(this);
    this.bandSectionLabel.useRichText = true;
+   this.bandSectionLabel.scaledMinHeight = 18;
    this.colorMixerHelpButton = acmCreateHelpButton(
       this,
       "Color Mixer",
@@ -3398,6 +3511,7 @@ function AstroColorMixerUI03Dialog() {
    this.previewModeCombo.addItem("Range Mask");
    this.previewModeCombo.addItem("Combined Mask");
    this.previewModeCombo.currentItem = 0;
+   this.previewModeCombo.setFixedWidth(168);
    this.previewModeCombo.onItemSelected = function(index) {
       var modeMap = {
          "Adjusted": "adjusted",
@@ -3427,6 +3541,7 @@ function AstroColorMixerUI03Dialog() {
    this.previewZoomPresetCombo.addItem("12x");
    this.previewZoomPresetCombo.addItem("16x");
    this.previewZoomPresetCombo.currentItem = 0;
+   this.previewZoomPresetCombo.setFixedWidth(84);
    this.previewZoomPresetCombo.toolTip =
       "Higher zoom levels use Detail Crop Preview in Auto mode, rendering the visible region from source pixels instead of simply enlarging the fast preview.";
    this.previewZoomPresetCombo.onItemSelected = function(index) {
@@ -3447,6 +3562,8 @@ function AstroColorMixerUI03Dialog() {
    this.previewZoomControl.slider.setRange(25, 1600);
    this.previewZoomControl.setValue(1.0);
    this.previewZoomControl.toolTip = this.previewZoomPresetCombo.toolTip;
+   this.previewZoomControl.visible = false;
+   this.previewZoomControl.hide();
    this.previewZoomControl.onValueUpdated = function(value) {
       self.setPreviewZoomState("manual", value, false);
    };
@@ -3455,6 +3572,7 @@ function AstroColorMixerUI03Dialog() {
    this.previewZoomReadout.text = "Fit";
    this.previewZoomReadout.textAlignment = TextAlign_Left|TextAlign_VertCenter;
    this.previewZoomReadout.scaledMinHeight = 20;
+   this.previewZoomReadout.minWidth = 34;
 
    this.previewInteractionHintLabel = new Label(this);
    this.previewInteractionHintLabel.wordWrapping = true;
@@ -3464,13 +3582,13 @@ function AstroColorMixerUI03Dialog() {
       "Click a preview pixel to probe it. Click and hold in the preview to temporarily show the selected Compare reference. Drag to pan when zoomed.";
 
    this.previewSamplingStatusLabel = new Label(this);
-   this.previewSamplingStatusLabel.wordWrapping = true;
+   this.previewSamplingStatusLabel.wordWrapping = false;
    this.previewSamplingStatusLabel.text = "Preview: Fast";
    this.previewSamplingStatusLabel.toolTip = this.previewZoomPresetCombo.toolTip;
 
    this.previewHost = new Control(this);
-   this.previewHost.scaledMinWidth = 480;
-   this.previewHost.scaledMinHeight = 560;
+   this.previewHost.scaledMinWidth = 420;
+   this.previewHost.scaledMinHeight = 500;
    this.previewHost.toolTip =
       "Click to probe a pixel. Click and hold to temporarily show the selected Compare reference. Drag to pan when zoomed.";
    this.previewHost.onPaint = function() {
@@ -3501,6 +3619,7 @@ function AstroColorMixerUI03Dialog() {
       dialog.previewDragging = false;
       dialog.previewTempOriginal = false;
       dialog.previewTempCompare = false;
+      dialog.previewCompareMetrics = null;
       dialog.previewDragStartX = x;
       dialog.previewDragStartY = y;
       dialog.previewPanStartX = dialog.previewPanX;
@@ -3523,6 +3642,7 @@ function AstroColorMixerUI03Dialog() {
             dialog.previewTempCompare = false;
             dialog.previewCompareBitmap = null;
             dialog.previewCompareRgb = null;
+            dialog.previewCompareMetrics = null;
          }
       }
       if (dialog.previewDragging) {
@@ -3548,6 +3668,7 @@ function AstroColorMixerUI03Dialog() {
          dialog.previewTempCompare = false;
          dialog.previewCompareBitmap = null;
          dialog.previewCompareRgb = null;
+         dialog.previewCompareMetrics = null;
          dialog.refreshPreviewDisplay();
          return;
       }
@@ -3718,6 +3839,8 @@ function AstroColorMixerUI03Dialog() {
       "refinementPass"
    );
    this.refinementPassHelpBox = acmCreateHelpBox(this);
+   this.refinementPassHelpBox.visible = false;
+   this.refinementPassHelpBox.hide();
 
    this.passViewerHost = new ScrollBox(this);
    this.passViewerHost.autoScroll = false;
@@ -3765,10 +3888,17 @@ function AstroColorMixerUI03Dialog() {
    this.footerNoticeLabel.wordWrapping = false;
    this.footerNoticeLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
    this.footerNoticeLabel.text = "Developed by Patrick A. Cosgrove for Cosgrove's Cosmos · © 2026";
+   var footerFont = new Font;
+   footerFont.pixelSize = 9;
+   this.footerNoticeLabel.font = footerFont;
+   this.footerNoticeLabel.scaledMinHeight = 12;
 
    this.previewOutputHelpLabel = new Label(this);
    this.previewOutputHelpLabel.wordWrapping = true;
-   this.previewOutputHelpLabel.text = "Use the preview to judge settings before creating a new image or applying to the target image. 'Create Image' creates a new adjusted image window and leaves the target unchanged. 'Apply to Target' writes back into the target image and respects the active PixInsight mask.";
+   this.previewOutputHelpLabel.text = "Use the preview to judge settings first. 'Create Image' leaves the target unchanged. 'Apply to Target' writes the adjusted result back and respects the active PixInsight mask.";
+   var previewOutputHelpFont = new Font;
+   previewOutputHelpFont.pixelSize = 10;
+   this.previewOutputHelpLabel.font = previewOutputHelpFont;
 
    this.updatePreviewButton = new PushButton(this);
    this.updatePreviewButton.text = "Update Preview";
@@ -3798,6 +3928,7 @@ function AstroColorMixerUI03Dialog() {
    this.compareModeCombo.addItem("Original");
    this.compareModeCombo.addItem("Last Pass");
    this.compareModeCombo.currentItem = 0;
+   this.compareModeCombo.setFixedWidth(128);
    this.compareModeCombo.onItemSelected = function(index) {
       self.compareMode = index === 1 ? "original" : index === 2 ? "lastPass" : "auto";
       self.refreshCompareModeControls();
@@ -3807,7 +3938,7 @@ function AstroColorMixerUI03Dialog() {
    this.bandControlsHost = new Control(this);
    this.bandControlsHost.sizer = new VerticalSizer;
    this.bandControlsHost.sizer.margin = 0;
-   this.bandControlsHost.sizer.spacing = 4;
+   this.bandControlsHost.sizer.spacing = 1;
 
    this.neutralFieldRow = acmCreateMixerFieldRow(this.bandControlsHost, this, {
       isNeutral: true,
@@ -3820,7 +3951,7 @@ function AstroColorMixerUI03Dialog() {
          self.markPreviewStale();
       }
    });
-   this.neutralFieldRow.resetButton.toolTip = "Reset Neutral / Low-Saturation";
+   this.neutralFieldRow.resetButton.toolTip = "Reset this band";
    this.neutralFieldRow.resetButton.onClick = function() {
       self.getActivePassState().neutralLuminance.luminance = 0;
       self.refreshBandControls();
@@ -3842,7 +3973,7 @@ function AstroColorMixerUI03Dialog() {
                dialog.markPreviewStale();
             }
          });
-         fieldRow.resetButton.toolTip = "Reset " + def.label + " for the active tab";
+         fieldRow.resetButton.toolTip = "Reset this band";
          fieldRow.resetButton.onClick = function() {
             dialog.getBandById(def.id)[dialog.activeTab] = 0;
             dialog.refreshBandControls();
@@ -3914,7 +4045,7 @@ function AstroColorMixerUI03Dialog() {
 
    this.technicalButton = new PushButton(this);
    this.technicalButton.text = "Technical Appendix";
-   this.technicalButton.setFixedWidth(180);
+   this.technicalButton.setFixedWidth(140);
    this.technicalButton.onClick = function() { self.showDocumentation("technical"); };
 
    this.aboutButton = new PushButton(this);
@@ -3926,10 +4057,10 @@ function AstroColorMixerUI03Dialog() {
    this.closeButton.text = "Close";
    this.closeButton.onClick = function() { self.cancel(); };
 
-   this.faqButton.setFixedWidth(150);
-   this.technicalButton.setFixedWidth(150);
-   this.aboutButton.setFixedWidth(150);
-   this.imageTypeCombo.setFixedWidth(140);
+   this.faqButton.setFixedWidth(118);
+   this.technicalButton.setFixedWidth(118);
+   this.aboutButton.setFixedWidth(118);
+   this.imageTypeCombo.setFixedWidth(180);
    this.activeStatusLabel.minWidth = 0;
 
    var targetTopRow = new HorizontalSizer;
@@ -4010,14 +4141,17 @@ function AstroColorMixerUI03Dialog() {
    selectedBandVizRow.add(this.selectedBandReadoutPanel);
 
    var tabsRow = new HorizontalSizer;
-   tabsRow.spacing = 6;
+   tabsRow.spacing = 0;
    tabsRow.add(this.tabHueButton);
    tabsRow.add(this.tabSaturationButton);
    tabsRow.add(this.tabLuminanceButton);
-   tabsRow.add(this.colorMixerHelpButton);
+   var colorMixerSensitivityRow = new HorizontalSizer;
+   colorMixerSensitivityRow.spacing = 2;
+   colorMixerSensitivityRow.add(this.sensitivityLabel);
+   colorMixerSensitivityRow.add(this.sensitivityCombo);
+   tabsRow.addSpacing(8);
+   tabsRow.add(colorMixerSensitivityRow);
    tabsRow.addStretch();
-   tabsRow.add(this.sensitivityLabel);
-   tabsRow.add(this.sensitivityCombo);
 
    var workflowTabsRow = new HorizontalSizer;
    workflowTabsRow.spacing = 6;
@@ -4025,22 +4159,33 @@ function AstroColorMixerUI03Dialog() {
    workflowTabsRow.add(this.toolRangeMaskButton);
    workflowTabsRow.addStretch();
 
-   var previewButtonsRow = new HorizontalSizer;
-   previewButtonsRow.spacing = 6;
-   previewButtonsRow.add(this.previewModeLabel);
-   previewButtonsRow.add(this.previewHelpButton);
-   previewButtonsRow.add(this.previewModeCombo);
-   previewButtonsRow.add(this.updatePreviewButton);
-   previewButtonsRow.add(this.autoPreviewCheck);
-   previewButtonsRow.add(this.previewZoomLabel);
-    previewButtonsRow.add(this.previewZoomPresetCombo);
-   previewButtonsRow.add(this.previewZoomControl, 100);
-   previewButtonsRow.add(this.previewZoomReadout);
-   previewButtonsRow.addSpacing(8);
-   previewButtonsRow.add(this.compareModeLabel);
-   previewButtonsRow.add(this.compareModeHelpButton);
-   previewButtonsRow.add(this.compareModeCombo);
-   previewButtonsRow.addStretch();
+   var previewButtonsTopRow = new HorizontalSizer;
+   previewButtonsTopRow.spacing = 6;
+   previewButtonsTopRow.add(this.previewModeLabel);
+   previewButtonsTopRow.add(this.previewHelpButton);
+   previewButtonsTopRow.add(this.previewModeCombo);
+   previewButtonsTopRow.add(this.updatePreviewButton);
+   previewButtonsTopRow.add(this.autoPreviewCheck);
+   previewButtonsTopRow.addStretch();
+   previewButtonsTopRow.add(this.previewSamplingStatusLabel);
+
+   var previewButtonsBottomRow = new HorizontalSizer;
+   previewButtonsBottomRow.spacing = 6;
+   previewButtonsBottomRow.add(this.previewZoomLabel);
+   previewButtonsBottomRow.add(this.previewZoomPresetCombo);
+   previewButtonsBottomRow.add(this.previewZoomReadout);
+   previewButtonsBottomRow.addSpacing(10);
+   previewButtonsBottomRow.add(this.compareModeLabel);
+   previewButtonsBottomRow.add(this.compareModeHelpButton);
+   previewButtonsBottomRow.add(this.compareModeCombo);
+   previewButtonsBottomRow.addStretch();
+   previewButtonsBottomRow.add(this.previewInteractionHintLabel);
+
+   var previewToolbarColumn = new VerticalSizer;
+   previewToolbarColumn.margin = 0;
+   previewToolbarColumn.spacing = 2;
+   previewToolbarColumn.add(previewButtonsTopRow);
+   previewToolbarColumn.add(previewButtonsBottomRow);
 
    var buttonsRow = new HorizontalSizer;
    buttonsRow.spacing = 6;
@@ -4087,17 +4232,12 @@ function AstroColorMixerUI03Dialog() {
    previewOutputHeaderRow.add(this.previewOutputSectionLabel);
    previewOutputHeaderRow.addStretch();
 
-   var recipeHeaderRow = new HorizontalSizer;
-   recipeHeaderRow.spacing = 4;
-   recipeHeaderRow.add(this.recipeSectionLabel);
-   recipeHeaderRow.add(this.recipeHelpButton);
-   recipeHeaderRow.addStretch();
-
    this.colorMixerPanel = new Control(this);
    this.colorMixerPanel.sizer = new VerticalSizer;
    this.colorMixerPanel.sizer.margin = 0;
-   this.colorMixerPanel.sizer.spacing = 1;
+   this.colorMixerPanel.sizer.spacing = 0;
    this.colorMixerPanel.sizer.add(tabsRow);
+   this.colorMixerPanel.sizer.addSpacing(4);
    this.colorMixerPanel.sizer.add(this.bandSectionLabel);
     this.colorMixerPanel.sizer.add(this.bandControlsHost, 100);
    this.colorMixerPanel.visible = true;
@@ -4147,10 +4287,12 @@ function AstroColorMixerUI03Dialog() {
    polarPanel.sizer.add(this.polarControl, 100);
 
    var passViewerPanel = new Control(this);
+   this.passViewerPanel = passViewerPanel;
    passViewerPanel.sizer = new VerticalSizer;
    passViewerPanel.sizer.margin = 0;
    passViewerPanel.sizer.spacing = 2;
    passViewerPanel.sizer.add(passViewerHeaderRow);
+   passViewerPanel.sizer.add(this.refinementPassHelpBox);
    passViewerPanel.sizer.add(passControlsRow);
    passViewerPanel.sizer.add(this.passViewerHost, 100);
 
@@ -4169,6 +4311,12 @@ function AstroColorMixerUI03Dialog() {
    this.diagnosticsPanel.sizer.add(diagnosticsMetaRow);
    this.diagnosticsPanel.sizer.add(diagnosticsPlotsRow);
    this.diagnosticsPanel.visible = true;
+   this.refinementPassHelpButton.acmDialogRef = this;
+   this.refinementPassHelpButton.onMousePress = function() {
+      if (this.acmDialogRef)
+         this.acmDialogRef.togglePassViewerInlineHelp();
+   };
+   this.refinementPassHelpButton.onMouseRelease = function() {};
 
    var previewOutputButtonsRow = new HorizontalSizer;
    previewOutputButtonsRow.spacing = 6;
@@ -4179,11 +4327,30 @@ function AstroColorMixerUI03Dialog() {
    previewOutputButtonsRow.add(this.targetApplyMaskStatusLabel, 100);
    previewOutputButtonsRow.addStretch();
 
-   var recipeButtonsRow = new HorizontalSizer;
-   recipeButtonsRow.spacing = 6;
-   recipeButtonsRow.add(this.saveRecipeButton);
-   recipeButtonsRow.add(this.loadRecipeButton);
-   recipeButtonsRow.addStretch();
+   var recipeButtonGroup = new Control(this);
+   this.recipeButtonGroup = recipeButtonGroup;
+   var recipeButtonHeaderRow = new HorizontalSizer;
+   recipeButtonHeaderRow.spacing = 4;
+   recipeButtonHeaderRow.add(this.recipeSectionLabel);
+   recipeButtonHeaderRow.add(this.recipeHelpButton);
+   recipeButtonHeaderRow.addStretch();
+   var recipeButtonButtonsRow = new HorizontalSizer;
+   recipeButtonButtonsRow.spacing = 6;
+   recipeButtonButtonsRow.add(this.saveRecipeButton);
+   recipeButtonButtonsRow.add(this.loadRecipeButton);
+   recipeButtonButtonsRow.addStretch();
+   recipeButtonGroup.sizer = new VerticalSizer;
+   recipeButtonGroup.sizer.margin = 4;
+   recipeButtonGroup.sizer.spacing = 2;
+   recipeButtonGroup.sizer.add(recipeButtonHeaderRow);
+   recipeButtonGroup.sizer.add(recipeButtonButtonsRow);
+   recipeButtonGroup.onPaint = function() {
+      var g = new Graphics(this);
+      g.pen = new Pen(0xff8a8f98);
+      g.brush = new Brush(0x00000000);
+      g.drawRect(this.boundsRect);
+      g.end();
+   };
 
    var helpButtonsRow = new HorizontalSizer;
    helpButtonsRow.spacing = 6;
@@ -4192,41 +4359,58 @@ function AstroColorMixerUI03Dialog() {
    helpButtonsRow.add(this.aboutButton);
    helpButtonsRow.addStretch();
 
-   var closeButtonsRow = new HorizontalSizer;
-   closeButtonsRow.spacing = 6;
-   closeButtonsRow.addStretch();
-   closeButtonsRow.add(this.closeButton);
+   var bottomActionsRow = new HorizontalSizer;
+   bottomActionsRow.spacing = 8;
+   bottomActionsRow.add(recipeButtonGroup);
+   bottomActionsRow.addStretch();
+   bottomActionsRow.add(this.closeButton);
 
    this.previewOutputPanel = new Control(this);
    this.previewOutputPanel.sizer = new VerticalSizer;
    this.previewOutputPanel.sizer.margin = 0;
-   this.previewOutputPanel.sizer.spacing = 6;
+   this.previewOutputPanel.sizer.spacing = 4;
    this.previewOutputPanel.sizer.add(previewOutputHeaderRow);
    this.previewOutputPanel.sizer.add(this.previewOutputHelpLabel);
-   this.previewOutputPanel.sizer.addSpacing(4);
    this.previewOutputPanel.sizer.add(previewOutputButtonsRow);
    this.previewOutputPanel.sizer.add(this.outputFeedbackLabel);
-   this.previewOutputPanel.sizer.addSpacing(10);
-   this.previewOutputPanel.sizer.add(recipeHeaderRow);
-   this.previewOutputPanel.sizer.addSpacing(2);
-   this.previewOutputPanel.sizer.add(recipeButtonsRow);
-   this.previewOutputPanel.sizer.addSpacing(14);
    this.previewOutputPanel.sizer.addStretch();
+   this.previewOutputPanel.sizer.add(bottomActionsRow);
+   this.previewOutputPanel.sizer.addSpacing(2);
    this.previewOutputPanel.sizer.add(this.footerNoticeLabel);
-   this.previewOutputPanel.sizer.addSpacing(6);
-   this.previewOutputPanel.sizer.add(closeButtonsRow);
    this.previewOutputPanel.visible = true;
+   this.recipeHelpBox = acmCreateHelpBox(this.previewOutputPanel);
+   this.recipeHelpBox.bodyLabel.minWidth = 320;
+   this.recipeHelpBox.scaledMinWidth = 340;
+   this.recipeHelpBox.hide();
+
+   this.recipeHelpButton.acmDialogRef = this;
+   this.recipeHelpButton.onMousePress = function() {
+      if (this.acmDialogRef)
+         this.acmDialogRef.toggleRecipeInlineHelp();
+   };
+   this.recipeHelpButton.onMouseRelease = function() {};
 
    this.leftPanel = new Control(this);
+   this.leftPanel.scaledMinWidth = 425;
+   this.leftPanel.maxWidth = 455;
    this.leftPanel.sizer = new VerticalSizer;
    this.leftPanel.sizer.margin = 0;
    this.leftPanel.sizer.spacing = 3;
    var colorMixerGroup = new GroupBox(this.leftPanel);
-   colorMixerGroup.title = "Color Mixer";
+   colorMixerGroup.title = "";
    colorMixerGroup.sizer = new VerticalSizer;
-   colorMixerGroup.sizer.margin = 4;
-   colorMixerGroup.sizer.spacing = 1;
-   colorMixerGroup.sizer.add(this.colorMixerPanel);
+   colorMixerGroup.sizer.margin = 0;
+   colorMixerGroup.sizer.spacing = 0;
+   var colorMixerTitleLabel = new Label(this.leftPanel);
+   colorMixerTitleLabel.useRichText = true;
+   colorMixerTitleLabel.text = "<b><color=#2a5db0>Color Mixer</color></b>";
+   var colorMixerTitleHelpRow = new HorizontalSizer;
+   colorMixerTitleHelpRow.spacing = 4;
+   colorMixerTitleHelpRow.add(colorMixerTitleLabel);
+   colorMixerTitleHelpRow.add(this.colorMixerHelpButton);
+   colorMixerTitleHelpRow.addStretch();
+   colorMixerGroup.sizer.add(colorMixerTitleHelpRow);
+   colorMixerGroup.sizer.add(this.colorMixerPanel, 100);
    var workflowToolsGroup = new GroupBox(this.leftPanel);
    workflowToolsGroup.title = "Context Tools";
    workflowToolsGroup.sizer = new VerticalSizer;
@@ -4242,24 +4426,22 @@ function AstroColorMixerUI03Dialog() {
    previewOutputGroup.sizer.margin = 4;
    previewOutputGroup.sizer.spacing = 2;
    previewOutputGroup.sizer.add(this.previewOutputPanel);
-   this.leftPanel.sizer.add(colorMixerGroup);
+   this.leftPanel.sizer.add(colorMixerGroup, 100);
    this.leftPanel.sizer.add(workflowToolsGroup);
    this.leftPanel.sizer.add(previewOutputGroup);
 
    this.rightPanel = new Control(this);
    this.rightPanel.sizer = new VerticalSizer;
    this.rightPanel.sizer.margin = 0;
-   this.rightPanel.sizer.spacing = 1;
-   this.rightPanel.sizer.add(previewButtonsRow);
-   this.rightPanel.sizer.add(this.previewSamplingStatusLabel);
-   this.rightPanel.sizer.add(this.previewInteractionHintLabel);
+   this.rightPanel.sizer.spacing = 3;
+   this.rightPanel.sizer.add(previewToolbarColumn);
    this.rightPanel.sizer.add(this.previewHost, 100);
    this.rightPanel.sizer.add(this.diagnosticsPanel);
 
    var mainContentRow = new HorizontalSizer;
    mainContentRow.spacing = 8;
-   mainContentRow.add(this.leftPanel, 26);
-   mainContentRow.add(this.rightPanel, 74);
+   mainContentRow.add(this.leftPanel, 24);
+   mainContentRow.add(this.rightPanel, 76);
 
    var globalSettingsGroup = new GroupBox(this);
    globalSettingsGroup.title = "Global Settings";
@@ -4281,14 +4463,26 @@ function AstroColorMixerUI03Dialog() {
       this.loadRecipePath(ACM_LAST_RECIPE_PATH);
 
    this.adjustToContents();
-   this.setMinWidth(700);
-   this.setMinHeight(620);
+   acmConfigureResponsiveDialogBounds(this);
    this.refreshActiveSource();
    this.refreshBandControls();
    this.bandControlsHost.update();
    this.neutralRowHost.update();
    if (this.autoPreviewCheck.checked)
       this.requestPreviewUpdate(true);
+
+   this.onResize = function() {
+      var previewWidth = self.previewHost ? self.previewHost.width : 0;
+      var previewHeight = self.previewHost ? self.previewHost.height : 0;
+      if (previewWidth === self.lastPreviewHostWidth && previewHeight === self.lastPreviewHostHeight)
+         return;
+      self.lastPreviewHostWidth = previewWidth;
+      self.lastPreviewHostHeight = previewHeight;
+      if (self.previewHost)
+         self.previewHost.update();
+      if (!self.previewIsStale)
+         self.handleViewportInteractionChange(false);
+   };
 }
 
 var AstroColorMixerPOC8Dialog = AstroColorMixerUI03Dialog;
@@ -4308,6 +4502,8 @@ AstroColorMixerPOC8Dialog.prototype.showInlineHelp = function(helpKey, title, te
    if (!anchor)
       return;
    var parent = anchor.parent ? anchor.parent : this;
+   if (!parent || parent.width < 320 || parent.height < 140)
+      parent = this;
    if (!this.floatingHelpBox || this.floatingHelpBoxParent !== parent) {
       this.floatingHelpBox = acmCreateHelpBox(parent);
       this.floatingHelpBoxParent = parent;
@@ -4321,6 +4517,10 @@ AstroColorMixerPOC8Dialog.prototype.showInlineHelp = function(helpKey, title, te
    if (anchor.boundsRect) {
       x = anchor.boundsRect.x0;
       y = anchor.boundsRect.y1 + 6;
+   }
+   if (parent === this && anchor.boundsRect && anchor.parent && anchor.parent.boundsRect) {
+      x += anchor.parent.boundsRect.x0;
+      y += anchor.parent.boundsRect.y0;
    }
    var w = Math.max(box.width, 240);
    var h = Math.max(box.height, 56);
@@ -4337,6 +4537,80 @@ AstroColorMixerPOC8Dialog.prototype.showInlineHelp = function(helpKey, title, te
 AstroColorMixerPOC8Dialog.prototype.hideInlineHelp = function() {
    if (this.floatingHelpBox)
       this.floatingHelpBox.hide();
+};
+
+AstroColorMixerPOC8Dialog.prototype.hideRecipeInlineHelp = function() {
+   if (this.recipeHelpBox)
+      this.recipeHelpBox.hide();
+};
+
+AstroColorMixerPOC8Dialog.prototype.hidePassViewerInlineHelp = function() {
+   if (this.refinementPassHelpBox)
+      this.refinementPassHelpBox.hide();
+};
+
+AstroColorMixerPOC8Dialog.prototype.showRecipeInlineHelp = function() {
+   if (!this.recipeHelpBox || !this.previewOutputPanel || !this.recipeButtonGroup)
+      return;
+   if (this.floatingHelpBox)
+      this.floatingHelpBox.hide();
+   this.hidePassViewerInlineHelp();
+   var box = this.recipeHelpBox;
+   box.titleLabel.text = "<b>Adjustment Set</b>";
+   box.bodyLabel.text = this.recipeHelpButton ? this.recipeHelpButton.acmHelpText : "";
+   box.adjustToContents();
+   var desiredWidth = Math.max(340, Math.min(420, this.previewOutputPanel.width - 24));
+   box.setFixedWidth(desiredWidth);
+   box.adjustToContents();
+   var w = Math.max(desiredWidth, box.width);
+   var h = Math.max(72, box.height);
+   var x = this.recipeButtonGroup.boundsRect.x0 + 4;
+   var y = this.recipeButtonGroup.boundsRect.y0 - h - 6;
+   if (x + w > this.previewOutputPanel.width - 8)
+      x = Math.max(8, this.previewOutputPanel.width - w - 8);
+   if (y < 8)
+      y = 8;
+   box.setFixedSize(w, h);
+   box.move(x, y);
+   box.show();
+   box.update();
+};
+
+AstroColorMixerPOC8Dialog.prototype.toggleRecipeInlineHelp = function() {
+   if (!this.recipeHelpBox)
+      return;
+   if (this.recipeHelpBox.visible)
+      this.hideRecipeInlineHelp();
+   else
+      this.showRecipeInlineHelp();
+};
+
+AstroColorMixerPOC8Dialog.prototype.showPassViewerInlineHelp = function() {
+   if (!this.refinementPassHelpBox || !this.passViewerPanel || !this.refinementPassHelpButton)
+      return;
+   if (this.floatingHelpBox)
+      this.floatingHelpBox.hide();
+   this.hideRecipeInlineHelp();
+   var box = this.refinementPassHelpBox;
+   box.titleLabel.text = "<b>Refinement Pass</b>";
+   box.bodyLabel.text = this.refinementPassHelpButton ? this.refinementPassHelpButton.acmHelpText : "";
+   box.bodyLabel.minWidth = 260;
+   box.scaledMinWidth = 280;
+   box.setVariableSize();
+   box.adjustToContents();
+   box.show();
+   if (this.passViewerPanel)
+      this.passViewerPanel.adjustToContents();
+   box.update();
+};
+
+AstroColorMixerPOC8Dialog.prototype.togglePassViewerInlineHelp = function() {
+   if (!this.refinementPassHelpBox)
+      return;
+   if (this.refinementPassHelpBox.visible)
+      this.hidePassViewerInlineHelp();
+   else
+      this.showPassViewerInlineHelp();
 };
 
 AstroColorMixerPOC8Dialog.prototype.showDocumentation = function(kind) {
@@ -4481,6 +4755,7 @@ AstroColorMixerPOC8Dialog.prototype.loadTargetByViewId = function(viewId, resetZ
    this.previewTempCompare = false;
    this.previewCompareBitmap = null;
    this.previewCompareRgb = null;
+   this.previewCompareMetrics = null;
    if (resetZoom)
       this.previewZoomMode = "fit";
    this.refreshPreviewModeButtons();
@@ -4619,9 +4894,17 @@ AstroColorMixerPOC8Dialog.prototype.getCurrentPreviewBitmap = function() {
    }
 };
 
+AstroColorMixerPOC8Dialog.prototype.isUsingDetailComparePreview = function() {
+   return !!(this.previewTempCompare && this.previewCompareMetrics && !this.previewCompareMetrics.fallbackToFast);
+};
+
 AstroColorMixerPOC8Dialog.prototype.getCurrentViewportScale = function(bitmap) {
    if (!bitmap)
       return 1;
+   if (this.isUsingDetailComparePreview() && bitmap === this.getCurrentPreviewBitmap() && this.previewSource && this.sourceView) {
+      var compareSourceScale = this.sourceView.width / Math.max(1, this.previewSource.width);
+      return this.previewZoomScale / Math.max(ACM_EPSILON, compareSourceScale);
+   }
    if (this.shouldUseDetailCropPreview() && this.previewDetailCache && bitmap === this.getCurrentPreviewBitmap() && this.previewSource && this.sourceView) {
       var sourceScale = this.sourceView.width / Math.max(1, this.previewSource.width);
       return this.previewZoomScale / Math.max(ACM_EPSILON, sourceScale);
@@ -4632,6 +4915,16 @@ AstroColorMixerPOC8Dialog.prototype.getCurrentViewportScale = function(bitmap) {
 AstroColorMixerPOC8Dialog.prototype.getCurrentViewportRect = function(bitmap) {
    if (!bitmap)
       return null;
+   if (this.isUsingDetailComparePreview() && bitmap === this.getCurrentPreviewBitmap())
+      return acmGetViewportRectForScale(
+         this.previewHost.width,
+         this.previewHost.height,
+         bitmap.width,
+         bitmap.height,
+         this.getCurrentViewportScale(bitmap),
+         0,
+         0
+      );
    if (this.shouldUseDetailCropPreview() && this.previewDetailCache && bitmap === this.getCurrentPreviewBitmap())
       return acmGetViewportRectForScale(
          this.previewHost.width,
@@ -4722,6 +5015,8 @@ AstroColorMixerPOC8Dialog.prototype.shouldUseDetailCropPreview = function() {
 };
 
 AstroColorMixerPOC8Dialog.prototype.getCurrentPreviewMetrics = function() {
+   if (this.previewTempCompare && this.previewCompareMetrics)
+      return this.previewCompareMetrics;
    if (this.previewTempCompare)
       return {
          width: this.previewSource ? this.previewSource.width : this.previewWidth,
@@ -5186,6 +5481,54 @@ AstroColorMixerPOC8Dialog.prototype.hasLastPassCompareAvailable = function() {
    return this.getPreviousEnabledPassIndex() >= 0;
 };
 
+AstroColorMixerPOC8Dialog.prototype.buildDetailCompareReference = function(mode) {
+   if (!this.shouldUseDetailCropPreview() || !this.sourceView || !this.sourceView.viewId || !this.previewSource)
+      return null;
+   var cropRequest = this.getDetailCropRequest();
+   if (!cropRequest)
+      return null;
+   if (cropRequest.width * cropRequest.height > this.previewDetailMaxPixels)
+      return null;
+   var targetInfo = acmFindViewForViewId(this.sourceView.viewId);
+   if (!targetInfo || !targetInfo.view)
+      return null;
+
+   var crop = acmReadRgbCropFromView(targetInfo.view, cropRequest);
+   var rgb = crop.rgb;
+   var label = mode === "lastPass" ? "Last Pass" : "Original";
+   if (mode === "lastPass") {
+      var previousIndex = this.getPreviousEnabledPassIndex();
+      if (previousIndex < 0)
+         return null;
+      var tempState = {
+         version: this.editorState.version,
+         imageType: this.editorState.imageType,
+         sensitivity: this.editorState.sensitivity,
+         globalStrength: this.editorState.globalStrength,
+         activePassId: this.editorState.passes[previousIndex].id,
+         passes: this.editorState.passes.slice(0, previousIndex + 1)
+      };
+      rgb = applyAstroColorMixerPasses(crop.rgb, crop.width, crop.height, acmBuildRecipeFromEditorState(tempState)).rgb;
+   }
+
+   return {
+      mode: mode,
+      label: label,
+      rgb: rgb,
+      bitmap: acmRenderBitmapFromRgb(crop.width, crop.height, rgb),
+      metrics: {
+         width: crop.width,
+         height: crop.height,
+         sourceX0: crop.x0,
+         sourceY0: crop.y0,
+         sourceWidth: crop.width,
+         sourceHeight: crop.height,
+         fullWidth: this.sourceView.width,
+         fullHeight: this.sourceView.height
+      }
+   };
+};
+
 AstroColorMixerPOC8Dialog.prototype.buildLastPassPreviewReference = function() {
    var previousIndex = this.getPreviousEnabledPassIndex();
    if (previousIndex < 0 || !this.previewSource)
@@ -5208,27 +5551,27 @@ AstroColorMixerPOC8Dialog.prototype.buildLastPassPreviewReference = function() {
 
 AstroColorMixerPOC8Dialog.prototype.getHoldCompareReference = function() {
    if (this.compareMode === "original")
-      return {
+      return this.buildDetailCompareReference("original") || {
          mode: "original",
          label: "Original",
          rgb: this.previewOriginalRgb,
          bitmap: this.previewBitmapOriginal
       };
    if (this.compareMode === "lastPass" && this.previewBitmapLastPass && this.previewLastPassRgb)
-      return {
+      return this.buildDetailCompareReference("lastPass") || {
          mode: "lastPass",
          label: "Last Pass",
          rgb: this.previewLastPassRgb,
          bitmap: this.previewBitmapLastPass
       };
    if (this.previewBitmapLastPass && this.previewLastPassRgb)
-      return {
+      return this.buildDetailCompareReference("lastPass") || {
          mode: "lastPass",
          label: "Last Pass",
          rgb: this.previewLastPassRgb,
          bitmap: this.previewBitmapLastPass
       };
-   return {
+   return this.buildDetailCompareReference("original") || {
       mode: "original",
       label: "Original",
       rgb: this.previewOriginalRgb,
@@ -5572,7 +5915,7 @@ AstroColorMixerPOC8Dialog.prototype.refreshBandControls = function() {
    var activePass = this.getActivePassState();
 
    this.neutralRowHost.visible = this.activeTab === ACM_TAB_LUM;
-   this.colorMixerPanel.scaledMinHeight = this.activeTab === ACM_TAB_LUM ? 92 : 78;
+   this.colorMixerPanel.scaledMinHeight = this.activeTab === ACM_TAB_LUM ? 308 : 278;
    if (this.activeTab === ACM_TAB_LUM) {
       var neutralRange = acmNeutralRangeForSensitivity(this.editorState.sensitivity);
       this.neutralControl.setRange(-neutralRange, neutralRange);

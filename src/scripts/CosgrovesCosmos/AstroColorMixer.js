@@ -46,14 +46,14 @@ function acmCreateHelpButton(parent, title, text, helpKey) {
    button.acmHelpText = text;
    button.acmHelpKey = helpKey || "default";
    button.toolTip = title;
-   button.setFixedSize(14, 14);
+   button.setFixedSize(16, 16);
    button.onPaint = function() {
       var g = new Graphics(this);
       g.pen = new Pen(0xff7a7f89);
       g.brush = new Brush(0xffececec);
       g.drawRect(this.boundsRect);
       var f = new Font;
-      f.pixelSize = 10;
+      f.pixelSize = 11;
       f.bold = true;
       g.font = f;
       var tw = g.font.width("?");
@@ -259,7 +259,7 @@ var ACM_AXIS = [1 / ACM_SQRT3, 1 / ACM_SQRT3, 1 / ACM_SQRT3];
 var ACM_SWATCH_WIDTH = 10;
 var ACM_ROW_LABEL_WIDTH = 0;
 var ACM_ROW_EDIT_WIDTH = 38;
-var ACM_ROW_RESET_WIDTH = 18;
+var ACM_ROW_RESET_WIDTH = 22;
 var ACM_ROW_SPACING = 2;
 var ACM_MIXER_LABEL_WIDTH = 84;
 var ACM_MIXER_SLIDER_MIN_WIDTH = 252;
@@ -1543,7 +1543,7 @@ function acmCreateColorSwatch(parent, hex) {
 
 function acmCreateMiniResetButton(parent) {
    var button = new Control(parent);
-   button.setFixedSize(ACM_ROW_RESET_WIDTH, 16);
+   button.setFixedSize(ACM_ROW_RESET_WIDTH, 18);
    button.toolTip = "Reset this band";
    button.onPaint = function() {
       var g = new Graphics(this);
@@ -1552,7 +1552,7 @@ function acmCreateMiniResetButton(parent) {
       g.drawRect(this.boundsRect);
 
       var f = new Font;
-      f.pixelSize = 10;
+      f.pixelSize = 11;
       g.font = f;
       var glyph = "\u21ba";
       var tw = g.font.width(glyph);
@@ -2967,7 +2967,7 @@ function AstroColorMixerUI03Dialog() {
 
    this.sensitivityLabel = new Label(this);
    this.sensitivityLabel.text = "Sensitivity";
-   this.sensitivityLabel.setFixedWidth(56);
+   this.sensitivityLabel.setFixedWidth(68);
    this.sensitivityLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
    this.sensitivityCombo = new ComboBox(this);
    this.sensitivityCombo.addItem("Fine");
@@ -2975,7 +2975,7 @@ function AstroColorMixerUI03Dialog() {
    this.sensitivityCombo.addItem("Advanced");
    this.sensitivityCombo.currentItem = 1;
    this.sensitivityCombo.setFixedHeight(24);
-   this.sensitivityCombo.setFixedWidth(104);
+   this.sensitivityCombo.setFixedWidth(126);
    this.sensitivityCombo.onItemSelected = function(index) {
       var sensitivity = self.sensitivityCombo.itemText(index);
       self.editorState.sensitivity = sensitivity;
@@ -3035,19 +3035,19 @@ function AstroColorMixerUI03Dialog() {
 
    this.tabHueButton = new PushButton(this);
    this.tabHueButton.text = "Hue";
-   this.tabHueButton.setFixedWidth(54);
+   this.tabHueButton.setFixedWidth(50);
    this.tabHueButton.setFixedHeight(24);
    this.tabHueButton.onClick = function() { self.setActiveTab(ACM_TAB_HUE); };
 
    this.tabSaturationButton = new PushButton(this);
    this.tabSaturationButton.text = "Saturation";
-   this.tabSaturationButton.setFixedWidth(68);
+   this.tabSaturationButton.setFixedWidth(64);
    this.tabSaturationButton.setFixedHeight(24);
    this.tabSaturationButton.onClick = function() { self.setActiveTab(ACM_TAB_SAT); };
 
    this.tabLuminanceButton = new PushButton(this);
    this.tabLuminanceButton.text = "Luminance";
-   this.tabLuminanceButton.setFixedWidth(70);
+   this.tabLuminanceButton.setFixedWidth(66);
    this.tabLuminanceButton.setFixedHeight(24);
    this.tabLuminanceButton.onClick = function() { self.setActiveTab(ACM_TAB_LUM); };
 
@@ -3955,6 +3955,7 @@ function AstroColorMixerUI03Dialog() {
    this.neutralFieldRow.resetButton.onClick = function() {
       self.getActivePassState().neutralLuminance.luminance = 0;
       self.refreshBandControls();
+      self.markPreviewStale();
    };
    this.neutralRowHost = this.neutralFieldRow.host;
    this.neutralControl = this.neutralFieldRow;
@@ -3977,6 +3978,7 @@ function AstroColorMixerUI03Dialog() {
          fieldRow.resetButton.onClick = function() {
             dialog.getBandById(def.id)[dialog.activeTab] = 0;
             dialog.refreshBandControls();
+            dialog.markPreviewStale();
          };
          dialog.bandControlsHost.sizer.add(fieldRow.host);
 
@@ -4057,10 +4059,10 @@ function AstroColorMixerUI03Dialog() {
    this.closeButton.text = "Close";
    this.closeButton.onClick = function() { self.cancel(); };
 
-   this.faqButton.setFixedWidth(118);
-   this.technicalButton.setFixedWidth(118);
+   this.faqButton.setFixedWidth(126);
+   this.technicalButton.setFixedWidth(152);
    this.aboutButton.setFixedWidth(118);
-   this.imageTypeCombo.setFixedWidth(180);
+   this.imageTypeCombo.setFixedWidth(210);
    this.activeStatusLabel.minWidth = 0;
 
    var targetTopRow = new HorizontalSizer;
@@ -4821,7 +4823,7 @@ AstroColorMixerPOC8Dialog.prototype.refreshPassViewer = function() {
    this.passViewerRows = [];
    var self = this;
    var passRowFont = new Font;
-   passRowFont.pixelSize = 9;
+   passRowFont.pixelSize = 11;
    for (var i = 0; i < this.editorState.passes.length; ++i) {
       var pass = this.editorState.passes[i];
       var rowBar = new HorizontalSizer;

@@ -46,14 +46,14 @@ function acmCreateHelpButton(parent, title, text, helpKey) {
    button.acmHelpText = text;
    button.acmHelpKey = helpKey || "default";
    button.toolTip = title;
-   button.setFixedSize(16, 16);
+   button.setFixedSize(20, 20);
    button.onPaint = function() {
       var g = new Graphics(this);
       g.pen = new Pen(0xff7a7f89);
       g.brush = new Brush(0xffececec);
       g.drawRect(this.boundsRect);
       var f = new Font;
-      f.pixelSize = 11;
+      f.pixelSize = 13;
       f.bold = true;
       g.font = f;
       var tw = g.font.width("?");
@@ -259,10 +259,21 @@ var ACM_AXIS = [1 / ACM_SQRT3, 1 / ACM_SQRT3, 1 / ACM_SQRT3];
 var ACM_SWATCH_WIDTH = 10;
 var ACM_ROW_LABEL_WIDTH = 0;
 var ACM_ROW_EDIT_WIDTH = 38;
-var ACM_ROW_RESET_WIDTH = 22;
+var ACM_ROW_RESET_WIDTH = 34;
 var ACM_ROW_SPACING = 2;
 var ACM_MIXER_LABEL_WIDTH = 84;
 var ACM_MIXER_SLIDER_MIN_WIDTH = 252;
+
+function acmHostIsWindows() {
+   try {
+      var tempPath = String(File.systemTempDirectory || "");
+      return /^[A-Za-z]:/.test(tempPath) || tempPath.indexOf("\\") >= 0;
+   } catch (error) {
+      return false;
+   }
+}
+
+var ACM_HOST_IS_WINDOWS = acmHostIsWindows();
 
 var ACM_PROTECTION_PRESETS = {
    stars: {
@@ -1543,22 +1554,23 @@ function acmCreateColorSwatch(parent, hex) {
 
 function acmCreateMiniResetButton(parent) {
    var button = new Control(parent);
-   button.setFixedSize(ACM_ROW_RESET_WIDTH, 18);
+   button.setFixedSize(ACM_ROW_RESET_WIDTH, 24);
    button.toolTip = "Reset this band";
    button.onPaint = function() {
       var g = new Graphics(this);
-      g.pen = new Pen(0xff7a7f89);
+      g.pen = new Pen(0xff5e636d);
       g.brush = new Brush(0xffececec);
       g.drawRect(this.boundsRect);
 
       var f = new Font;
-      f.pixelSize = 11;
+      f.pixelSize = 14;
+      f.bold = true;
       g.font = f;
       var glyph = "\u21ba";
       var tw = g.font.width(glyph);
       var x = Math.round((this.width - tw) * 0.5);
       var y = Math.round((this.height + g.font.ascent - g.font.descent) * 0.5);
-      g.pen = new Pen(0xff222222);
+      g.pen = new Pen(0xff000000);
       g.drawText(x, y, glyph);
       g.end();
    };
@@ -1619,7 +1631,7 @@ function acmScaleRgb01(rgb, factor) {
    };
 }
 
-function acmGradientRgbForBand(tabKey, bandDef, t, isNeutral) {
+function acmGradientRgbForBand(tabKey, bandDef, t, isNeutral, sensitivity) {
    if (isNeutral) {
       if (tabKey === ACM_TAB_LUM)
          return t < 0.5 ? acmMixRgb01({ r: 0.1, g: 0.1, b: 0.1 }, { r: 0.5, g: 0.5, b: 0.5 }, t / 0.5)
@@ -1629,30 +1641,36 @@ function acmGradientRgbForBand(tabKey, bandDef, t, isNeutral) {
 
    var base = acmHexToRgb01(bandDef.color);
    if (tabKey === ACM_TAB_HUE) {
-      var bandIndex = 0;
-      for (var i = 0; i < ACM_BAND_DEFS.length; ++i)
-         if (ACM_BAND_DEFS[i].id === bandDef.id)
-            bandIndex = i;
-      var prev = acmHexToRgb01(ACM_BAND_DEFS[(bandIndex + ACM_BAND_DEFS.length - 1) % ACM_BAND_DEFS.length].color);
-      var next = acmHexToRgb01(ACM_BAND_DEFS[(bandIndex + 1) % ACM_BAND_DEFS.length].color);
-      return t < 0.5 ? acmMixRgb01(prev, base, t / 0.5) : acmMixRgb01(base, next, (t - 0.5) / 0.5);
+      var range = ACM_SENSITIVITY_RANGES[sensitivity] || ACM_SENSITIVITY_RANGES.Normal;
+      var centerHue = bandDef.center != null ? bandDef.center : acmRgbToHsl(base.r, base.g, base.b)[0];
+      var leftColor = acmHueToRgb01(acmNormalizeHueDegrees(centerHue - range.hueShift));
+      var centerColor = acmHueToRgb01(centerHue);
+      var rightColor = acmHueToRgb01(acmNormalizeHueDegrees(centerHue + range.hueShift));
+      return t < 0.5 ? acmMixRgb01(leftColor, centerColor, t / 0.5) : acmMixRgb01(centerColor, rightColor, (t - 0.5) / 0.5);
    }
    if (tabKey === ACM_TAB_SAT) {
+      var satRange = ACM_SENSITIVITY_RANGES[sensitivity] || ACM_SENSITIVITY_RANGES.Normal;
+      var satStrength = acmClamp01(satRange.saturation / ACM_SENSITIVITY_RANGES.Advanced.saturation);
       var avg = (base.r + base.g + base.b) / 3;
       var gray = { r: avg, g: avg, b: avg };
-      var muted = acmMixRgb01(gray, base, 0.45);
-      return t < 0.5 ? acmMixRgb01(gray, muted, t / 0.5) : acmMixRgb01(muted, acmScaleRgb01(base, 1.08), (t - 0.5) / 0.5);
+      var muted = acmMixRgb01(gray, base, 0.18 + 0.42 * satStrength);
+      var boosted = acmScaleRgb01(base, 1.02 + 0.16 * satStrength);
+      return t < 0.5 ? acmMixRgb01(gray, muted, t / 0.5) : acmMixRgb01(muted, boosted, (t - 0.5) / 0.5);
    }
-   return t < 0.5 ? acmMixRgb01(acmScaleRgb01(base, 0.15), base, t / 0.5) : acmMixRgb01(base, acmMixRgb01(base, { r: 1, g: 1, b: 1 }, 0.45), (t - 0.5) / 0.5);
+   var lumRange = ACM_SENSITIVITY_RANGES[sensitivity] || ACM_SENSITIVITY_RANGES.Normal;
+   var lumStrength = acmClamp01(lumRange.luminance / ACM_SENSITIVITY_RANGES.Advanced.luminance);
+   var darkColor = acmScaleRgb01(base, 0.12 + 0.20 * lumStrength);
+   var brightColor = acmMixRgb01(base, { r: 1, g: 1, b: 1 }, 0.20 + 0.35 * lumStrength);
+   return t < 0.5 ? acmMixRgb01(darkColor, base, t / 0.5) : acmMixRgb01(base, brightColor, (t - 0.5) / 0.5);
 }
 
-function acmCreateGradientBitmap(width, height, tabKey, bandDef, isNeutral) {
+function acmCreateGradientBitmap(width, height, tabKey, bandDef, isNeutral, sensitivity) {
    width = Math.max(16, width | 0);
    height = Math.max(6, height | 0);
    var rgb = new Float32Array(width * height * 3);
    for (var x = 0; x < width; ++x) {
       var t = width > 1 ? x / (width - 1) : 0;
-      var c = acmGradientRgbForBand(tabKey, bandDef, t, isNeutral);
+      var c = acmGradientRgbForBand(tabKey, bandDef, t, isNeutral, sensitivity);
       for (var y = 0; y < height; ++y) {
          var base = (y * width + x) * 3;
          rgb[base] = c.r;
@@ -1673,9 +1691,9 @@ function acmCreateSliderGradientControl(parent, dialog, bandDef, isNeutral) {
    ctl.cachedKey = "";
    ctl.onPaint = function() {
       var g = new Graphics(this);
-      var key = this.acmDialogRef.activeTab + ":" + this.width + ":" + this.height + ":" + (this.isNeutral ? "neutral" : this.bandDef.id);
+      var key = this.acmDialogRef.activeTab + ":" + (this.acmDialogRef.editorState ? this.acmDialogRef.editorState.sensitivity : "Normal") + ":" + this.width + ":" + this.height + ":" + (this.isNeutral ? "neutral" : this.bandDef.id);
       if (this.cachedKey !== key) {
-         this.cachedBitmap = acmCreateGradientBitmap(Math.max(16, this.width), Math.max(6, this.height), this.acmDialogRef.activeTab, this.bandDef, this.isNeutral);
+         this.cachedBitmap = acmCreateGradientBitmap(Math.max(16, this.width), Math.max(6, this.height), this.acmDialogRef.activeTab, this.bandDef, this.isNeutral, this.acmDialogRef.editorState ? this.acmDialogRef.editorState.sensitivity : "Normal");
          this.cachedKey = key;
       }
       var stripeH = Math.max(1, Math.round(this.height * 0.2));
@@ -1791,9 +1809,9 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
       var fieldBottom = this.height - 3;
       var fieldHeight = Math.max(12, fieldBottom - fieldTop);
       var fieldRect = new Rect(0, fieldTop, this.width - 1, fieldTop + fieldHeight);
-      var key = r.dialog.activeTab + ":" + this.width + ":" + fieldHeight + ":" + (r.isNeutral ? "neutral" : r.bandDef.id);
+      var key = r.dialog.activeTab + ":" + (r.dialog.editorState ? r.dialog.editorState.sensitivity : "Normal") + ":" + this.width + ":" + fieldHeight + ":" + (r.isNeutral ? "neutral" : r.bandDef.id);
       if (r.cachedKey !== key) {
-         r.cachedBitmap = acmCreateGradientBitmap(Math.max(24, this.width - 2), Math.max(10, fieldHeight - 2), r.dialog.activeTab, r.bandDef, r.isNeutral);
+         r.cachedBitmap = acmCreateGradientBitmap(Math.max(24, this.width - 2), Math.max(10, fieldHeight - 2), r.dialog.activeTab, r.bandDef, r.isNeutral, r.dialog.editorState ? r.dialog.editorState.sensitivity : "Normal");
          r.cachedKey = key;
       }
       g.pen = new Pen(0xff4a515c);
@@ -2286,7 +2304,7 @@ function acmComputePolarSamplesData(sourceRgb, width, height, sampleLimit) {
       var b = sourceRgb[base + 2];
       var hsl = acmRgbToHsl(r, g, b);
       var y = acmLuma709(r, g, b);
-      if (hsl[1] < 0.02 || y < 0.015)
+      if (hsl[1] < 0.04 || y < 0.03)
          continue;
       points.push({ h: hsl[0], s: hsl[1], y: y, r: r, g: g, b: b });
    }
@@ -2928,12 +2946,12 @@ function AstroColorMixerUI03Dialog() {
 
    this.targetImageLabel = new Label(this);
    this.targetImageLabel.text = "Target Image:";
-   this.targetImageLabel.minWidth = 74;
+   this.targetImageLabel.minWidth = 96;
    this.targetImageLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
 
    this.targetImageCombo = new ComboBox(this);
-   this.targetImageCombo.minWidth = 320;
-   this.targetImageCombo.setFixedWidth(320);
+   this.targetImageCombo.minWidth = 420;
+   this.targetImageCombo.setFixedWidth(420);
    this.targetImageCombo.toolTip = "Selects the PixInsight image/view Astro Color Mixer will process. Switching targets will prompt if there are unapplied adjustments.";
    this.targetImageCombo.onItemSelected = function(index) {
       if (self.targetComboSyncing)
@@ -2948,7 +2966,7 @@ function AstroColorMixerUI03Dialog() {
 
    this.imageTypeLabel = new Label(this);
    this.imageTypeLabel.text = "Image Type";
-   this.imageTypeLabel.minWidth = 56;
+   this.imageTypeLabel.minWidth = 72;
    this.imageTypeLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
    this.imageTypeHelpButton = acmCreateHelpButton(
       this,
@@ -2967,7 +2985,7 @@ function AstroColorMixerUI03Dialog() {
 
    this.sensitivityLabel = new Label(this);
    this.sensitivityLabel.text = "Sensitivity";
-   this.sensitivityLabel.setFixedWidth(68);
+   this.sensitivityLabel.setFixedWidth(ACM_HOST_IS_WINDOWS ? 92 : 64);
    this.sensitivityLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
    this.sensitivityCombo = new ComboBox(this);
    this.sensitivityCombo.addItem("Fine");
@@ -2975,7 +2993,7 @@ function AstroColorMixerUI03Dialog() {
    this.sensitivityCombo.addItem("Advanced");
    this.sensitivityCombo.currentItem = 1;
    this.sensitivityCombo.setFixedHeight(24);
-   this.sensitivityCombo.setFixedWidth(126);
+   this.sensitivityCombo.setFixedWidth(ACM_HOST_IS_WINDOWS ? 128 : 116);
    this.sensitivityCombo.onItemSelected = function(index) {
       var sensitivity = self.sensitivityCombo.itemText(index);
       self.editorState.sensitivity = sensitivity;
@@ -3035,19 +3053,19 @@ function AstroColorMixerUI03Dialog() {
 
    this.tabHueButton = new PushButton(this);
    this.tabHueButton.text = "Hue";
-   this.tabHueButton.setFixedWidth(50);
+   this.tabHueButton.setFixedWidth(40);
    this.tabHueButton.setFixedHeight(24);
    this.tabHueButton.onClick = function() { self.setActiveTab(ACM_TAB_HUE); };
 
    this.tabSaturationButton = new PushButton(this);
    this.tabSaturationButton.text = "Saturation";
-   this.tabSaturationButton.setFixedWidth(64);
+   this.tabSaturationButton.setFixedWidth(48);
    this.tabSaturationButton.setFixedHeight(24);
    this.tabSaturationButton.onClick = function() { self.setActiveTab(ACM_TAB_SAT); };
 
    this.tabLuminanceButton = new PushButton(this);
    this.tabLuminanceButton.text = "Luminance";
-   this.tabLuminanceButton.setFixedWidth(66);
+   this.tabLuminanceButton.setFixedWidth(50);
    this.tabLuminanceButton.setFixedHeight(24);
    this.tabLuminanceButton.onClick = function() { self.setActiveTab(ACM_TAB_LUM); };
 
@@ -3845,7 +3863,7 @@ function AstroColorMixerUI03Dialog() {
    this.passViewerHost = new ScrollBox(this);
    this.passViewerHost.autoScroll = false;
    this.passViewerHost.tracking = true;
-   this.passViewerHost.setFixedHeight(88);
+   this.passViewerHost.setFixedHeight(104);
    this.passViewerHost.viewport.acmDialogRef = this;
    this.passViewerHost.viewport.sizer = new VerticalSizer;
    this.passViewerHost.viewport.sizer.margin = 0;
@@ -3896,9 +3914,6 @@ function AstroColorMixerUI03Dialog() {
    this.previewOutputHelpLabel = new Label(this);
    this.previewOutputHelpLabel.wordWrapping = true;
    this.previewOutputHelpLabel.text = "Use the preview to judge settings first. 'Create Image' leaves the target unchanged. 'Apply to Target' writes the adjusted result back and respects the active PixInsight mask.";
-   var previewOutputHelpFont = new Font;
-   previewOutputHelpFont.pixelSize = 10;
-   this.previewOutputHelpLabel.font = previewOutputHelpFont;
 
    this.updatePreviewButton = new PushButton(this);
    this.updatePreviewButton.text = "Update Preview";
@@ -4046,7 +4061,8 @@ function AstroColorMixerUI03Dialog() {
    this.faqButton.onClick = function() { self.showDocumentation("faq"); };
 
    this.technicalButton = new PushButton(this);
-   this.technicalButton.text = "Technical Appendix";
+   this.technicalButton.text = "Tech Appx";
+   this.technicalButton.toolTip = "Technical Appendix";
    this.technicalButton.setFixedWidth(140);
    this.technicalButton.onClick = function() { self.showDocumentation("technical"); };
 
@@ -4059,10 +4075,10 @@ function AstroColorMixerUI03Dialog() {
    this.closeButton.text = "Close";
    this.closeButton.onClick = function() { self.cancel(); };
 
-   this.faqButton.setFixedWidth(126);
-   this.technicalButton.setFixedWidth(152);
-   this.aboutButton.setFixedWidth(118);
-   this.imageTypeCombo.setFixedWidth(210);
+   this.faqButton.setFixedWidth(132);
+   this.technicalButton.setFixedWidth(170);
+   this.aboutButton.setFixedWidth(122);
+   this.imageTypeCombo.setFixedWidth(236);
    this.activeStatusLabel.minWidth = 0;
 
    var targetTopRow = new HorizontalSizer;
@@ -4074,7 +4090,7 @@ function AstroColorMixerUI03Dialog() {
 
    var targetBottomRow = new HorizontalSizer;
    targetBottomRow.spacing = 4;
-   targetBottomRow.addSpacing(78);
+   targetBottomRow.addSpacing(100);
    targetBottomRow.add(this.activeStatusLabel);
    targetBottomRow.addSpacing(6);
    targetBottomRow.add(this.pendingChangesLabel);
@@ -4082,7 +4098,7 @@ function AstroColorMixerUI03Dialog() {
 
    var targetModeRow = new HorizontalSizer;
    targetModeRow.spacing = 4;
-   targetModeRow.addSpacing(78);
+   targetModeRow.addSpacing(100);
    targetModeRow.add(this.imageTypeLabel);
    targetModeRow.add(this.imageTypeHelpButton);
    targetModeRow.add(this.imageTypeCombo);
@@ -4148,10 +4164,10 @@ function AstroColorMixerUI03Dialog() {
    tabsRow.add(this.tabSaturationButton);
    tabsRow.add(this.tabLuminanceButton);
    var colorMixerSensitivityRow = new HorizontalSizer;
-   colorMixerSensitivityRow.spacing = 2;
+   colorMixerSensitivityRow.spacing = 1;
    colorMixerSensitivityRow.add(this.sensitivityLabel);
    colorMixerSensitivityRow.add(this.sensitivityCombo);
-   tabsRow.addSpacing(8);
+   tabsRow.addSpacing(2);
    tabsRow.add(colorMixerSensitivityRow);
    tabsRow.addStretch();
 
@@ -4393,8 +4409,8 @@ function AstroColorMixerUI03Dialog() {
    this.recipeHelpButton.onMouseRelease = function() {};
 
    this.leftPanel = new Control(this);
-   this.leftPanel.scaledMinWidth = 425;
-   this.leftPanel.maxWidth = 455;
+   this.leftPanel.scaledMinWidth = ACM_HOST_IS_WINDOWS ? 500 : 468;
+   this.leftPanel.maxWidth = ACM_HOST_IS_WINDOWS ? 560 : 520;
    this.leftPanel.sizer = new VerticalSizer;
    this.leftPanel.sizer.margin = 0;
    this.leftPanel.sizer.spacing = 3;
@@ -4823,7 +4839,7 @@ AstroColorMixerPOC8Dialog.prototype.refreshPassViewer = function() {
    this.passViewerRows = [];
    var self = this;
    var passRowFont = new Font;
-   passRowFont.pixelSize = 11;
+   passRowFont.pixelSize = 13;
    for (var i = 0; i < this.editorState.passes.length; ++i) {
       var pass = this.editorState.passes[i];
       var rowBar = new HorizontalSizer;

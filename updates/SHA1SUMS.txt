@@ -1,1 +1,1 @@
-46c33fb0b4b988ef146c8624e414463ffdfca8bd  AstroColorMixer-0.9.7.1-beta.zip
+4715449be6bfaa86a21ecf41876be01a80ff7892  AstroColorMixer-0.9.7.2-beta.zip

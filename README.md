@@ -5,7 +5,7 @@ Astro Color Mixer is a nonlinear RGB color and luminance refinement tool for ast
 This repository folder is intended to become the PixInsight update repository package structure.
 
 Beta version:
-v0.9.7.1-beta
+v0.9.7.2-beta
 
 Installed script path:
 src/scripts/CosgrovesCosmos/AstroColorMixer.js
@@ -18,7 +18,7 @@ updates/
 
 ## Documentation
 
-Astro Color Mixer v0.9.7.1-beta includes documentation in three forms:
+Astro Color Mixer v0.9.7.2-beta includes documentation in three forms:
 
 1. Markdown documentation:
    `rsc/AstroColorMixer/docs/`

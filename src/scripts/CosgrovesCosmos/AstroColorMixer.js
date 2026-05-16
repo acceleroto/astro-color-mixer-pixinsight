@@ -1,11 +1,11 @@
 #feature-id    Cosgrove's Cosmos > Astro Color Mixer
-#feature-info  Astro Color Mixer v0.9.6-beta. Nonlinear RGB color and luminance refinement for astrophotography.
+#feature-info  Astro Color Mixer v0.9.7.3-beta. Nonlinear RGB color and luminance refinement for astrophotography.
 
 /*
  * Astro Color Mixer for PixInsight
  *
  * Beta build:
- * Astro Color Mixer v0.9.6-beta
+ * Astro Color Mixer v0.9.7.3-beta
  */
 
 #include <pjsr/UndoFlag.jsh>
@@ -19,7 +19,7 @@
 #include <pjsr/SampleType.jsh>
 
 function showMessage(text, title, icon) {
-   (new MessageBox(text, title || "Astro Color Mixer v0.9.6-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
+   (new MessageBox(text, title || "Astro Color Mixer v0.9.7.3-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
 }
 
 var acmHelpHostDialog = null;
@@ -34,7 +34,7 @@ function showHelpTopic(title, text) {
 
 function fail(text) {
    console.criticalln(text);
-   showMessage(text, "Astro Color Mixer v0.9.6-beta", StdIcon_Error);
+   showMessage(text, "Astro Color Mixer v0.9.7.3-beta", StdIcon_Error);
    var error = new Error(text);
    error.__acmHandled = true;
    throw error;
@@ -165,9 +165,9 @@ function acmGetControlPositionRelativeToDialog(control, dialog) {
 function acmConfigureResponsiveDialogBounds(dialog) {
    var safeMargin = 72;
    var targetMinWidth = 1240;
-   var targetMinHeight = 780;
+   var targetMinHeight = acmHostIsWindows() ? 780 : 900;
    var defaultWidth = 2000;
-   var defaultHeight = 920;
+   var defaultHeight = acmHostIsWindows() ? 920 : 940;
    var screenSize = acmGetDialogAvailableScreenSize(dialog);
    var minWidth = targetMinWidth;
    var minHeight = targetMinHeight;
@@ -234,7 +234,7 @@ function acmCreateInfoBox(parent) {
    return box;
 }
 
-console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.6-beta</b>");
+console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.7.3-beta</b>");
 
 // -------------------------------------------------------------------------
 // Minimal copied core logic
@@ -1297,7 +1297,7 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
 
 var ACM_ABOUT_TEXT =
       "About Astro Color Mixer\n\n" +
-      "Astro Color Mixer v0.9.6-beta\n\n" +
+      "Astro Color Mixer v0.9.7.3-beta\n\n" +
 "A Cosgrove's Cosmos tool for nonlinear RGB chroma-vector color control in astrophotography.\n\n" +
 "Core capabilities:\n" +
 "- H/S/L color-band adjustment\n" +
@@ -2748,7 +2748,7 @@ function AstroColorMixerUI03Dialog() {
    acmHelpHostDialog = this;
 
    var self = this;
-   this.windowTitle = "Astro Color Mixer v0.9.6-beta";
+   this.windowTitle = "Astro Color Mixer v0.9.7.3-beta";
    this.recipeFilePath = "";
    this.activeTab = ACM_TAB_SAT;
    this.activeToolPanel = "selectedBand";
@@ -2908,7 +2908,7 @@ function AstroColorMixerUI03Dialog() {
    this.headerBrandControl.onPaint = function() {
       var g = new Graphics(this);
       var mainTitle = "Astro Color Mixer";
-      var versionText = "v0.9.6-beta";
+      var versionText = "v0.9.7.3-beta";
       var titleFont = new Font;
       titleFont.bold = true;
       titleFont.pixelSize = 27;
@@ -3012,6 +3012,8 @@ function AstroColorMixerUI03Dialog() {
 
    this.passActiveCombo = new ComboBox(this);
    this.passActiveCombo.onItemSelected = function(index) {
+      if (self.passComboSyncing)
+         return;
       if (index < 0 || index >= self.editorState.passes.length)
          return;
       self.editorState.activePassId = self.editorState.passes[index].id;
@@ -4490,6 +4492,17 @@ function AstroColorMixerUI03Dialog() {
       this.requestPreviewUpdate(true);
 
    this.onResize = function() {
+      if (self.acmResizeGuard)
+         return;
+      if (self.acmMinDialogHeight && self.height < self.acmMinDialogHeight) {
+         self.acmResizeGuard = true;
+         try {
+            self.resize(self.width, self.acmMinDialogHeight);
+         } finally {
+            self.acmResizeGuard = false;
+         }
+         return;
+      }
       var previewWidth = self.previewHost ? self.previewHost.width : 0;
       var previewHeight = self.previewHost ? self.previewHost.height : 0;
       if (previewWidth === self.lastPreviewHostWidth && previewHeight === self.lastPreviewHostHeight)
@@ -4644,6 +4657,7 @@ AstroColorMixerPOC8Dialog.prototype.refreshPassSummary = function() {
 };
 
 AstroColorMixerPOC8Dialog.prototype.refreshPassControls = function() {
+   this.passComboSyncing = true;
    while (this.passActiveCombo.numberOfItems > 0)
       this.passActiveCombo.removeItem(0);
    var activeIndex = 0;
@@ -4655,6 +4669,7 @@ AstroColorMixerPOC8Dialog.prototype.refreshPassControls = function() {
    }
    if (this.passActiveCombo.numberOfItems > 0)
       this.passActiveCombo.currentItem = activeIndex;
+   this.passComboSyncing = false;
    this.refreshPassSummary();
    this.refreshPassViewer();
 };
@@ -5330,7 +5345,6 @@ AstroColorMixerPOC8Dialog.prototype.setActiveToolPanel = function(panelKey) {
    this.diagnosticsPanel.visible = true;
    this.previewOutputPanel.visible = true;
    this.refreshToolTabButtons();
-   this.adjustToContents();
 };
 
 AstroColorMixerPOC8Dialog.prototype.refreshSelectedBandReadoutAndVisualization = function(updateText) {
@@ -6202,6 +6216,6 @@ try {
    if (!(error && error.__acmHandled)) {
       var message = "Unexpected dialog failure: " + (error && error.message ? error.message : String(error));
       console.criticalln(message);
-      showMessage(message, "Astro Color Mixer v0.9.6-beta", StdIcon_Error);
+      showMessage(message, "Astro Color Mixer v0.9.7.3-beta", StdIcon_Error);
    }
 }

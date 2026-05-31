@@ -1,193 +1,114 @@
 # Astro Color Mixer Technical Appendix
 
-Version: `v0.9.4-beta`  
-Date: `2026-05-12`
+This appendix describes the processing model used by Astro Color Mixer. It is both a technical overview and a compact white paper for the tool. Astro Color Mixer is designed for nonlinear RGB astrophotography images and combines hue-band selection, luminance-range masking, low-saturation handling, protection weighting, preview diagnostics, and sequential refinement passes.
 
-## 1. Introduction
+## 1. Design goals
 
-This appendix describes the processing model used by Astro Color Mixer and the practical assumptions behind it. The tool is designed for nonlinear RGB astrophotography images and combines hue-band selection, luminance-range masking, low-saturation handling, probe-guided targeting, visible mask inspection, and sequential refinement passes.
+Astro Color Mixer is designed for controlled nonlinear RGB color refinement.
 
-The goal is not to claim physically perfect color reconstruction. The goal is to provide a controlled nonlinear RGB editing model that is useful for astrophotography finishing work.
+Primary goals:
 
-An important design intent is that the tool protects stars while the user adjusts nebulae, dust, halos, galaxies, and background structures. It is not intended as a dedicated star-adjustment tool.
+- provide practical astrophotography-specific color bands
+- avoid arbitrary global color swings
+- expose masks and diagnostics before committing changes
+- support broad and targeted refinements through ordered passes
+- protect unstable dark, bright, and low-saturation regions
+- preserve a non-destructive workflow by creating a new output image by default
 
-## 2. Design Goals
+## 2. Processing assumptions
 
-Astro Color Mixer is designed around the following goals:
+- input is nonlinear RGB
+- values are normalized internally to `0..1`
+- source image is not overwritten by the primary output workflow
+- preview uses a downsampled representation for responsiveness
+- `Create Image` uses the full-resolution source image
+- adjustments are intended as post-stretch refinements, not calibration operations
 
-- provide a near-realtime experience while adjusting hue, saturation, and luminance
-- add an astro-specific enhancement model through tunable band selection and action
-- allow users to probe image areas and use them as references for settings
-- allow advanced Range Mask limitation of operations
-- allow multiple targeted passes of adjustments
+High-level pipeline:
 
-This makes the tool a finishing and refinement environment rather than a calibration or reconstruction framework.
+```text
+source RGB
+  -> preview/full-resolution working copy
+  -> enabled pass loop
+  -> band and neutral masks
+  -> chroma/luminance adjustment
+  -> clamp
+  -> output image
+```
 
-## 3. Processing Assumptions
+## 3. Luminance model
 
-Astro Color Mixer assumes:
-
-- nonlinear RGB input
-- normalized floating-point RGB values in the range `0..1`
-- the source image is normally not overwritten
-- preview uses downsampled data for responsiveness
-- final output uses full-resolution source data
-
-The target/source image is only overwritten if the user explicitly requests **Apply to Target** at the end of the process.
-
-These assumptions matter because the tool is intended for post-stretch, visually guided adjustment.
-
-## 4. Preview, Navigation, and Interactive Diagnostics
-
-The user experience is intentionally built around fast interactive iteration.
-
-- preview is downsampled for responsiveness
-- zoom, fit, and pan operate on the preview
-- click-and-hold compare temporarily shows a reference state
-- the **Compare** menu determines which reference is used
-- the probe samples preview data and can auto-select a band
-- histogram and polar plot visualize the current preview state
-- mask views let the user inspect the active band mask, Range Mask, or combined mask while controls are being adjusted
-
-This is important because Astro Color Mixer is not just a batch transform. It is designed to let the user steer the process visually and diagnostically in near realtime.
-
-## 5. Image Type: Stars Present vs Starless / Star-Reduced
-
-The Image Type setting selects protection behavior appropriate to the image being processed.
-
-In **Stars Present** mode, Astro Color Mixer assumes the image still contains bright stellar structures, star cores, and possible halos. Protection is more conservative around bright star-like regions so large color or luminance moves are less likely to produce star-core distortion, oversaturated halos, or harsh highlight artifacts.
-
-This should be understood as protection, not as an invitation to target stars directly as the main subject of editing.
-
-In **Starless / Star-Reduced** mode, Astro Color Mixer assumes stars have already been removed or strongly reduced. Protection can therefore allow more freedom in nebulae, galaxies, dust, and faint structures.
-
-This setting does **not** detect stars, remove stars, or create a star mask. It changes internal protection weighting during adjustment.
-
-### 5A. Star Protection Mechanism
-
-The star protection behavior is best understood as a weighting mechanism rather than a binary star-selection mask.
-
-Conceptually, when **Stars Present** is selected:
-
-- bright star-like regions receive more conservative color and luminance action
-- highlight-heavy structures are less likely to undergo strong hue rotation or saturation forcing
-- bright stellar cores and halo-adjacent structures are protected from more aggressive nonlinear moves
-
-This is not intended to behave like a separate PixInsight StarMask process. It is an internal moderation mechanism that changes how strongly edits are allowed to act in bright stellar regions.
-
-Its role is to reduce star damage while you work on the rest of the image. It is not a dedicated mechanism for shaping star color, star size, or star appearance as a primary goal.
-
-## 6. Luminance Model
-
-Astro Color Mixer uses the luminance model:
+Astro Color Mixer uses a Rec. 709 style luminance estimate:
 
 ```text
 Y = 0.2126 R + 0.7152 G + 0.0722 B
 ```
 
-Luminance is used for:
+Luminance is used as a practical structural guide for Range Masking, diagnostics, neutral luminance handling, and dark/highlight protection. In a nonlinear astrophotography workflow, luminance remains one of the most useful stable signals for selecting where an edit should be allowed to act.
 
-- Range Mask construction
-- preview diagnostics
-- Neutral / Low-Saturation luminance control
-- dark and highlight protection
+## 4. Hue and saturation model
 
-In a nonlinear RGB workflow, luminance remains one of the most stable structural signals for targeted adjustment.
+Hue and saturation are used for selection and editing. Hue is circular, so distances are measured around a wrapped `0..360` degree space.
 
-## 7. Hue and Saturation Selection
+Low saturation makes hue unreliable, especially in backgrounds, halos, dust transitions, and weak-color structures. Selected bands therefore use circular hue distance, while saturation reliability reduces false confidence in very low-saturation regions.
 
-Hue and saturation are used for selection and adjustment behavior in an HSL-style sense.
+## 5. Astro color bands
 
-Important properties:
+The color bands are practical editing regions:
 
-- hue is circular
-- hue distance must wrap at the ends of the angle domain
-- low saturation makes hue unreliable
+- red: `0 deg`
+- orange: `30 deg`
+- yellow: `60 deg`
+- green: `120 deg`
+- cyan: `180 deg`
+- blue: `240 deg`
+- purple: `275 deg`
+- magenta: `315 deg`
 
-This is especially important in weak-color background, dust, and halo regions where nominal hue values can be unstable.
+Labels such as H-alpha and OIII are workflow cues to help the user think about common astrophotography structures. They are not claims that every selected pixel belongs to a pure emission-line source.
 
-## 8. Astro Color Bands
+## 6. Image Type
 
-Practical band centers:
+Astro Color Mixer uses `Image Type` to choose protection behavior appropriate to the image being processed.
 
-- red `0°`
-- orange `30°`
-- yellow `60°`
-- green `120°`
-- cyan `180°`
-- blue `240°`
-- purple `275°`
-- magenta `315°`
+`Stars Present` assumes the image still contains stellar profiles, bright cores, and possible halos. The protection model is more conservative around high-luminance structures. This reduces the risk of color shifts in star cores, over-saturation around halos, or harsh luminance changes in bright stellar features.
 
-These bands are practical editing regions, not strict physical line assignments. Labels such as *H-alpha* and *OIII* are workflow cues intended to help users navigate common astrophotography color regions.
+`Starless / Star-Reduced` assumes stars have been removed or substantially reduced. The protection model can allow more freedom in nebular, galactic, dust, and faint-signal regions because fewer bright stellar features are present.
 
-The actual selection mechanism used by each band is described in the following sections.
+This setting affects mask construction and protection weighting. It does not perform star detection, star removal, or explicit star masking.
 
-## 9. Hue Band Mask
+## 7. Hue band mask
 
-Each active color band is built around circular hue distance from a band center.
+Each band is centered on a hue angle. `Hue Radius` defines the outer affected span around that center, and `Feather` defines the soft transition beyond the stronger inner region. A smoothstep-style transition is used so the mask rolls off gradually rather than clipping abruptly.
 
-- **Hue Radius** sets the outer affected angular radius on each side of the hue center
-- **Feather** controls how much of that radius is used for falloff instead of full-strength influence
-- a `smoothstep`-style falloff is used for soft selection boundaries
-
-Conceptual pseudocode:
+Pseudo formula:
 
 ```text
 distance = circularHueDistance(hue, center)
-outerWidth = widthDeg
-innerWidth = widthDeg * (1 - feather)
 mask = 1 - smoothstep(innerWidth, outerWidth, distance)
 ```
 
-This produces three practical regions that correspond to the language now shown in the application:
+A higher Feather value makes the transition softer and reduces abrupt color boundaries.
 
-- **strong region**: `distance <= innerWidth`
-- **feather region**: `innerWidth < distance < outerWidth`
-- **unaffected hues**: `distance >= outerWidth`
+## 8. Saturation reliability
 
-So a setting such as `Hue Radius = 45°` and `Feather = 0.75` does **not** mean full-strength influence across the whole `±45°` span. Instead, the strong region occupies only the inner portion, and the feather region falls smoothly to zero by the outer radius.
+Very low-saturation pixels do not carry stable hue information. Astro Color Mixer therefore uses a saturation reliability term to reduce false hue selection in neutral areas.
 
-This is why viewing the mask while adjusting Hue Radius and Feather is so important: the user can see the strong region and feather region directly instead of interpreting them only numerically.
+This prevents weakly colored background pixels from being treated like confidently blue, magenta, or green structures. The Neutral / Low-Saturation luminance control provides a separate path for those pixels.
 
-## 10. Sensitivity
+## 9. Dark and highlight protection
 
-**Sensitivity** changes how assertively the tool responds to the selected signal.
+Very dark pixels can be noisy and unstable. Very bright pixels often include star cores, clipped highlights, or structures where strong hue changes can look unnatural quickly.
 
-Conceptually, it is a response-scaling control. It does not define a different color band, but it changes how strongly the selected structures react to the current H/S/L adjustment.
+The tool includes dark and highlight protection terms, and the chosen image type changes the behavior so stars-present and starless workflows can be handled differently.
 
-Practically, this lets the user choose between:
+These terms are guardrails, not substitutes for user judgment. Strong edits can still create artifacts if the selected mask is too broad or the adjustment is too large.
 
-- more restrained action on already strong material
-- more assertive action on weak or subtle material
+## 10. Range Mask
 
-It works together with the band mask and protection terms rather than replacing them.
+Range Mask limits the effect of a pass by luminance. `Low` and `High` define the included range, while `Feather` softens the shoulders at each edge.
 
-## 11. Saturation Reliability
-
-Low-saturation pixels do not provide reliable hue information. Astro Color Mixer therefore uses a saturation reliability term to reduce the chance of neutral background or weak-color dust being treated as a strong hue target.
-
-This helps:
-
-- avoid false hue selection in gray background
-- reduce instability in weak-color halos
-- support a separate neutral luminance path for low-saturation structures
-
-## 12. Dark and Highlight Protection
-
-Very dark pixels can be noisy or unstable. Very bright pixels can contain star cores, clipped highlights, or structures where strong hue rotation becomes visually harsh.
-
-Astro Color Mixer therefore applies conceptual protection for:
-
-- dark background
-- bright highlights
-- star-core and stars-present behavior
-
-The Image Type mode influences how conservative these protections are.
-
-## 13. Range Mask
-
-Range Mask limits the effect of an adjustment by luminance.
+Formula:
 
 ```text
 leftRamp = smoothstep(low - feather, low, Y)
@@ -195,49 +116,36 @@ rightRamp = 1 - smoothstep(high, high + feather, Y)
 rangeMask = clamp01(leftRamp * rightRamp)
 ```
 
-Interpretation:
+Presets are practical starting points, not fixed answers. The correct luminance interval depends on the current stretch and the imaging target.
 
-- **Low** defines the lower shoulder of the included interval
-- **High** defines the upper shoulder
-- **Feather** softens both boundaries
-- presets act as starting points rather than fixed answers
+## 11. Neutral / Low-Saturation adjustment
 
-Because the image is nonlinear, the practical meaning of a luminance interval depends on the current stretch.
+For low-saturation pixels, Astro Color Mixer uses a neutral mask rather than pretending hue is stable.
 
-## 14. Neutral / Low-Saturation Model
-
-For low-saturation pixels, Astro Color Mixer uses a neutral mask rather than assuming hue is trustworthy:
+Formula:
 
 ```text
 neutralMask = 1 - smoothstep(satStart, satFull, saturation)
 ```
 
-This is useful for:
+This is useful when editing sky background, gray dust, faint halos, or other structures where a hue-based chroma edit is not the right model. In practice, this behaves as luminance shaping for pixels whose hue is not trustworthy.
 
-- sky background
-- gray dust
-- weak-color halos
-- neutral transition regions
+Neutral adjustment appears on the Luminance tab because it is not a hue-band chroma edit.
 
-The model is luminance-focused because those regions often need tonal shaping more than hue-specific color editing.
+## 12. Chroma-vector adjustment model
 
-## 15. Chroma-Vector Adjustment
+The processing model is practical rather than marketed as mathematically perfect color science. Conceptually, RGB is separated into a luminance-like neutral component and a chroma component.
 
-Astro Color Mixer uses a practical nonlinear RGB chroma-vector editing model.
+- saturation edits scale chroma magnitude
+- hue edits rotate chroma direction
+- luminance edits modify the brightness component
+- the result is recombined and clamped back into a valid nonlinear RGB range
 
-Conceptually:
+This model is useful for post-stretch astrophotography because it gives intuitive control over perceived color families while retaining luminance-aware selection and protection.
 
-- separate a luminance-like neutral component from chroma
-- saturation scales chroma magnitude
-- hue shifts rotate chroma direction
-- luminance changes the brightness component
-- recombine and clamp to a valid RGB range
+## 13. Combined mask
 
-This should be understood as a practical nonlinear editing model, not a claim of perfect perceptual or physical color science.
-
-## 16. Combined Mask
-
-A band adjustment is influenced by multiple control terms. Approximate combined influence can be described as:
+For a band adjustment, the final influence is approximately the product of several control terms:
 
 ```text
 finalMask =
@@ -245,29 +153,19 @@ finalMask =
   saturationReliability *
   darkProtection *
   highlightProtection *
-  rangeMask
+  rangeMask *
+  pass terms
 ```
 
-If additional pass-specific terms are applied in code, they conceptually sit on top of this structure. The practical behavior is that hue selection, reliability, protection, and luminance gating combine before the edit is applied.
+The exact implementation details follow the actual code path, but conceptually the tool combines hue selection, saturation reliability, luminance gating, and protection terms before the adjustment is applied.
 
-## 17. Probe, Compare, and Mask Inspection
+For Neutral / Low-Saturation luminance adjustment, the neutral mask replaces hue selection as the main inclusion term. Range Mask and protection weighting can still limit where the neutral adjustment is allowed to act.
 
-The probe and comparison tools are central to how the user interacts with the model.
+## 14. Refinement Passes
 
-- the probe measures preview luminance, hue, and saturation
-- probe placement also updates histogram and polar plot markers
-- probe-based band auto-selection can move the user quickly to the relevant band
-- click-and-hold compare lets the user evaluate changes against a reference
-- the **Compare** menu controls which reference is shown
-- mask preview modes reveal the band mask, Range Mask, or combined mask directly
+The adjustment set contains ordered passes. Enabled passes are applied sequentially, and each pass works on the result produced by the previous enabled pass.
 
-Together, these tools let the user see both the image result and the selection logic behind the result.
-
-## 18. Refinement Passes
-
-Refinement Passes are sequential enabled passes stored in the working state.
-
-Conceptually:
+Pseudo sequence:
 
 ```text
 working = original
@@ -275,71 +173,58 @@ for each enabled pass:
     working = applyPass(working, pass)
 ```
 
-This supports workflows such as:
+Passes are not layers. There are no blend modes and no opacity slider. A later enabled pass receives the already-adjusted result of earlier enabled passes.
 
-- broad global color setup first
-- targeted background or halo cleanup later
-- highlight or luminance-specific work in a separate pass
+## 15. Preview and diagnostics
 
-## 19. Preview and Diagnostics
+Preview uses a downsampled image so the tool remains responsive. Histogram calculations use preview luminance. The polar plot uses sampled preview pixels. The probe reads preview pixels. At high zoom, detail crop preview can render the visible region from source pixels.
 
-Preview is based on downsampled image data for speed.
+`Create Image` uses the full-resolution source data, which is why small local differences can appear even when the broad preview match is strong.
 
-Diagnostics follow the preview model:
+Diagnostics are decision aids:
 
-- histogram uses preview luminance
-- polar plot uses sampled preview pixels
-- probe reads preview coordinates
-- mask views represent preview-resolution selection behavior
+- Current Band Mask shows hue-band inclusion
+- Range Mask shows luminance-range inclusion
+- Combined Mask shows the active selection stack
+- Histogram helps place luminance ranges
+- Polar Plot shows hue and saturation distribution
+- Probe reports local luminance, hue, saturation, and nearest reliable band
 
-Final output operates on the full-resolution source image, which is why small local detail differences can exist even when the overall preview direction is accurate.
+## 16. Adjustment set model
 
-## 20. Output Model
-
-Astro Color Mixer supports two output modes:
-
-- **Create Image**: generates a new adjusted image and leaves the target unchanged
-- **Apply to Target**: writes the adjusted result back into the current target image
-
-If **Apply to Target** is used and the selected target image has an active PixInsight mask, that mask is respected during the writeback operation.
-
-This means the tool is normally non-destructive by default, but can support an in-place PixInsight-style finishing workflow when requested explicitly.
-
-## 21. Adjustment Set JSON
-
-Adjustment Set JSON stores the working state of the tool. This can include:
+Adjustment sets are stored as JSON and preserve important editing state:
 
 - image type
 - sensitivity
-- pass ordering and enabled state
-- band values
-- hue radius and feather
-- Range Mask state
-- Neutral / Low-Saturation state
-- related working settings
+- pass order
+- enabled/disabled pass state
+- band settings
+- Hue Radius and Feather
+- Range Mask configuration
+- neutral luminance terms
 
-The file is intended for repeatability and workflow continuity rather than for diagnostic rendering.
+Diagnostic readouts are interactive session tools and are not the main purpose of the saved adjustment-set file. Adjustment sets are intended for repeatability, review, documentation, and sharing.
 
-## 22. Limitations
+## 17. Output model
 
-Important limitations:
+`Create Image` builds a new PixInsight image from the full-resolution source and the current adjustment set. This is the preferred non-destructive output path.
+
+`Apply to Target` writes the adjusted result back to the selected target image and respects the active PixInsight mask. It is useful for deliberate in-place work, but the safer exploratory workflow is to create a new image first.
+
+## 18. Limitations
 
 - not intended for linear calibration
-- extreme changes can create artifacts
-- preview is approximate
-- hue is unreliable in neutral areas
-- Range Mask depends on the current stretch
-- saturated star cores require care
-- beta status means users should work non-destructively and inspect results carefully
+- extreme adjustments can create artifacts
+- hue is unreliable in neutral pixels
+- preview is approximate because it is downsampled
+- Range Mask behavior depends on the current stretch
+- saturated stars and bright cores may need careful handling
+- user judgment is still required
 
-## 23. Practical Guidance
+## 19. Practical guidance
 
 - start with small adjustments
-- inspect masks before strong edits
-- use the probe instead of guessing when a color region is uncertain
-- use the Compare menu to evaluate whether a change is genuinely helping
-- create a new pass for targeted Range Mask work
-- use **Stars Present** when unsure
-- save Adjustment Sets for complex sessions
-
-Astro Color Mixer works best when used deliberately, with the user checking both the visual preview and the diagnostic views before committing strong targeted changes.
+- preview masks before strong edits
+- use a new pass for targeted work
+- avoid using Range Mask to reinterpret finished global work unless that is intentional
+- save adjustment sets for complex sessions

@@ -1,11 +1,11 @@
 #feature-id    Cosgrove's Cosmos > Astro Color Mixer
-#feature-info  Astro Color Mixer v0.9.7.3-beta. Nonlinear RGB color and luminance refinement for astrophotography.
+#feature-info  Astro Color Mixer v0.9.7.4-beta. Nonlinear RGB color and luminance refinement for astrophotography.
 
 /*
  * Astro Color Mixer for PixInsight
  *
  * Beta build:
- * Astro Color Mixer v0.9.7.3-beta
+ * Astro Color Mixer v0.9.7.4-beta
  */
 
 #include <pjsr/UndoFlag.jsh>
@@ -19,7 +19,7 @@
 #include <pjsr/SampleType.jsh>
 
 function showMessage(text, title, icon) {
-   (new MessageBox(text, title || "Astro Color Mixer v0.9.7.3-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
+   (new MessageBox(text, title || "Astro Color Mixer v0.9.7.4-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
 }
 
 var acmHelpHostDialog = null;
@@ -34,10 +34,89 @@ function showHelpTopic(title, text) {
 
 function fail(text) {
    console.criticalln(text);
-   showMessage(text, "Astro Color Mixer v0.9.7.3-beta", StdIcon_Error);
+   showMessage(text, "Astro Color Mixer v0.9.7.4-beta", StdIcon_Error);
    var error = new Error(text);
    error.__acmHandled = true;
    throw error;
+}
+
+var ACM_GRAY_UI_THEME = {
+   window: 0xff353535,
+   header: 0xff3f3f3f,
+   panel: 0xff404040,
+   panelInset: 0xff303030,
+   passViewer: 0xffd8d8d8,
+   line: 0xff747474,
+   text: "#f2f2f2",
+   muted: "#d2d2d2",
+   darkText: "#161616",
+   accent: "#d8dcff"
+};
+
+function acmThemeRichText(text, color, bold) {
+   var value = String(text || "");
+   var wrapped = "<color=" + (color || ACM_GRAY_UI_THEME.text) + ">" + value + "</color>";
+   return bold ? "<b>" + wrapped + "</b>" : wrapped;
+}
+
+function acmSetThemeLabel(label, text, color, bold) {
+   if (!label)
+      return;
+   label.useRichText = true;
+   label.text = acmThemeRichText(text, color, bold);
+   label.foregroundColor = color === ACM_GRAY_UI_THEME.darkText ? 0xff161616 : 0xfff2f2f2;
+   label.textColor = label.foregroundColor;
+}
+
+function acmRethemeLabelText(label, color, bold) {
+   if (!label)
+      return;
+   var text = String(label.text || "");
+   text = text.replace(/<color=[^>]+>/g, "").replace(/<\/color>/g, "");
+   if (text.length > 0)
+      acmSetThemeLabel(label, text, color || ACM_GRAY_UI_THEME.text, !!bold);
+}
+
+function acmApplyLightText(control) {
+   if (!control)
+      return;
+   control.foregroundColor = 0xfff2f2f2;
+   control.textColor = 0xfff2f2f2;
+}
+
+function acmPlainLightLabel(label, text) {
+   if (!label)
+      return;
+   label.useRichText = false;
+   label.text = String(text || "");
+   acmApplyLightText(label);
+}
+
+function acmStripRichTags(text) {
+   return String(text || "").replace(/<[^>]*>/g, "");
+}
+
+function acmPlainDarkLabel(label, text) {
+   if (!label)
+      return;
+   label.useRichText = false;
+   label.text = String(text || "");
+   label.foregroundColor = 0xff161616;
+   label.textColor = 0xff161616;
+}
+
+function acmSetThemePanel(control, fillArgb, borderArgb) {
+   if (!control)
+      return;
+   control.acmThemeFill = fillArgb;
+   control.acmThemeBorder = borderArgb;
+   control.onPaint = function() {
+      var g = new Graphics(this);
+      g.pen = new Pen(this.acmThemeBorder || ACM_GRAY_UI_THEME.line);
+      g.brush = new Brush(this.acmThemeFill || ACM_GRAY_UI_THEME.panel);
+      g.drawRect(this.boundsRect);
+      g.end();
+   };
 }
 
 function acmCreateHelpButton(parent, title, text, helpKey) {
@@ -49,8 +128,8 @@ function acmCreateHelpButton(parent, title, text, helpKey) {
    button.setFixedSize(20, 20);
    button.onPaint = function() {
       var g = new Graphics(this);
-      g.pen = new Pen(0xff7a7f89);
-      g.brush = new Brush(0xffececec);
+      g.pen = new Pen(0xff8e92a0);
+      g.brush = new Brush(0xff55575d);
       g.drawRect(this.boundsRect);
       var f = new Font;
       f.pixelSize = 13;
@@ -59,7 +138,7 @@ function acmCreateHelpButton(parent, title, text, helpKey) {
       var tw = g.font.width("?");
       var x = Math.round((this.width - tw) * 0.5);
       var y = Math.round((this.height + g.font.ascent - g.font.descent) * 0.5);
-      g.pen = new Pen(0xff222222);
+      g.pen = new Pen(0xfff2f2f2);
       g.drawText(x, y, "?");
       g.end();
    };
@@ -80,10 +159,10 @@ function acmCreateTinyDeleteButton(parent, toolTip, onDelete) {
    button.setFixedSize(12, 12);
    button.onPaint = function() {
       var g = new Graphics(this);
-      g.pen = new Pen(0xff5a5f69);
-      g.brush = new Brush(0xffececec);
+      g.pen = new Pen(0xff8e92a0);
+      g.brush = new Brush(0xff55575d);
       g.drawRect(this.boundsRect);
-      g.pen = new Pen(0xff111111, 2);
+      g.pen = new Pen(0xfff2f2f2, 2);
       g.drawLine(3, 3, this.width - 4, this.height - 4);
       g.drawLine(this.width - 4, 3, 3, this.height - 4);
       g.end();
@@ -98,12 +177,14 @@ function acmCreateTinyDeleteButton(parent, toolTip, onDelete) {
 function acmCreateHelpBox(parent) {
    var box = new Control(parent);
    box.titleLabel = new Label(box);
-   box.titleLabel.useRichText = true;
-   box.titleLabel.text = "";
+   acmSetThemeLabel(box.titleLabel, "", ACM_GRAY_UI_THEME.text, true);
+   box.titleLabel.textAlignment = TextAlign_Left|TextAlign_Top;
    box.bodyLabel = new Label(box);
    box.bodyLabel.wordWrapping = true;
    box.bodyLabel.useRichText = false;
-    box.bodyLabel.text = "";
+   box.bodyLabel.textAlignment = TextAlign_Left|TextAlign_Top;
+   box.bodyLabel.text = "";
+   acmApplyLightText(box.bodyLabel);
    box.sizer = new VerticalSizer;
    box.sizer.margin = 6;
    box.sizer.spacing = 2;
@@ -113,13 +194,24 @@ function acmCreateHelpBox(parent) {
    box.scaledMinWidth = 240;
    box.onPaint = function() {
       var g = new Graphics(this);
-      g.pen = new Pen(0xff7a7f89);
-      g.brush = new Brush(0xfff4f4f4);
+      g.pen = new Pen(ACM_GRAY_UI_THEME.line);
+      g.brush = new Brush(0xff464646);
       g.drawRect(this.boundsRect);
       g.end();
    };
    box.hide();
    return box;
+}
+
+function acmEstimateWrappedTextHeight(text, width, lineHeight, minimumHeight) {
+   var lines = String(text || "").split("\n");
+   var charWidth = ACM_HOST_IS_WINDOWS ? 6 : 7;
+   var wrapChars = Math.max(24, Math.floor(Math.max(120, width || 220) / charWidth));
+   var visualLines = 0;
+   for (var i = 0; i < lines.length; ++i)
+      visualLines += Math.max(1, Math.ceil(lines[i].length / wrapChars));
+   var padding = ACM_HOST_IS_WINDOWS ? 28 : 4;
+   return Math.max(minimumHeight || 32, visualLines * (lineHeight || 17) + padding);
 }
 
 function acmGetOptionalDialogRect(dialog, propertyName) {
@@ -199,8 +291,7 @@ function acmCreateInfoBox(parent) {
    box.currentKind = "";
 
    box.titleLabel = new Label(box);
-   box.titleLabel.useRichText = true;
-   box.titleLabel.text = "<b>Info</b>";
+   acmSetThemeLabel(box.titleLabel, "Info", ACM_GRAY_UI_THEME.text, true);
 
    box.closeButton = new PushButton(box);
    box.closeButton.text = "x";
@@ -212,6 +303,7 @@ function acmCreateInfoBox(parent) {
    box.bodyLabel.textAlignment = TextAlign_Left|TextAlign_Top;
     box.bodyLabel.minWidth = 380;
    box.bodyLabel.text = "";
+   acmApplyLightText(box.bodyLabel);
 
    var headerRow = new HorizontalSizer;
    headerRow.spacing = 6;
@@ -226,15 +318,15 @@ function acmCreateInfoBox(parent) {
    box.sizer.add(box.bodyLabel, 100);
    box.onPaint = function() {
       var g = new Graphics(this);
-      g.pen = new Pen(0xff7a7f89);
-      g.brush = new Brush(0xfff4f4f4);
+      g.pen = new Pen(ACM_GRAY_UI_THEME.line);
+      g.brush = new Brush(0xff464646);
       g.drawRect(this.boundsRect);
       g.end();
    };
    return box;
 }
 
-console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.7.3-beta</b>");
+console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.7.4-beta</b>");
 
 // -------------------------------------------------------------------------
 // Minimal copied core logic
@@ -989,19 +1081,75 @@ function acmLoadTextFile(filePath) {
 }
 
 function acmShowTextDialog(title, text) {
+   function resetDocumentationTextBoxToTop(textBox) {
+      if (!textBox)
+         return;
+      try {
+         textBox.cursorPosition = 0;
+      } catch (ex1) {
+      }
+      try {
+         textBox.selectionStart = 0;
+         textBox.selectionEnd = 0;
+      } catch (ex2) {
+      }
+      try {
+         if (typeof textBox.setSelection === "function")
+            textBox.setSelection(0, 0);
+      } catch (ex3) {
+      }
+      try {
+         if (typeof textBox.setCursorPosition === "function")
+            textBox.setCursorPosition(0);
+      } catch (ex4) {
+      }
+      try {
+         textBox.horizontalScrollPosition = 0;
+         textBox.verticalScrollPosition = 0;
+      } catch (ex5) {
+      }
+      try {
+         if (typeof textBox.setScrollPosition === "function")
+            textBox.setScrollPosition(0, 0);
+      } catch (ex6) {
+      }
+   }
+
    var dialog = new Dialog;
    dialog.windowTitle = title;
    dialog.userResizable = true;
+   dialog.onPaint = function() {
+      var g = new Graphics(this);
+      g.pen = new Pen(0x00000000, 0);
+      g.brush = new Brush(ACM_GRAY_UI_THEME.window);
+      g.fillRect(0, 0, this.width, this.height, g.brush);
+      g.end();
+   };
+
    var textBox = new TextBox(dialog);
    textBox.readOnly = true;
    textBox.wordWrapping = true;
    textBox.text = text;
-   textBox.minWidth = 720;
-   textBox.minHeight = 480;
+   textBox.minWidth = 1100;
+   textBox.minHeight = 720;
+   textBox.setMinWidth(1100);
+   textBox.setMinHeight(720);
+   textBox.backgroundColor = ACM_GRAY_UI_THEME.panel;
+   textBox.foregroundColor = 0xfff2f2f2;
+   textBox.textColor = 0xfff2f2f2;
+   var docFont = new Font;
+   docFont.pixelSize = 14;
+   textBox.font = docFont;
+   resetDocumentationTextBoxToTop(textBox);
+
+   var noteLabel = new Label(dialog);
+   acmSetThemeLabel(noteLabel, "Scroll to read the full document.", ACM_GRAY_UI_THEME.text, false);
    var closeButton = new PushButton(dialog);
    closeButton.text = "Close";
    closeButton.onClick = function() { dialog.ok(); };
+
    var buttons = new HorizontalSizer;
+   buttons.add(noteLabel);
    buttons.addStretch();
    buttons.add(closeButton);
    dialog.sizer = new VerticalSizer;
@@ -1010,19 +1158,29 @@ function acmShowTextDialog(title, text) {
    dialog.sizer.add(textBox, 100);
    dialog.sizer.add(buttons);
    dialog.adjustToContents();
+   resetDocumentationTextBoxToTop(textBox);
+   if (typeof Timer !== "undefined") {
+      dialog.acmDocumentationStartTimer = new Timer;
+      dialog.acmDocumentationStartTimer.interval = 0.05;
+      dialog.acmDocumentationStartTimer.periodic = false;
+      dialog.acmDocumentationStartTimer.onTimeout = function() {
+         resetDocumentationTextBoxToTop(textBox);
+      };
+      dialog.acmDocumentationStartTimer.start();
+   }
    dialog.execute();
 }
 
 var ACM_FAQ_TEXT = [
    "ASTRO COLOR MIXER FAQ & PRACTICAL GUIDE",
    "",
-   "Astro Color Mixer is a nonlinear RGB color and luminance refinement tool for astrophotography. It is intended for images that have already been calibrated, combined, color balanced, and stretched. It is not a replacement for calibration, linear processing, or broad color correction; it is a focused tool for controlled color-band, luminance-range, and refinement-pass adjustments.",
+   "Astro Color Mixer is a nonlinear RGB color and luminance refinement tool for astrophotography. It is intended for images that have already been calibrated, registered, integrated, color balanced, and stretched. It is not a replacement for calibration, linear processing, background correction, or broad color correction. It is a focused finishing and refinement tool for controlled color-band, luminance-range, and multi-pass adjustments.",
    "",
    "1. WHAT IS ASTRO COLOR MIXER?",
    "",
-   "Astro Color Mixer is built for nonlinear RGB color-band refinement. Instead of making arbitrary global color swings, it lets you work in practical astro editing regions such as H-alpha reds, OIII cyans, reflection blues, halo cleanup magentas, and background-oriented low-saturation areas.",
+   "Astro Color Mixer is built for nonlinear RGB color-band refinement. Instead of making arbitrary global color swings, it lets you work in practical astro editing regions such as H-alpha reds, warm dust and galaxy cores, OIII cyans, reflection blues, violet drift, magenta halos, and background-oriented low-saturation areas.",
    "",
-   "It is designed for nebulae, galaxies, dust, halos, stars, and background refinement, and it always creates a new output image instead of overwriting the source view.",
+   "It is designed for nebulae, galaxies, dust, halos, stars, and background refinement. The primary workflow creates a new output image so the original source view remains unchanged. The Apply to Target command is available for deliberate target writes and respects an active PixInsight mask.",
    "",
    "2. WHERE DOES IT FIT IN A PIXINSIGHT WORKFLOW?",
    "",
@@ -1035,11 +1193,11 @@ var ACM_FAQ_TEXT = [
    "  - nonlinear stretch",
    "  - initial noise reduction or contrast shaping as appropriate",
    "",
-   "Typical placement is after the image is already nonlinear, when you want controlled final color and luminance refinement. It can be used on stars-present images, starless images, or both depending on the target and your workflow.",
+   "Typical placement is after the image is already nonlinear, when you want controlled final color and luminance refinement. It can be used on stars-present images, starless images, star-reduced images, or separate starless/star layers depending on the target and your workflow.",
    "",
    "3. WHAT KIND OF IMAGE SHOULD I USE?",
    "",
-   "Use a nonlinear RGB image. Do not use the tool on raw linear stacks or as a substitute for earlier calibration work. It works on both stars-present and starless images, and the Image Type setting tells the tool which protection behavior to use. Preview is downsampled for speed, but Apply to New Image always runs on full-resolution data.",
+   "Use a nonlinear RGB image. Do not use the tool on raw linear stacks or as a substitute for earlier calibration work. The input should already have a sensible stretch and broadly reasonable color. The tool works on both stars-present and starless images, and the Image Type setting tells the processing model which protection behavior to use. Preview is downsampled for speed, while Create Image processes the full-resolution source.",
    "",
    "3A. WHAT IS THE DIFFERENCE BETWEEN STARS PRESENT AND STARLESS / STAR-REDUCED?",
    "",
@@ -1064,15 +1222,16 @@ var ACM_FAQ_TEXT = [
    "  2. Choose Image Type:",
    "     - Stars Present for normal RGB images with stars.",
    "     - Starless / Star-Reduced for starless or strongly star-reduced images.",
-   "  3. Start with Base Pass.",
-   "  4. Use Hue, Saturation, and Luminance sliders for broad color work.",
-   "  5. Use the probe, histogram, and polar plot to understand the image.",
-   "  6. Adjust Width and Feather for the selected color band if needed.",
-   "  7. Use Range Mask for brightness-targeted refinements.",
-   "  8. Add a Refinement Pass for targeted changes.",
-   "  9. Preview, compare Original and Adjusted, and inspect mask views.",
-   "  10. Apply to New Image.",
-   "  11. Save an adjustment set if the session is worth preserving.",
+   "  3. Start with Base Pass for broad work.",
+   "  4. Use Hue, Saturation, and Luminance tabs for color-band adjustments.",
+   "  5. Click the preview to probe useful pixels and confirm which band is active.",
+   "  6. Adjust Hue Radius and Feather when a band needs to be narrower, broader, or smoother.",
+   "  7. Use Current Band Mask, Range Mask, or Combined Mask preview modes before strong edits.",
+   "  8. Add a Refinement Pass for targeted work such as halos, background, highlights, or faint signal.",
+   "  9. Use Range Mask when the change should affect only a luminance slice.",
+   "  10. Compare Adjusted to Original or Last Pass.",
+   "  11. Create Image when the result is ready.",
+   "  12. Save an adjustment set if the session is worth preserving.",
    "",
    "5. WHAT ARE THE COLOR BANDS?",
    "",
@@ -1087,7 +1246,9 @@ var ACM_FAQ_TEXT = [
    "",
    "6. WHAT DO HUE, SATURATION, AND LUMINANCE DO?",
    "",
-   "Hue shifts the color direction inside the selected band. Saturation strengthens or weakens color intensity inside that band. Luminance changes the brightness of selected color regions. These edits apply only to the active Refinement Pass, which means broad and targeted work can be separated cleanly.",
+   "Hue shifts color direction inside the selected band. Saturation strengthens or weakens color intensity inside that band. Luminance changes the brightness of selected color regions. These edits apply only to the active Refinement Pass, which means broad and targeted work can be separated cleanly.",
+   "",
+   "Use small moves first. A little hue movement can be useful for correcting a color family, but large hue shifts can become artificial quickly. Saturation is often the most natural first adjustment for emission and reflection structures. Luminance is useful for emphasis, background control, and balancing bright or faint structures.",
    "",
    "7. WHAT ARE WIDTH AND FEATHER?",
    "",
@@ -1097,6 +1258,8 @@ var ACM_FAQ_TEXT = [
    "",
    "Range Mask is a luminance-based selection. Low and High define the brightness interval, while Feather softens the inclusion edges. Use it for background work, faint signal work, highlight protection, bright cores, stars, or any pass that should act only in a luminance slice. Range Mask belongs to the active pass, not the whole tool globally.",
    "",
+   "A good habit is to switch Preview Mode to Range Mask or Combined Mask before making a strong edit. If the mask does not include the structures you intend to change, adjust Low, High, and Feather before touching the color sliders.",
+   "",
    "9. WHAT IS NEUTRAL / LOW-SATURATION?",
    "",
    "When saturation is very low, hue becomes unreliable. Neutral / Low-Saturation is the luminance control for those pixels. It is useful for sky background, gray dust, halos, low-color transitions, and neutral structures where a hue-based edit would be misleading. This control appears with the Luminance controls.",
@@ -1104,6 +1267,8 @@ var ACM_FAQ_TEXT = [
    "10. WHAT ARE REFINEMENT PASSES?",
    "",
    "Refinement Passes are editable sequential processing passes. Base Pass is usually where broad global work begins. Additional passes are best for targeted changes such as background control, halo cleanup, or highlight-specific luminance shaping. They are not Photoshop layers: there are no blend modes and no opacity sliders. Passes are applied in order.",
+   "",
+   "Use separate passes when the intent is different. For example, broad nebula saturation, magenta halo cleanup, and neutral background darkening should usually be separate passes. This makes the session easier to inspect, revise, and save as an adjustment set.",
    "",
    "11. WHAT DO PROBE, HISTOGRAM, AND POLAR PLOT DO?",
    "",
@@ -1115,7 +1280,7 @@ var ACM_FAQ_TEXT = [
    "",
    "13. WHY CAN PREVIEW DIFFER FROM FINAL OUTPUT?",
    "",
-   "Preview is based on downsampled data for speed and responsiveness. Apply to New Image uses full-resolution data. Fine detail and microstructure can differ slightly, but the overall direction of the result should remain consistent with the preview.",
+   "Preview is based on downsampled data for speed and responsiveness. At high zoom levels, the tool can render a detail crop for the visible region. Create Image processes the full-resolution source. Fine detail and microstructure can differ slightly, but the overall direction of the result should remain consistent with the preview.",
    "",
    "14. WHAT IS AN ADJUSTMENT SET?",
    "",
@@ -1129,8 +1294,16 @@ var ACM_FAQ_TEXT = [
    "  - Doing highly targeted work in Base Pass instead of a new Refinement Pass.",
    "  - Trusting hue in neutral or low-saturation background regions.",
    "  - Forgetting that the preview is stale after changing controls.",
+   "  - Using Apply to Target when a new output image would be safer.",
+   "  - Treating the band names as strict physical classifications instead of practical editing regions.",
    "",
-   "16. EXAMPLE WORKFLOWS",
+   "16. CREATE IMAGE VS APPLY TO TARGET",
+   "",
+   "Create Image is the safest primary output path. It writes the adjusted result to a new PixInsight image window and leaves the target unchanged.",
+   "",
+   "Apply to Target writes the adjusted result back into the selected target image. PixInsight undo should normally be available, and an active PixInsight mask is respected, but this is still a more direct operation. Use it when you are intentionally working in-place.",
+   "",
+   "17. EXAMPLE WORKFLOWS",
    "",
    "A. Boosting faint blue reflection nebulosity",
    "  Start in Base Pass or a dedicated reflection pass. Increase Blue / Reflection Nebula saturation modestly, inspect the mask view, then narrow Width if blue stars begin to move more than the nebula. Use Range Mask if you only want the faint reflection structures and not the brightest highlights.",
@@ -1141,17 +1314,30 @@ var ACM_FAQ_TEXT = [
    "C. Darkening or smoothing neutral background with Range Mask",
    "  Work on the Luminance tab and use Neutral / Low-Saturation rather than a hue band. Enable Range Mask and target the dim background interval. Make a small luminance move, inspect the histogram and mask view, and keep the pass separate from your broad color pass so the workflow stays readable.",
    "",
+   "D. Conservative stars-present color cleanup",
+   "  Use Stars Present mode. Work with small saturation and hue changes, inspect Current Band Mask before strong edits, and use Range Mask if the change should avoid bright star cores. If star color begins to look forced, reduce the adjustment or split the work into a narrower pass.",
+   "",
+   "E. Starless nebula refinement before recombination",
+   "  Use Starless / Star-Reduced mode. Add passes for broad nebula saturation, local cyan or red balance, and faint structure luminance. Keep adjustments moderate if stars will be recombined later so the star layer and nebula layer still feel coherent.",
+   "",
    "For the complete package documentation, see README.md, docs/FAQ.md, and docs/TECHNICAL_APPENDIX.md in the PixInsight package folder."
 ].join("\n");
 
 var ACM_TECHNICAL_APPENDIX_TEXT = [
    "ASTRO COLOR MIXER TECHNICAL APPENDIX",
    "",
-   "This appendix describes the processing model used by Astro Color Mixer. The tool is designed for nonlinear RGB astrophotography images and combines hue-band selection, luminance-range masking, low-saturation handling, and sequential refinement passes.",
+   "This appendix describes the processing model used by Astro Color Mixer. It is both a technical overview and a compact white paper for the tool. Astro Color Mixer is designed for nonlinear RGB astrophotography images and combines hue-band selection, luminance-range masking, low-saturation handling, protection weighting, preview diagnostics, and sequential refinement passes.",
    "",
    "1. DESIGN GOALS",
    "",
-   "Astro Color Mixer is designed for controlled nonlinear RGB color refinement. The main goals are to give the user practical astrophotography-specific color bands, avoid arbitrary global color swings, expose masks and diagnostics clearly, and preserve a non-destructive workflow by writing the result to a new image.",
+   "Astro Color Mixer is designed for controlled nonlinear RGB color refinement. The main goals are:",
+   "",
+   "  - provide practical astrophotography-specific color bands",
+   "  - avoid arbitrary global color swings",
+   "  - give the user mask and diagnostic feedback before committing changes",
+   "  - support broad and targeted refinements through ordered passes",
+   "  - protect unstable dark, bright, and low-saturation regions",
+   "  - preserve a non-destructive workflow by creating a new output image by default",
    "",
    "2. PROCESSING ASSUMPTIONS",
    "",
@@ -1160,6 +1346,11 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
    "  - source image is not overwritten",
    "  - preview uses a downsampled representation for responsiveness",
    "  - Apply to New Image uses the full-resolution image",
+   "  - adjustments are intended as post-stretch refinements, not calibration operations",
+   "",
+   "High-level pipeline:",
+   "",
+   "source RGB -> preview/full-resolution working copy -> enabled pass loop -> band and neutral masks -> chroma/luminance adjustment -> clamp -> output image",
    "",
    "3. LUMINANCE MODEL",
    "",
@@ -1169,7 +1360,7 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
    "",
    "4. HUE AND SATURATION MODEL",
    "",
-   "Hue and saturation are used for selection and editing. Hue is circular, so distances are measured around a wrapped 0..360 degree space. Low saturation makes hue unreliable, especially in backgrounds, halos, dust transitions, and weak-color structures. Selected bands therefore use circular hue distance, but the tool also reduces false confidence in very low-saturation regions.",
+   "Hue and saturation are used for selection and editing. Hue is circular, so distances are measured around a wrapped 0..360 degree space. Low saturation makes hue unreliable, especially in backgrounds, halos, dust transitions, and weak-color structures. Selected bands therefore use circular hue distance, while saturation reliability reduces false confidence in very low-saturation regions.",
    "",
    "5. ASTRO COLOR BANDS",
    "",
@@ -1208,13 +1399,17 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
    "distance = circularHueDistance(hue, center)",
    "mask = 1 - smoothstep(innerWidth, outerWidth, distance)",
    "",
+   "Hue Radius controls the outerWidth. Feather controls the distance between the stronger inner region and the outer falloff boundary. A higher Feather value makes the transition softer and reduces abrupt color boundaries.",
+   "",
    "7. SATURATION RELIABILITY",
    "",
-   "Very low-saturation pixels do not carry stable hue information. Astro Color Mixer therefore uses a saturation reliability term to reduce false hue selection in neutral areas. This prevents weakly colored background pixels from being treated like confidently blue, magenta, or green structures. The neutral / low-saturation luminance control provides a separate path for those pixels.",
+   "Very low-saturation pixels do not carry stable hue information. Astro Color Mixer therefore uses a saturation reliability term to reduce false hue selection in neutral areas. This prevents weakly colored background pixels from being treated like confidently blue, magenta, or green structures. The Neutral / Low-Saturation luminance control provides a separate path for those pixels.",
    "",
    "8. DARK AND HIGHLIGHT PROTECTION",
    "",
    "Very dark pixels can be noisy and unstable. Very bright pixels often include star cores, clipped highlights, or structures where strong hue changes can look unnatural quickly. The tool includes dark and highlight protection terms, and the chosen image type changes the behavior so stars-present and starless workflows can be handled differently.",
+   "",
+   "These protection terms are not a substitute for user judgment. They are guardrails that make normal edits safer. Strong edits can still create artifacts if the selected mask is too broad or the adjustment is too large.",
    "",
    "9. RANGE MASK",
    "",
@@ -1238,9 +1433,13 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
    "",
    "This is useful when editing sky background, gray dust, faint halos, or other structures where a hue-based chroma edit is not the right model. In practice, this behaves as luminance shaping for pixels whose hue is not trustworthy.",
    "",
+   "Neutral adjustment appears on the Luminance tab because it is not a hue-band chroma edit. It is intentionally separated from the color bands so neutral background and low-chroma structures can be handled without pretending they have a reliable hue.",
+   "",
    "11. CHROMA-VECTOR ADJUSTMENT MODEL",
    "",
    "The processing model is practical rather than marketed as mathematically perfect color science. Conceptually, RGB is separated into a luminance-like neutral component and a chroma component. Saturation edits scale chroma magnitude, hue edits rotate chroma direction, and luminance edits modify the brightness component. The result is then recombined and clamped back into a valid nonlinear RGB range.",
+   "",
+   "This model is useful for post-stretch astrophotography because it gives intuitive control over perceived color families while still retaining luminance-aware selection and protection.",
    "",
    "12. COMBINED MASK",
    "",
@@ -1256,6 +1455,8 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
    "",
    "The exact implementation details follow the actual code path, but conceptually the tool combines hue selection, saturation reliability, luminance gating, and protection terms before the adjustment is applied.",
    "",
+   "For Neutral / Low-Saturation luminance adjustment, the neutral mask replaces hue selection as the main inclusion term. Range Mask and protection weighting can still limit where the neutral adjustment is allowed to act.",
+   "",
    "13. REFINEMENT PASSES",
    "",
    "The adjustment set contains ordered passes. Enabled passes are applied sequentially, and each pass works on the result produced by the previous enabled pass. This makes it possible to combine broad global work with targeted cleanup and luminance-specific refinements without collapsing everything into one control set.",
@@ -1266,15 +1467,34 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
    "for each enabled pass:",
    "    working = applyPass(working, pass)",
    "",
+   "Passes are not layers. There are no blend modes and no opacity slider. A later enabled pass receives the already-adjusted result of earlier enabled passes.",
+   "",
    "14. PREVIEW AND DIAGNOSTICS",
    "",
-   "Preview uses a downsampled image so the tool remains responsive. Histogram calculations use preview luminance. The polar plot uses sampled preview pixels. The probe reads preview pixels. Apply to New Image uses the full-resolution source data, which is why small local differences can appear even when the broad preview match is strong.",
+   "Preview uses a downsampled image so the tool remains responsive. Histogram calculations use preview luminance. The polar plot uses sampled preview pixels. The probe reads preview pixels. At high zoom, detail crop preview can render the visible region from source pixels. Create Image uses the full-resolution source data, which is why small local differences can appear even when the broad preview match is strong.",
+   "",
+   "Diagnostics are decision aids:",
+   "",
+   "  - Current Band Mask shows hue-band inclusion",
+   "  - Range Mask shows luminance-range inclusion",
+   "  - Combined Mask shows the active selection stack",
+   "  - Histogram helps place luminance ranges",
+   "  - Polar Plot shows hue and saturation distribution",
+   "  - Probe reports local luminance, hue, saturation, and nearest reliable band",
    "",
    "15. ADJUSTMENT SET MODEL",
    "",
    "Adjustment sets are stored as JSON and preserve the important editing state, including image type, sensitivity, pass order, band settings, Width and Feather, Range Mask configuration, and neutral luminance terms. Diagnostic readouts are interactive session tools and are not the main purpose of the saved adjustment-set file.",
    "",
-   "16. LIMITATIONS",
+   "Adjustment sets are intended for repeatability, review, documentation, and sharing. They are not a replacement for the source image and do not store preview bitmap data.",
+   "",
+   "16. OUTPUT MODEL",
+   "",
+   "Create Image builds a new PixInsight image from the full-resolution source and the current adjustment set. This is the preferred non-destructive output path.",
+   "",
+   "Apply to Target writes the adjusted result back to the selected target image and respects the active PixInsight mask. It is useful for deliberate in-place work, but the safer exploratory workflow is to create a new image first.",
+   "",
+   "17. LIMITATIONS",
    "",
    "  - not intended for linear calibration",
    "  - extreme adjustments can create artifacts",
@@ -1284,7 +1504,7 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
    "  - saturated stars and bright cores may need careful handling",
    "  - user judgment is still required",
    "",
-   "17. PRACTICAL GUIDANCE",
+   "18. PRACTICAL GUIDANCE",
    "",
    "  - start with small adjustments",
    "  - preview masks before strong edits",
@@ -1292,12 +1512,12 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
    "  - avoid using Range Mask to reinterpret finished global work unless that is intentional",
    "  - save adjustment sets for complex sessions",
    "",
-   "For the complete package documentation, see docs/TECHNICAL_APPENDIX.md and AstroColorMixer.pidoc in the PixInsight package folder."
+   ""
 ].join("\n");
 
 var ACM_ABOUT_TEXT =
       "About Astro Color Mixer\n\n" +
-      "Astro Color Mixer v0.9.7.3-beta\n\n" +
+      "Astro Color Mixer v0.9.7.4-beta\n\n" +
 "A Cosgrove's Cosmos tool for nonlinear RGB chroma-vector color control in astrophotography.\n\n" +
 "Core capabilities:\n" +
 "- H/S/L color-band adjustment\n" +
@@ -1558,8 +1778,8 @@ function acmCreateMiniResetButton(parent) {
    button.toolTip = "Reset this band";
    button.onPaint = function() {
       var g = new Graphics(this);
-      g.pen = new Pen(0xff5e636d);
-      g.brush = new Brush(0xffececec);
+      g.pen = new Pen(0xff8e92a0);
+      g.brush = new Brush(0xff55575d);
       g.drawRect(this.boundsRect);
 
       var f = new Font;
@@ -1570,7 +1790,7 @@ function acmCreateMiniResetButton(parent) {
       var tw = g.font.width(glyph);
       var x = Math.round((this.width - tw) * 0.5);
       var y = Math.round((this.height + g.font.ascent - g.font.descent) * 0.5);
-      g.pen = new Pen(0xff000000);
+      g.pen = new Pen(0xfff2f2f2);
       g.drawText(x, y, glyph);
       g.end();
    };
@@ -1643,9 +1863,10 @@ function acmGradientRgbForBand(tabKey, bandDef, t, isNeutral, sensitivity) {
    if (tabKey === ACM_TAB_HUE) {
       var range = ACM_SENSITIVITY_RANGES[sensitivity] || ACM_SENSITIVITY_RANGES.Normal;
       var centerHue = bandDef.center != null ? bandDef.center : acmRgbToHsl(base.r, base.g, base.b)[0];
-      var leftColor = acmHueToRgb01(acmNormalizeHueDegrees(centerHue - range.hueShift));
-      var centerColor = acmHueToRgb01(centerHue);
-      var rightColor = acmHueToRgb01(acmNormalizeHueDegrees(centerHue + range.hueShift));
+      var hueGray = { r: 0.46, g: 0.46, b: 0.46 };
+      var leftColor = acmMixRgb01(hueGray, acmHueToRgb01(acmNormalizeHueDegrees(centerHue - range.hueShift)), 0.62);
+      var centerColor = acmMixRgb01(hueGray, acmHueToRgb01(centerHue), 0.68);
+      var rightColor = acmMixRgb01(hueGray, acmHueToRgb01(acmNormalizeHueDegrees(centerHue + range.hueShift)), 0.62);
       return t < 0.5 ? acmMixRgb01(leftColor, centerColor, t / 0.5) : acmMixRgb01(centerColor, rightColor, (t - 0.5) / 0.5);
    }
    if (tabKey === ACM_TAB_SAT) {
@@ -1786,8 +2007,9 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
    row.secondaryLabelText = options.secondaryLabel || (row.isNeutral ? "Low-saturation luminance" : ("Center " + (row.bandDef.center != null ? row.bandDef.center : 0) + "\u00b0"));
 
    row.labelHost = new Label(row.host);
-   row.labelHost.useRichText = false;
-   row.labelHost.text = row.primaryLabelText;
+   row.labelHost.useRichText = true;
+   row.labelHost.text = acmThemeRichText(row.primaryLabelText, ACM_GRAY_UI_THEME.text, false);
+   acmApplyLightText(row.labelHost);
    row.labelHost.textAlignment = TextAlign_Right | TextAlign_VertCenter;
    row.labelHost.minWidth = ACM_MIXER_LABEL_WIDTH;
    row.labelHost.scaledMinHeight = 18;
@@ -1852,7 +2074,9 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
 
    row.setLabel = function(text) {
       row.primaryLabelText = acmCompactMixerLabel(row.bandDef, row.isNeutral, text);
-      row.labelHost.text = row.primaryLabelText;
+      row.labelHost.useRichText = true;
+      row.labelHost.text = acmThemeRichText(row.primaryLabelText, ACM_GRAY_UI_THEME.text, false);
+      acmApplyLightText(row.labelHost);
       row.labelHost.toolTip = acmMixerLabelTooltip(row.bandDef, row.isNeutral);
    };
    row.setSecondaryLabel = function(text) {
@@ -2748,7 +2972,7 @@ function AstroColorMixerUI03Dialog() {
    acmHelpHostDialog = this;
 
    var self = this;
-   this.windowTitle = "Astro Color Mixer v0.9.7.3-beta";
+   this.windowTitle = "Astro Color Mixer v0.9.7.4-beta";
    this.recipeFilePath = "";
    this.activeTab = ACM_TAB_SAT;
    this.activeToolPanel = "selectedBand";
@@ -2887,6 +3111,9 @@ function AstroColorMixerUI03Dialog() {
    this.headerLogoControl.onPaint = function() {
       var g = new Graphics(this);
       var dialog = this.acmDialogRef;
+      g.pen = new Pen(0x00000000, 0);
+      g.brush = new Brush(ACM_GRAY_UI_THEME.header);
+      g.fillRect(0, 0, this.width, this.height, g.brush);
       if (dialog.logoBitmap) {
          var pad = -4;
          var h = Math.max(20, this.height - pad * 2);
@@ -2907,8 +3134,11 @@ function AstroColorMixerUI03Dialog() {
    this.headerBrandControl.scaledMinHeight = 74;
    this.headerBrandControl.onPaint = function() {
       var g = new Graphics(this);
+      g.pen = new Pen(0x00000000, 0);
+      g.brush = new Brush(ACM_GRAY_UI_THEME.header);
+      g.fillRect(0, 0, this.width, this.height, g.brush);
       var mainTitle = "Astro Color Mixer";
-      var versionText = "v0.9.7.3-beta";
+      var versionText = "v0.9.7.4-beta";
       var titleFont = new Font;
       titleFont.bold = true;
       titleFont.pixelSize = 27;
@@ -2926,12 +3156,13 @@ function AstroColorMixerUI03Dialog() {
          if (versionFont.pixelSize > 10)
             --versionFont.pixelSize;
       }
-      g.pen = new Pen(0xff101010);
+      g.pen = new Pen(0xfff2f2f2);
       var baselineY = Math.round(this.height * 0.5 + titleFont.pixelSize * 0.25);
       g.font = titleFont;
       g.drawText(0, baselineY, mainTitle);
       var titleWidth = g.font.width(mainTitle);
       g.font = versionFont;
+      g.pen = new Pen(0xffd8dcff);
       g.drawText(titleWidth + 6, baselineY, versionText);
       g.end();
    };
@@ -3122,12 +3353,14 @@ function AstroColorMixerUI03Dialog() {
    this.selectedBandReadoutTitle.text = "<b>Selection</b>";
 
    this.selectedBandReadoutPrimary = new Label(this);
-   this.selectedBandReadoutPrimary.useRichText = true;
-   this.selectedBandReadoutPrimary.text = "<b>Hue center:</b> 0°\n<b>Hue Radius:</b> ±45°\n<b>Strong core:</b> ±11.25°";
+   this.selectedBandReadoutPrimary.useRichText = false;
+   this.selectedBandReadoutPrimary.text = "Hue center: 0°  Hue Radius: ±45°  Strong core: ±11.25°";
+   acmApplyLightText(this.selectedBandReadoutPrimary);
 
    this.selectedBandReadoutSecondary = new Label(this);
-   this.selectedBandReadoutSecondary.useRichText = true;
-   this.selectedBandReadoutSecondary.text = "<b>Falloff:</b> 11.25°–45°\n<b>Affected range:</b> 315°–45°\n<b>Feather:</b> 0.75";
+   this.selectedBandReadoutSecondary.useRichText = false;
+   this.selectedBandReadoutSecondary.text = "Falloff: 11.25°–45°  Affected range: 315°–45°  Feather: 0.75";
+   acmApplyLightText(this.selectedBandReadoutSecondary);
 
    this.selectedBandProfileBar = new Control(this);
    this.selectedBandProfileBar.scaledMinHeight = 26;
@@ -3192,6 +3425,7 @@ function AstroColorMixerUI03Dialog() {
    };
 
    this.selectedBandReadoutPanel = new Control(this);
+   acmSetThemePanel(this.selectedBandReadoutPanel, ACM_GRAY_UI_THEME.panelInset, ACM_GRAY_UI_THEME.line);
    this.selectedBandReadoutPanel.scaledMinWidth = 150;
    this.selectedBandReadoutPanel.sizer = new VerticalSizer;
    this.selectedBandReadoutPanel.sizer.margin = 8;
@@ -3870,11 +4104,13 @@ function AstroColorMixerUI03Dialog() {
    this.passViewerHost.viewport.sizer = new VerticalSizer;
    this.passViewerHost.viewport.sizer.margin = 0;
    this.passViewerHost.viewport.sizer.spacing = 0;
+   acmSetThemePanel(this.passViewerHost.viewport, ACM_GRAY_UI_THEME.passViewer, 0xffb5b5b5);
    this.passViewerHost.viewport.onResize = function() {
       if (this.acmDialogRef)
          this.acmDialogRef.updatePassViewerScrollBars();
    };
    this.passViewerBody = new Control(this.passViewerHost.viewport);
+   acmSetThemePanel(this.passViewerBody, ACM_GRAY_UI_THEME.passViewer, ACM_GRAY_UI_THEME.passViewer);
    this.passViewerBody.sizer = new VerticalSizer;
    this.passViewerBody.sizer.margin = 0;
    this.passViewerBody.sizer.spacing = 1;
@@ -4077,6 +4313,65 @@ function AstroColorMixerUI03Dialog() {
    this.closeButton.text = "Close";
    this.closeButton.onClick = function() { self.cancel(); };
 
+   this.onPaint = function() {
+      var g = new Graphics(this);
+      g.pen = new Pen(0x00000000, 0);
+      g.brush = new Brush(ACM_GRAY_UI_THEME.window);
+      g.fillRect(0, 0, this.width, this.height, g.brush);
+      g.end();
+   };
+
+   acmSetThemeLabel(this.targetImageLabel, "Target Image:", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.imageTypeLabel, "Image Type", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.sensitivityLabel, "Sensitivity", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.selectedBandSectionLabel, "Selected Band", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.selectedBandHelpLabel, "Hue Radius sets the outer limit on each side of the hue center. Feather controls how quickly the selection falls from the strong core to that outer limit.", ACM_GRAY_UI_THEME.muted, false);
+   acmSetThemeLabel(this.selectedBandReadoutTitle, "Selection", ACM_GRAY_UI_THEME.text, true);
+   acmPlainLightLabel(this.selectedBandReadoutPrimary, "Hue center: 0°  Hue Radius: ±45°  Strong core: ±11.25°");
+   acmPlainLightLabel(this.selectedBandReadoutSecondary, "Falloff: 11.25°–45°  Affected range: 315°–45°  Feather: 0.75");
+   acmSetThemeLabel(this.selectedBandLabel, "Band:", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.rangeMaskSectionLabel, "Range Mask", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.rangeMaskPresetLabel, "Preset", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.previewModeLabel, "Preview Mode", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.previewZoomLabel, "Zoom", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.compareModeLabel, "Compare", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.diagnosticsSectionLabel, "Diagnostics &amp; Passes", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.histogramLabel, "Histogram", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.polarLabel, "Polar Plot", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.passViewerLabel, "Pass Viewer", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.recipeSectionLabel, "Adjustment Set", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.previewOutputHelpLabel, "Use the preview to judge settings first. 'Create Image' leaves the target unchanged. 'Apply to Target' writes the adjusted result back and respects the active PixInsight mask.", ACM_GRAY_UI_THEME.muted, false);
+   acmSetThemeLabel(this.footerNoticeLabel, "Developed by Patrick A. Cosgrove for Cosgrove's Cosmos · © 2026", ACM_GRAY_UI_THEME.muted, false);
+   acmSetThemeLabel(this.previewZoomReadout, "Fit", ACM_GRAY_UI_THEME.text, false);
+   acmSetThemeLabel(this.previewInteractionHintLabel, "Click: probe • Hold: compare • Drag: pan", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.previewSamplingStatusLabel, "Preview: Fast", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.probeReadoutLabel, "Preview-resolution diagnostics · Probe: none", ACM_GRAY_UI_THEME.muted, false);
+   acmSetThemeLabel(this.targetApplyMaskStatusLabel, "Target Mask: none", ACM_GRAY_UI_THEME.text, true);
+   acmApplyLightText(this.activeStatusLabel);
+   acmApplyLightText(this.pendingChangesLabel);
+   acmApplyLightText(this.bandSectionLabel);
+   acmApplyLightText(this.rangeMaskStatusLabel);
+   acmApplyLightText(this.outputFeedbackLabel);
+   acmApplyLightText(this.passEnabledCheck);
+   acmApplyLightText(this.rangeMaskEnabledCheck);
+   acmApplyLightText(this.autoPreviewCheck);
+   acmApplyLightText(this.autoSelectProbeBandCheck);
+   acmApplyLightText(this.widthControl.label);
+   acmApplyLightText(this.featherControl.label);
+   acmApplyLightText(this.rangeMaskLowControl.label);
+   acmApplyLightText(this.rangeMaskHighControl.label);
+   acmApplyLightText(this.rangeMaskFeatherControl.label);
+   this.widthControl.label.useRichText = true;
+   this.widthControl.label.text = acmThemeRichText("Hue Radius:", ACM_GRAY_UI_THEME.text, false);
+   this.featherControl.label.useRichText = true;
+   this.featherControl.label.text = acmThemeRichText("Feather:", ACM_GRAY_UI_THEME.text, false);
+   this.rangeMaskLowControl.label.useRichText = true;
+   this.rangeMaskLowControl.label.text = acmThemeRichText("Low", ACM_GRAY_UI_THEME.text, false);
+   this.rangeMaskHighControl.label.useRichText = true;
+   this.rangeMaskHighControl.label.text = acmThemeRichText("High", ACM_GRAY_UI_THEME.text, false);
+   this.rangeMaskFeatherControl.label.useRichText = true;
+   this.rangeMaskFeatherControl.label.text = acmThemeRichText("Feather", ACM_GRAY_UI_THEME.text, false);
+
    this.faqButton.setFixedWidth(132);
    this.technicalButton.setFixedWidth(170);
    this.aboutButton.setFixedWidth(122);
@@ -4253,6 +4548,7 @@ function AstroColorMixerUI03Dialog() {
    previewOutputHeaderRow.addStretch();
 
    this.colorMixerPanel = new Control(this);
+   acmSetThemePanel(this.colorMixerPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.panel);
    this.colorMixerPanel.sizer = new VerticalSizer;
    this.colorMixerPanel.sizer.margin = 0;
    this.colorMixerPanel.sizer.spacing = 0;
@@ -4263,6 +4559,7 @@ function AstroColorMixerUI03Dialog() {
    this.colorMixerPanel.visible = true;
 
    this.selectedBandPanel = new Control(this);
+   acmSetThemePanel(this.selectedBandPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.panel);
    this.selectedBandPanel.sizer = new VerticalSizer;
    this.selectedBandPanel.sizer.margin = 0;
    this.selectedBandPanel.sizer.spacing = 3;
@@ -4274,6 +4571,7 @@ function AstroColorMixerUI03Dialog() {
    this.selectedBandPanel.visible = true;
 
    this.rangeMaskPanel = new Control(this);
+   acmSetThemePanel(this.rangeMaskPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.panel);
    this.rangeMaskPanel.sizer = new VerticalSizer;
    this.rangeMaskPanel.sizer.margin = 0;
    this.rangeMaskPanel.sizer.spacing = 2;
@@ -4292,6 +4590,7 @@ function AstroColorMixerUI03Dialog() {
    diagnosticsMetaRow.add(this.autoSelectProbeBandCheck);
 
    var histogramPanel = new Control(this);
+   acmSetThemePanel(histogramPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.panel);
    histogramPanel.sizer = new VerticalSizer;
    histogramPanel.sizer.margin = 0;
    histogramPanel.sizer.spacing = 2;
@@ -4300,6 +4599,7 @@ function AstroColorMixerUI03Dialog() {
    histogramPanel.sizer.add(this.histogramRampControl);
 
    var polarPanel = new Control(this);
+   acmSetThemePanel(polarPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.panel);
    polarPanel.sizer = new VerticalSizer;
    polarPanel.sizer.margin = 0;
    polarPanel.sizer.spacing = 2;
@@ -4307,6 +4607,7 @@ function AstroColorMixerUI03Dialog() {
    polarPanel.sizer.add(this.polarControl, 100);
 
    var passViewerPanel = new Control(this);
+   acmSetThemePanel(passViewerPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.panel);
    this.passViewerPanel = passViewerPanel;
    passViewerPanel.sizer = new VerticalSizer;
    passViewerPanel.sizer.margin = 0;
@@ -4323,6 +4624,7 @@ function AstroColorMixerUI03Dialog() {
    diagnosticsPlotsRow.add(passViewerPanel, 31);
 
    this.diagnosticsPanel = new Control(this);
+   acmSetThemePanel(this.diagnosticsPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.panel);
    this.diagnosticsPanel.sizer = new VerticalSizer;
    this.diagnosticsPanel.sizer.margin = 0;
    this.diagnosticsPanel.sizer.spacing = 2;
@@ -4386,6 +4688,7 @@ function AstroColorMixerUI03Dialog() {
    bottomActionsRow.add(this.closeButton);
 
    this.previewOutputPanel = new Control(this);
+   acmSetThemePanel(this.previewOutputPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.panel);
    this.previewOutputPanel.sizer = new VerticalSizer;
    this.previewOutputPanel.sizer.margin = 0;
    this.previewOutputPanel.sizer.spacing = 4;
@@ -4411,19 +4714,21 @@ function AstroColorMixerUI03Dialog() {
    this.recipeHelpButton.onMouseRelease = function() {};
 
    this.leftPanel = new Control(this);
+   acmSetThemePanel(this.leftPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.panel);
    this.leftPanel.scaledMinWidth = ACM_HOST_IS_WINDOWS ? 500 : 468;
    this.leftPanel.maxWidth = ACM_HOST_IS_WINDOWS ? 560 : 520;
    this.leftPanel.sizer = new VerticalSizer;
    this.leftPanel.sizer.margin = 0;
    this.leftPanel.sizer.spacing = 3;
    var colorMixerGroup = new GroupBox(this.leftPanel);
+   acmSetThemePanel(colorMixerGroup, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.line);
    colorMixerGroup.title = "";
    colorMixerGroup.sizer = new VerticalSizer;
    colorMixerGroup.sizer.margin = 0;
    colorMixerGroup.sizer.spacing = 0;
    var colorMixerTitleLabel = new Label(this.leftPanel);
-   colorMixerTitleLabel.useRichText = true;
-   colorMixerTitleLabel.text = "<b><color=#2a5db0>Color Mixer</color></b>";
+   acmSetThemeLabel(colorMixerTitleLabel, "Color Mixer", ACM_GRAY_UI_THEME.text, true);
+   acmApplyLightText(colorMixerTitleLabel);
    var colorMixerTitleHelpRow = new HorizontalSizer;
    colorMixerTitleHelpRow.spacing = 4;
    colorMixerTitleHelpRow.add(colorMixerTitleLabel);
@@ -4432,25 +4737,34 @@ function AstroColorMixerUI03Dialog() {
    colorMixerGroup.sizer.add(colorMixerTitleHelpRow);
    colorMixerGroup.sizer.add(this.colorMixerPanel, 100);
    var workflowToolsGroup = new GroupBox(this.leftPanel);
-   workflowToolsGroup.title = "Context Tools";
+   acmSetThemePanel(workflowToolsGroup, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.line);
+   workflowToolsGroup.title = "";
    workflowToolsGroup.sizer = new VerticalSizer;
    workflowToolsGroup.sizer.margin = 4;
    workflowToolsGroup.sizer.spacing = 2;
+   var workflowToolsTitleLabel = new Label(this.leftPanel);
+   acmSetThemeLabel(workflowToolsTitleLabel, "Context Tools", ACM_GRAY_UI_THEME.text, true);
+   workflowToolsGroup.sizer.add(workflowToolsTitleLabel);
    workflowToolsGroup.sizer.add(workflowTabsRow);
    workflowToolsGroup.sizer.add(this.selectedBandPanel);
    workflowToolsGroup.sizer.add(this.rangeMaskPanel);
 
    var previewOutputGroup = new GroupBox(this.leftPanel);
-   previewOutputGroup.title = "Output";
+   acmSetThemePanel(previewOutputGroup, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.line);
+   previewOutputGroup.title = "";
    previewOutputGroup.sizer = new VerticalSizer;
    previewOutputGroup.sizer.margin = 4;
    previewOutputGroup.sizer.spacing = 2;
+   var previewOutputTitleLabel = new Label(this.leftPanel);
+   acmSetThemeLabel(previewOutputTitleLabel, "Output", ACM_GRAY_UI_THEME.text, true);
+   previewOutputGroup.sizer.add(previewOutputTitleLabel);
    previewOutputGroup.sizer.add(this.previewOutputPanel);
    this.leftPanel.sizer.add(colorMixerGroup, 100);
    this.leftPanel.sizer.add(workflowToolsGroup);
    this.leftPanel.sizer.add(previewOutputGroup);
 
    this.rightPanel = new Control(this);
+   acmSetThemePanel(this.rightPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.panel);
    this.rightPanel.sizer = new VerticalSizer;
    this.rightPanel.sizer.margin = 0;
    this.rightPanel.sizer.spacing = 3;
@@ -4464,12 +4778,12 @@ function AstroColorMixerUI03Dialog() {
    mainContentRow.add(this.rightPanel, 76);
 
    var globalSettingsGroup = new GroupBox(this);
-   globalSettingsGroup.title = "Global Settings";
+   acmSetThemePanel(globalSettingsGroup, ACM_GRAY_UI_THEME.header, ACM_GRAY_UI_THEME.line);
+   globalSettingsGroup.title = "";
    globalSettingsGroup.sizer = new VerticalSizer;
    globalSettingsGroup.sizer.margin = 8;
    globalSettingsGroup.sizer.spacing = 0;
    globalSettingsGroup.sizer.add(workflowRow);
-   globalSettingsGroup.title = "Target && Workflow";
 
    this.sizer = new VerticalSizer;
    this.sizer.margin = 8;
@@ -4540,8 +4854,18 @@ AstroColorMixerPOC8Dialog.prototype.showInlineHelp = function(helpKey, title, te
       this.floatingHelpBoxParent = parent;
    }
    var box = this.floatingHelpBox;
-   box.titleLabel.text = "<b>" + title + "</b>";
+   acmSetThemeLabel(box.titleLabel, title, ACM_GRAY_UI_THEME.text, true);
+   box.titleLabel.textAlignment = TextAlign_Left|TextAlign_Top;
    box.bodyLabel.text = text;
+   box.bodyLabel.textAlignment = TextAlign_Left|TextAlign_Top;
+   acmApplyLightText(box.bodyLabel);
+   var targetWidth = Math.min(Math.max(260, parent.width - 24), ACM_HOST_IS_WINDOWS ? 560 : 360);
+   box.bodyLabel.minWidth = Math.max(220, targetWidth - 16);
+   box.bodyLabel.setMinWidth(Math.max(220, targetWidth - 16));
+   var titleHeight = ACM_HOST_IS_WINDOWS ? 24 : 18;
+   var bodyHeight = acmEstimateWrappedTextHeight(text, targetWidth - 16, ACM_HOST_IS_WINDOWS ? 22 : 16, ACM_HOST_IS_WINDOWS ? 56 : 36);
+   box.titleLabel.setMinHeight(titleHeight);
+   box.bodyLabel.setMinHeight(bodyHeight);
    box.adjustToContents();
    var x = 12;
    var y = 12;
@@ -4553,8 +4877,10 @@ AstroColorMixerPOC8Dialog.prototype.showInlineHelp = function(helpKey, title, te
       x += anchor.parent.boundsRect.x0;
       y += anchor.parent.boundsRect.y0;
    }
-   var w = Math.max(box.width, 240);
-   var h = Math.max(box.height, 56);
+   var w = Math.max(targetWidth, 240);
+   var h = Math.max(titleHeight + bodyHeight + (ACM_HOST_IS_WINDOWS ? 30 : 18), 56);
+   if (parent && parent.height)
+      h = Math.min(h, Math.max(80, parent.height - 16));
    if (x + w > parent.width - 8)
       x = Math.max(8, parent.width - w - 8);
    if (y + h > parent.height - 8)
@@ -4587,8 +4913,9 @@ AstroColorMixerPOC8Dialog.prototype.showRecipeInlineHelp = function() {
       this.floatingHelpBox.hide();
    this.hidePassViewerInlineHelp();
    var box = this.recipeHelpBox;
-   box.titleLabel.text = "<b>Adjustment Set</b>";
+   acmSetThemeLabel(box.titleLabel, "Adjustment Set", ACM_GRAY_UI_THEME.text, true);
    box.bodyLabel.text = this.recipeHelpButton ? this.recipeHelpButton.acmHelpText : "";
+   acmApplyLightText(box.bodyLabel);
    box.adjustToContents();
    var desiredWidth = Math.max(340, Math.min(420, this.previewOutputPanel.width - 24));
    box.setFixedWidth(desiredWidth);
@@ -4623,8 +4950,9 @@ AstroColorMixerPOC8Dialog.prototype.showPassViewerInlineHelp = function() {
       this.floatingHelpBox.hide();
    this.hideRecipeInlineHelp();
    var box = this.refinementPassHelpBox;
-   box.titleLabel.text = "<b>Refinement Pass</b>";
+   acmSetThemeLabel(box.titleLabel, "Refinement Pass", ACM_GRAY_UI_THEME.text, true);
    box.bodyLabel.text = this.refinementPassHelpButton ? this.refinementPassHelpButton.acmHelpText : "";
+   acmApplyLightText(box.bodyLabel);
    box.bodyLabel.minWidth = 260;
    box.scaledMinWidth = 280;
    box.setVariableSize();
@@ -4847,6 +5175,7 @@ AstroColorMixerPOC8Dialog.prototype.refreshPassViewer = function() {
       this.passViewerBody.hide();
    }
    this.passViewerBody = new Control(this.passViewerHost.viewport);
+   acmSetThemePanel(this.passViewerBody, ACM_GRAY_UI_THEME.passViewer, ACM_GRAY_UI_THEME.passViewer);
    this.passViewerBody.sizer = new VerticalSizer;
    this.passViewerBody.sizer.margin = 0;
    this.passViewerBody.sizer.spacing = 1;
@@ -4863,6 +5192,8 @@ AstroColorMixerPOC8Dialog.prototype.refreshPassViewer = function() {
       rowSelect.text = (pass.enabled !== false ? "✓ " : "□ ") + pass.name + " · " + acmSummarizePass(pass) + " · " + acmSummarizeRangeMask(pass.rangeMask);
       rowSelect.toolTip = rowSelect.text;
       rowSelect.font = passRowFont;
+      rowSelect.foregroundColor = 0xff161616;
+      rowSelect.textColor = 0xff161616;
       rowSelect.checked = pass.id === this.editorState.activePassId;
       rowSelect.scaledMinHeight = 10;
       rowSelect.passId = pass.id;
@@ -5355,20 +5686,20 @@ AstroColorMixerPOC8Dialog.prototype.refreshSelectedBandReadoutAndVisualization =
    var effectiveRange = acmComputeSelectedBandRange(selectedBand.center, selectedBand.width);
    if (updateText) {
       if (neutralActive) {
-         this.selectedBandHelpLabel.text = "Neutral / Low-Saturation is selected by low chroma, not hue angle. Feather softens the transition into more saturated color.";
+         this.selectedBandHelpLabel.text = acmThemeRichText("Neutral / Low-Saturation is selected by low chroma, not hue angle. Feather softens the transition into more saturated color.", ACM_GRAY_UI_THEME.muted, false);
          if (this.selectedBandReadoutPrimary)
-            this.selectedBandReadoutPrimary.text = "<b>Selection:</b> Low-saturation\n<b>Hue Radius:</b> Not used";
+            acmPlainLightLabel(this.selectedBandReadoutPrimary, "Selection: Low-saturation  Hue Radius: Not used");
          if (this.selectedBandReadoutSecondary)
-            this.selectedBandReadoutSecondary.text = "<b>Feather:</b> " + selectedBand.feather.toFixed(2);
+            acmPlainLightLabel(this.selectedBandReadoutSecondary, "Feather: " + selectedBand.feather.toFixed(2));
       } else {
          var outerWidth = selectedBand.width;
          var innerWidth = selectedBand.feather <= ACM_EPSILON ? outerWidth : outerWidth * (1 - selectedBand.feather);
          innerWidth = acmClamp(innerWidth, 0, outerWidth);
-         this.selectedBandHelpLabel.text = "Hue Radius sets the outer limit on each side of the hue center. Feather controls how quickly the selection falls from the strong core to that outer limit.";
+         this.selectedBandHelpLabel.text = acmThemeRichText("Hue Radius sets the outer limit on each side of the hue center. Feather controls how quickly the selection falls from the strong core to that outer limit.", ACM_GRAY_UI_THEME.muted, false);
          if (this.selectedBandReadoutPrimary)
-            this.selectedBandReadoutPrimary.text = "<b>Hue center:</b> " + selectedBand.center + "°\n<b>Hue Radius:</b> ±" + acmFormatAngleDegrees(outerWidth) + "°\n<b>Strong core:</b> ±" + acmFormatAngleDegrees(innerWidth) + "°";
+            acmPlainLightLabel(this.selectedBandReadoutPrimary, "Hue center: " + selectedBand.center + "°  Hue Radius: ±" + acmFormatAngleDegrees(outerWidth) + "°  Strong core: ±" + acmFormatAngleDegrees(innerWidth) + "°");
          if (this.selectedBandReadoutSecondary)
-            this.selectedBandReadoutSecondary.text = "<b>Falloff:</b> " + acmFormatAngleDegrees(innerWidth) + "°–" + acmFormatAngleDegrees(outerWidth) + "°\n<b>Affected range:</b> " + effectiveRange.low + "°–" + effectiveRange.high + "°\n<b>Feather:</b> " + selectedBand.feather.toFixed(2);
+            acmPlainLightLabel(this.selectedBandReadoutSecondary, "Falloff: " + acmFormatAngleDegrees(innerWidth) + "°–" + acmFormatAngleDegrees(outerWidth) + "°  Affected range: " + effectiveRange.low + "°–" + effectiveRange.high + "°  Feather: " + selectedBand.feather.toFixed(2));
       }
    }
    this.setHighlightedRowId(this.getHighlightedRowId());
@@ -5391,7 +5722,9 @@ AstroColorMixerPOC8Dialog.prototype.refreshSelectedBandControls = function() {
    this.selectedBandCombo.currentItem = selectedIndex;
    if (this.getHighlightedRowId() !== "neutral")
       this.highlightedRowId = selectedBand.id;
-   this.widthControl.label.text = neutralActive ? "Hue Radius: Not used" : "Hue Radius:";
+   this.widthControl.label.useRichText = true;
+   this.widthControl.label.text = acmThemeRichText(neutralActive ? "Hue Radius: Not used" : "Hue Radius:", ACM_GRAY_UI_THEME.text, false);
+   acmApplyLightText(this.widthControl.label);
    this.widthControl.enabled = !neutralActive;
    if (this.widthControl.slider)
       this.widthControl.slider.enabled = !neutralActive;
@@ -5454,7 +5787,7 @@ AstroColorMixerPOC8Dialog.prototype.refreshRangeMaskControls = function() {
    this.rangeMaskLowControl.setValue(rangeMask.low);
    this.rangeMaskHighControl.setValue(rangeMask.high);
    this.rangeMaskFeatherControl.setValue(rangeMask.feather);
-   this.rangeMaskStatusLabel.text = acmSummarizeRangeMaskStatus(rangeMask);
+   acmSetThemeLabel(this.rangeMaskStatusLabel, acmSummarizeRangeMaskStatus(rangeMask), ACM_GRAY_UI_THEME.muted, false);
 };
 
 AstroColorMixerPOC8Dialog.prototype.refreshPreviewModeButtons = function() {
@@ -5943,7 +6276,7 @@ AstroColorMixerPOC8Dialog.prototype.exportCurrentMask = function() {
 AstroColorMixerPOC8Dialog.prototype.refreshBandControls = function() {
    var tabLabel = acmParameterLabelForTab(this.activeTab);
    var range = acmParameterRangeForTab(this.activeTab, this.editorState.sensitivity);
-   this.bandSectionLabel.text = "<b>" + tabLabel + " Controls</b>";
+   this.bandSectionLabel.text = acmThemeRichText(tabLabel + " Controls", ACM_GRAY_UI_THEME.text, true);
    var activePass = this.getActivePassState();
 
    this.neutralRowHost.visible = this.activeTab === ACM_TAB_LUM;
@@ -6216,6 +6549,6 @@ try {
    if (!(error && error.__acmHandled)) {
       var message = "Unexpected dialog failure: " + (error && error.message ? error.message : String(error));
       console.criticalln(message);
-      showMessage(message, "Astro Color Mixer v0.9.7.3-beta", StdIcon_Error);
+      showMessage(message, "Astro Color Mixer v0.9.7.4-beta", StdIcon_Error);
    }
 }

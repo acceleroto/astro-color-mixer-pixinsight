@@ -24,10 +24,11 @@ This setting does not remove stars and does not create a star mask.
 4. Make broad H/S/L changes.
 5. Use probe, histogram, and polar plot.
 6. Refine Width and Feather.
-7. Use Range Mask for luminance targeting.
-8. Add targeted Refinement Passes.
-9. Inspect preview and mask views.
-10. Apply to New Image and save an Adjustment Set if needed.
+7. On starless or strongly star-reduced data, use Selected Band Soften only when a hard selected-band mask edge is visible.
+8. Use Range Mask for luminance targeting.
+9. Add targeted Refinement Passes.
+10. Inspect preview and mask views.
+11. Apply to New Image and save an Adjustment Set if needed.
 
 \section Color Bands
 
@@ -44,14 +45,20 @@ This setting does not remove stars and does not create a star mask.
 
 Hue rotates color direction. Saturation scales color intensity. Luminance brightens or darkens the active band. Width controls hue span. Feather controls transition softness. Range Mask limits the active pass by luminance. Neutral / Low-Saturation handles weak-color pixels where hue is unreliable.
 
+\section Selected Band Soften
+
+Selected Band Soften is a spatial softening control for the active selected-band mask. It is different from Feather: Feather softens the transition across hue distance, while Soften blurs the final mask across neighboring image pixels.
+
+Soften is only active in Starless / Star-Reduced mode. In Stars Present mode it is disabled because spatially blurring a color mask can bleed adjustments into star cores, halos, and adjacent stellar structures. Use it for starless color-mask edge cleanup, starting with 1 px and increasing only as needed up to 5 px.
+
 \section Refinement Passes
 
 Refinement Passes are sequential ordered passes. Base Pass handles broad work, and later passes handle targeted cleanup. They are not Photoshop layers and do not provide blend modes or opacity.
 
 \section Diagnostics
 
-The probe reports luminance, hue, and saturation from preview pixels. The histogram summarizes preview luminance and helps place Range Mask. The polar plot summarizes hue and saturation distribution. Mask views show selected band, Range Mask, or combined influence.
+The probe reports luminance, hue, and saturation from preview pixels. The histogram summarizes preview luminance and helps place Range Mask. The polar plot summarizes hue and saturation distribution. Mask views show selected band, Range Mask, or combined influence. In Starless / Star-Reduced mode, Current Band Mask and Combined Mask reflect active Selected Band Soften.
 
 \section Adjustment Sets
 
-Adjustment Sets are JSON files that preserve passes, band values, Width and Feather, Range Mask settings, neutral luminance settings, image type, and related working state.
+Adjustment Sets are JSON files that preserve passes, band values, Width, Feather, selected-band Soften values, Range Mask settings, neutral luminance settings, image type, and related working state.

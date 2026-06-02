@@ -90,6 +90,32 @@ mask = 1 - smoothstep(innerWidth, outerWidth, distance)
 
 A higher Feather value makes the transition softer and reduces abrupt color boundaries.
 
+## 7A. Selected Band spatial softening
+
+Selected Band Soften is an optional spatial blur applied to the active band's final mask. It is not part of hue selection itself, and it is not a luminance Range Mask control.
+
+The distinction is important:
+
+- Feather softens selection as hue distance approaches the edge of the selected band.
+- Range Mask Feather softens luminance inclusion at the low and high range boundaries.
+- Selected Band Soften smooths the already-built band mask across neighboring image pixels.
+
+The implementation uses modest whole-pixel radii only: `Off`, `1 px`, `2 px`, `3 px`, `4 px`, or `5 px`. This is intended to reduce visible mask-edge artifacts when a strong adjustment is used on starless or strongly star-reduced data.
+
+Selected Band Soften is gated by Image Type. It is applied only when Image Type is `Starless / Star-Reduced`. In `Stars Present` mode, saved soften values are ignored by the processing path because spatially blurring a color mask can leak adjustments into star cores, halos, and adjacent stellar structures.
+
+Conceptual sequence for a band adjustment:
+
+```text
+rawBandMask = hueMask * saturationReliability * protection * rangeMask
+if imageType == starless and selectedBandSoften > 0:
+    workingBandMask = spatialBlur(rawBandMask, selectedBandSoften)
+else:
+    workingBandMask = rawBandMask
+```
+
+Current Band Mask and Combined Mask preview modes show the softened mask only when the soften value is active. Range Mask preview remains a luminance-only diagnostic and is not spatially softened.
+
 ## 8. Saturation reliability
 
 Very low-saturation pixels do not carry stable hue information. Astro Color Mixer therefore uses a saturation reliability term to reduce false hue selection in neutral areas.
@@ -159,6 +185,8 @@ finalMask =
 
 The exact implementation details follow the actual code path, but conceptually the tool combines hue selection, saturation reliability, luminance gating, and protection terms before the adjustment is applied.
 
+If Selected Band Soften is active, the band mask is spatially softened after these selection terms are combined and before the hue, saturation, or luminance adjustment is applied. This means Soften changes the edge behavior of the selection mask, not the color math itself.
+
 For Neutral / Low-Saturation luminance adjustment, the neutral mask replaces hue selection as the main inclusion term. Range Mask and protection weighting can still limit where the neutral adjustment is allowed to act.
 
 ## 14. Refinement Passes
@@ -183,9 +211,9 @@ Preview uses a downsampled image so the tool remains responsive. Histogram calcu
 
 Diagnostics are decision aids:
 
-- Current Band Mask shows hue-band inclusion
+- Current Band Mask shows hue-band inclusion, including active selected-band Soften in Starless / Star-Reduced mode
 - Range Mask shows luminance-range inclusion
-- Combined Mask shows the active selection stack
+- Combined Mask shows the active selection stack, including active selected-band Soften in Starless / Star-Reduced mode
 - Histogram helps place luminance ranges
 - Polar Plot shows hue and saturation distribution
 - Probe reports local luminance, hue, saturation, and nearest reliable band
@@ -200,6 +228,7 @@ Adjustment sets are stored as JSON and preserve important editing state:
 - enabled/disabled pass state
 - band settings
 - Hue Radius and Feather
+- selected-band Soften values
 - Range Mask configuration
 - neutral luminance terms
 

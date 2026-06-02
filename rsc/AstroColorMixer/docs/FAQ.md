@@ -43,6 +43,7 @@ This setting does not remove stars and does not create a star mask. It only chan
 4. Use `Hue`, `Saturation`, and `Luminance` tabs for color-band adjustments.
 5. Click the preview to probe useful pixels and confirm which band is active.
 6. Adjust `Hue Radius` and `Feather` when a band needs to be narrower, broader, or smoother.
+6A. On starless or strongly star-reduced data, use `Soften` only when a hard selected-band mask edge is visible.
 7. Use mask preview modes before strong edits.
 8. Add a `Refinement Pass` for targeted work such as halos, background, highlights, or faint signal.
 9. Use `Range Mask` when the change should affect only a luminance slice.
@@ -74,6 +75,16 @@ Use small moves first. Saturation is often the most natural first adjustment for
 `Hue Radius` controls how much of the hue neighborhood around the selected band is affected. Narrow radius is more selective; wide radius reaches a broader family of colors.
 
 `Feather` controls how softly the selection falls off. Higher feather produces smoother transitions and lowers the chance of abrupt color boundaries.
+
+## What is Selected Band Soften?
+
+`Soften` is a spatial softening control for the active selected-band mask. It is different from `Feather`: Feather softens the transition across hue distance, while Soften blurs the final mask slightly across neighboring image pixels.
+
+This can help when a strong adjustment reveals the edge of the color mask on starless nebula, galaxy, or dust data. The control uses modest whole-pixel values: `Off`, `1 px`, `2 px`, `3 px`, `4 px`, or `5 px`.
+
+Selected Band Soften is only active in `Starless / Star-Reduced` mode. In `Stars Present` mode it is disabled because spatially blurring a color mask can bleed adjustments into star cores, halos, and nearby structures. It is not a substitute for real star masking or star protection.
+
+Start with `1 px`, inspect `Current Band Mask` or `Combined Mask`, and compare before and after. Values up to `5 px` can be useful for starless color-mask work, but if stars will be recombined later, use the lowest value that hides the hard edge cleanly.
 
 ## What is Range Mask?
 
@@ -107,6 +118,8 @@ The polar plot shows hue angle and saturation radius for sampled preview pixels.
 
 Mask views let you see what the current band, Range Mask, or combined mask is including. In general terms, white means strongly included and black means largely excluded.
 
+In `Starless / Star-Reduced` mode, `Current Band Mask` and `Combined Mask` reflect any active selected-band Soften value.
+
 Use mask views before strong saturation, luminance, or cleanup adjustments.
 
 ## Why can preview differ from final output?
@@ -117,7 +130,7 @@ Fine detail and microstructure can differ slightly, but the overall direction of
 
 ## What is an adjustment set?
 
-Adjustment sets are JSON settings files. They preserve passes, sliders, selected-band settings, Hue Radius and Feather, Range Mask values, image type, sensitivity, and related adjustment state.
+Adjustment sets are JSON settings files. They preserve passes, sliders, selected-band settings, Hue Radius, Feather, selected-band Soften values, Range Mask values, image type, sensitivity, and related adjustment state.
 
 They are useful for repeatability, documentation, sharing, and complex multi-pass sessions.
 
@@ -134,6 +147,7 @@ They are useful for repeatability, documentation, sharing, and complex multi-pas
 - Enabling Range Mask without checking mask views first.
 - Doing highly targeted work in Base Pass instead of a new Refinement Pass.
 - Trusting hue in neutral or low-saturation background regions.
+- Using selected-band Soften as if it were star protection. It is only active for starless or star-reduced work.
 - Forgetting that the preview is stale after changing controls.
 - Using `Apply to Target` when a new output image would be safer.
 - Treating band names as strict physical classifications instead of practical editing regions.
@@ -158,4 +172,4 @@ Use Stars Present mode. Work with small saturation and hue changes, inspect Curr
 
 ### Starless nebula refinement before recombination
 
-Use Starless / Star-Reduced mode. Add passes for broad nebula saturation, local cyan or red balance, and faint structure luminance. Keep adjustments moderate if stars will be recombined later.
+Use Starless / Star-Reduced mode. Add passes for broad nebula saturation, local cyan or red balance, and faint structure luminance. If a strong selected-band edit reveals a hard mask boundary, try `1 px` of Soften, inspect the mask view, and increase only as needed. Keep adjustments moderate if stars will be recombined later.

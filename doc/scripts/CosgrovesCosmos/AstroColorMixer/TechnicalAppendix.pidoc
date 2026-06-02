@@ -55,6 +55,20 @@ These are practical editing regions, not strict physical line definitions.
 distance = circularHueDistance(hue, center)
 mask = 1 - smoothstep(innerWidth, outerWidth, distance)
 
+\section Selected Band Spatial Soften
+
+Selected Band Soften is an optional spatial blur applied to the active band's final mask. It is not part of hue selection itself and is not a luminance Range Mask control.
+
+Feather softens selection as hue distance approaches the edge of the selected band. Range Mask Feather softens luminance inclusion at the low and high range boundaries. Selected Band Soften smooths the already-built band mask across neighboring image pixels.
+
+The implementation uses modest whole-pixel radii only: Off, 1 px, 2 px, 3 px, 4 px, or 5 px. It is applied only when Image Type is Starless / Star-Reduced. In Stars Present mode, saved soften values are ignored because spatially blurring a color mask can leak adjustments into star cores, halos, and adjacent stellar structures.
+
+rawBandMask = hueMask * saturationReliability * protection * rangeMask
+if imageType == starless and selectedBandSoften > 0:
+    workingBandMask = spatialBlur(rawBandMask, selectedBandSoften)
+else:
+    workingBandMask = rawBandMask
+
 \section Saturation Reliability
 
 Low-saturation pixels are prevented from behaving like stable hue targets, which is why the tool includes a separate Neutral / Low-Saturation luminance path.
@@ -81,6 +95,8 @@ finalMask =
   darkProtection *
   highlightProtection *
   rangeMask
+
+If Selected Band Soften is active, the band mask is spatially softened after these selection terms are combined and before the hue, saturation, or luminance adjustment is applied.
 
 \section Refinement Passes
 

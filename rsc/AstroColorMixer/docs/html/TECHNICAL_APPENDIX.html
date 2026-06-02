@@ -83,6 +83,18 @@ mask = 1 - smoothstep(innerWidth, outerWidth, distance)</pre>
     </section>
 
     <section>
+      <h2>Selected Band Spatial Soften</h2>
+      <p>Selected Band Soften is an optional spatial blur applied to the active band's final mask. It is not part of hue selection and is not a luminance Range Mask control.</p>
+      <p>Feather softens hue-distance falloff. Range Mask Feather softens luminance-range boundaries. Selected Band Soften smooths the already-built band mask across neighboring image pixels.</p>
+      <p>The implementation uses modest whole-pixel radii only: Off, 1 px, 2 px, 3 px, 4 px, or 5 px. It is applied only when Image Type is Starless / Star-Reduced.</p>
+      <pre>rawBandMask = hueMask * saturationReliability * protection * rangeMask
+if imageType == starless and selectedBandSoften &gt; 0:
+    workingBandMask = spatialBlur(rawBandMask, selectedBandSoften)
+else:
+    workingBandMask = rawBandMask</pre>
+    </section>
+
+    <section>
       <h2>Range Mask</h2>
       <pre>leftRamp = smoothstep(low - feather, low, Y)
 rightRamp = 1 - smoothstep(high, high + feather, Y)
@@ -109,6 +121,7 @@ rangeMask = clamp01(leftRamp * rightRamp)</pre>
   darkProtection *
   highlightProtection *
   rangeMask</pre>
+      <p>If Selected Band Soften is active, the band mask is spatially softened after these terms are combined and before the color adjustment is applied.</p>
     </section>
 
     <section>

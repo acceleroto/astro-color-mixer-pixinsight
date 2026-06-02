@@ -1,11 +1,11 @@
 #feature-id    Cosgrove's Cosmos > Astro Color Mixer
-#feature-info  Astro Color Mixer v0.9.7.4-beta. Nonlinear RGB color and luminance refinement for astrophotography.
+#feature-info  Astro Color Mixer v0.9.7.5-beta. Nonlinear RGB color and luminance refinement for astrophotography.
 
 /*
  * Astro Color Mixer for PixInsight
  *
  * Beta build:
- * Astro Color Mixer v0.9.7.4-beta
+ * Astro Color Mixer v0.9.7.5-beta
  */
 
 #include <pjsr/UndoFlag.jsh>
@@ -19,7 +19,7 @@
 #include <pjsr/SampleType.jsh>
 
 function showMessage(text, title, icon) {
-   (new MessageBox(text, title || "Astro Color Mixer v0.9.7.4-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
+   (new MessageBox(text, title || "Astro Color Mixer v0.9.7.5-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
 }
 
 var acmHelpHostDialog = null;
@@ -34,7 +34,7 @@ function showHelpTopic(title, text) {
 
 function fail(text) {
    console.criticalln(text);
-   showMessage(text, "Astro Color Mixer v0.9.7.4-beta", StdIcon_Error);
+   showMessage(text, "Astro Color Mixer v0.9.7.5-beta", StdIcon_Error);
    var error = new Error(text);
    error.__acmHandled = true;
    throw error;
@@ -326,7 +326,7 @@ function acmCreateInfoBox(parent) {
    return box;
 }
 
-console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.7.4-beta</b>");
+console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.7.5-beta</b>");
 
 // -------------------------------------------------------------------------
 // Minimal copied core logic
@@ -422,7 +422,8 @@ function acmCreateBandDefaults() {
          saturation: 0,
          luminance: 0,
          width: 45,
-         feather: 0.75
+         feather: 0.75,
+         maskSoftenRadius: 0
       });
    }
    return bands;
@@ -450,6 +451,12 @@ function acmCreateDefaultRangeMask() {
       high: 1.0,
       feather: 0.10,
       preset: "All"
+   };
+}
+
+function acmCreateDefaultMaskSoften() {
+   return {
+      radius: 0.0
    };
 }
 
@@ -654,6 +661,58 @@ function acmBuildNeutralMasks(saturation, lightness, neutralState, protection, g
    return neutralMask * darkMask * highlightMask * rangeMaskValue * globalStrength;
 }
 
+function acmBoxBlurMask(maskValues, width, height, radius) {
+   var r = Math.round(radius || 0);
+   if (r <= 0 || width <= 1 || height <= 1)
+      return maskValues;
+
+   var count = width * height;
+   var temp = new Float32Array(count);
+   var output = new Float32Array(count);
+
+   for (var y = 0; y < height; ++y) {
+      var rowBase = y * width;
+      for (var x = 0; x < width; ++x) {
+         var sum = 0;
+         var samples = 0;
+         var x0 = Math.max(0, x - r);
+         var x1 = Math.min(width - 1, x + r);
+         for (var sx = x0; sx <= x1; ++sx) {
+            sum += maskValues[rowBase + sx];
+            ++samples;
+         }
+         temp[rowBase + x] = sum / Math.max(1, samples);
+      }
+   }
+
+   for (var yy = 0; yy < height; ++yy) {
+      for (var xx = 0; xx < width; ++xx) {
+         var sumY = 0;
+         var samplesY = 0;
+         var y0 = Math.max(0, yy - r);
+         var y1 = Math.min(height - 1, yy + r);
+         for (var sy = y0; sy <= y1; ++sy) {
+            sumY += temp[sy * width + xx];
+            ++samplesY;
+         }
+         output[yy * width + xx] = acmClamp01(sumY / Math.max(1, samplesY));
+      }
+   }
+
+   return output;
+}
+
+function acmGetMaskSoftenRadius(maskSoften) {
+   if (!maskSoften || typeof maskSoften.radius !== "number")
+      return 0;
+   return acmClamp(maskSoften.radius, 0, 5);
+}
+
+function acmMaybeSoftenMask(maskValues, width, height, maskSoften) {
+   var radius = acmGetMaskSoftenRadius(maskSoften);
+   return radius > 0 ? acmBoxBlurMask(maskValues, width, height, radius) : maskValues;
+}
+
 function acmRodriguesRotate(vector, axis, angleRadians) {
    var vx = vector[0], vy = vector[1], vz = vector[2];
    var ax = axis[0], ay = axis[1], az = axis[2];
@@ -677,19 +736,25 @@ function acmApplySingleBand(currentRgb, sourceHsl, width, height, band, options)
    var protection = options.protection;
    var globalStrength = options.globalStrength != null ? options.globalStrength : 1;
    var rangeMaskState = options.rangeMaskState || null;
+   var maskValues = new Float32Array(count);
 
    for (var i = 0; i < count; ++i) {
-      var base = i * 3;
       var hue = sourceHsl.h[i];
       var saturation = sourceHsl.s[i];
       var lightness = sourceHsl.l[i];
       var luminance = sourceHsl.y[i];
       var rangeMaskValue = acmComputeRangeMask(luminance, rangeMaskState);
-      var mask = acmBuildMasks(hue, saturation, lightness, band, protection, globalStrength, rangeMaskValue).finalMask;
+      maskValues[i] = acmBuildMasks(hue, saturation, lightness, band, protection, globalStrength, rangeMaskValue).finalMask;
+   }
 
+   maskValues = acmMaybeSoftenMask(maskValues, width, height, options.maskSoften);
+
+   for (var j = 0; j < count; ++j) {
+      var mask = maskValues[j];
       if (mask <= 0)
          continue;
 
+      var base = j * 3;
       var r = output[base];
       var g = output[base + 1];
       var b = output[base + 2];
@@ -722,16 +787,16 @@ function acmApplyNeutralLuminance(currentRgb, sourceHsl, width, height, neutralS
    var protection = options.protection;
    var globalStrength = options.globalStrength != null ? options.globalStrength : 1;
    var rangeMaskState = options.rangeMaskState || null;
+   var maskValues = new Float32Array(count);
 
    for (var i = 0; i < count; ++i) {
-      var base = i * 3;
       var saturation = sourceHsl.s[i];
       var lightness = sourceHsl.l[i];
       var luminance = sourceHsl.y[i];
       var rangeMaskValue = acmComputeRangeMask(luminance, rangeMaskState);
       var relaxedDarkFloor = rangeMaskState && rangeMaskState.enabled ? protection.darkFloor * 0.25 : protection.darkFloor;
       var relaxedDarkFull = rangeMaskState && rangeMaskState.enabled ? protection.darkFull * 0.6 : protection.darkFull;
-      var mask = acmBuildNeutralMasks(
+      maskValues[i] = acmBuildNeutralMasks(
          saturation,
          lightness,
          neutralState,
@@ -743,10 +808,16 @@ function acmApplyNeutralLuminance(currentRgb, sourceHsl, width, height, neutralS
             neutralDarkFull: relaxedDarkFull
          }
       );
+   }
 
+   maskValues = acmMaybeSoftenMask(maskValues, width, height, options.maskSoften);
+
+   for (var j = 0; j < count; ++j) {
+      var mask = maskValues[j];
       if (mask <= 0)
          continue;
 
+      var base = j * 3;
       var r = output[base];
       var g = output[base + 1];
       var b = output[base + 2];
@@ -784,7 +855,10 @@ function acmNormalizeBand(sourceBand, defaultBand) {
       saturation: sourceBand && typeof sourceBand.saturation === "number" ? sourceBand.saturation : 0,
       luminance: sourceBand && typeof sourceBand.luminance === "number" ? sourceBand.luminance : 0,
       width: sourceBand && typeof sourceBand.width === "number" ? sourceBand.width : defaultBand.width,
-      feather: sourceBand && typeof sourceBand.feather === "number" ? sourceBand.feather : defaultBand.feather
+      feather: sourceBand && typeof sourceBand.feather === "number" ? sourceBand.feather : defaultBand.feather,
+      maskSoftenRadius: sourceBand && typeof sourceBand.maskSoftenRadius === "number"
+         ? acmGetMaskSoftenRadius({ radius: sourceBand.maskSoftenRadius })
+         : 0
    };
 }
 
@@ -806,7 +880,8 @@ function acmNormalizeBands(inputBands) {
                saturation: inputBands[key].saturation,
                luminance: inputBands[key].luminance,
                width: inputBands[key].width,
-               feather: inputBands[key].feather
+               feather: inputBands[key].feather,
+               maskSoftenRadius: inputBands[key].maskSoftenRadius
             };
          }
       }
@@ -895,6 +970,12 @@ function acmNormalizeRecipe(recipe) {
          feather: typeof rangeMask.feather === "number" ? rangeMask.feather : 0.10,
          preset: rangeMask.preset || "All"
       };
+      var legacyPassSoftenRadius = acmGetMaskSoftenRadius(pass.maskSoften);
+      if (legacyPassSoftenRadius > 0) {
+         for (var softenBandIndex = 0; softenBandIndex < bands.length; ++softenBandIndex)
+            if (!bands[softenBandIndex].maskSoftenRadius)
+               bands[softenBandIndex].maskSoftenRadius = legacyPassSoftenRadius;
+      }
 
       normalizedPasses.push({
          id: pass.id || ("pass-" + (passIndex + 1)),
@@ -941,7 +1022,8 @@ function applyAstroColorMixerPasses(rgbFloat, width, height, recipe) {
          working = acmApplySingleBand(working, sourceHsl, width, height, band, {
             protection: protection,
             globalStrength: normalized.globalStrength,
-            rangeMaskState: pass.rangeMask
+            rangeMaskState: pass.rangeMask,
+            maskSoften: normalized.imageType === "starless" ? { radius: band.maskSoftenRadius } : null
          });
       }
 
@@ -949,7 +1031,8 @@ function applyAstroColorMixerPasses(rgbFloat, width, height, recipe) {
          working = acmApplyNeutralLuminance(working, sourceHsl, width, height, pass.neutralLuminance, {
             protection: protection,
             globalStrength: normalized.globalStrength,
-            rangeMaskState: pass.rangeMask
+            rangeMaskState: pass.rangeMask,
+            maskSoften: null
          });
       }
    }
@@ -966,6 +1049,24 @@ function acmSummarizeRangeMask(rangeMask) {
    if (rangeMask.preset && rangeMask.preset !== "Custom" && rangeMask.preset !== "All")
       return "Range " + rangeMask.preset;
    return "Range " + rangeMask.low.toFixed(2) + "-" + rangeMask.high.toFixed(2) + " · F " + rangeMask.feather.toFixed(2);
+}
+
+function acmSummarizePassMaskControls(pass) {
+   return acmSummarizeRangeMask(pass.rangeMask) + acmSummarizeBandSoften(pass);
+}
+
+function acmSummarizeMaskSoften(maskSoften) {
+   var radius = acmGetMaskSoftenRadius(maskSoften);
+   return radius > 0 ? " · Soften " + radius.toFixed(1) + " px" : "";
+}
+
+function acmSummarizeBandSoften(pass) {
+   if (!pass || !(pass.bands instanceof Array))
+      return "";
+   var maxRadius = 0;
+   for (var i = 0; i < pass.bands.length; ++i)
+      maxRadius = Math.max(maxRadius, acmGetMaskSoftenRadius({ radius: pass.bands[i].maskSoftenRadius }));
+   return maxRadius > 0 ? " · Band Soften max " + maxRadius.toFixed(0) + " px" : "";
 }
 
 function acmSummarizePass(pass) {
@@ -1226,6 +1327,7 @@ var ACM_FAQ_TEXT = [
    "  4. Use Hue, Saturation, and Luminance tabs for color-band adjustments.",
    "  5. Click the preview to probe useful pixels and confirm which band is active.",
    "  6. Adjust Hue Radius and Feather when a band needs to be narrower, broader, or smoother.",
+   "  6A. On starless or strongly star-reduced data, use Selected Band Soften only when a hard mask edge is visible.",
    "  7. Use Current Band Mask, Range Mask, or Combined Mask preview modes before strong edits.",
    "  8. Add a Refinement Pass for targeted work such as halos, background, highlights, or faint signal.",
    "  9. Use Range Mask when the change should affect only a luminance slice.",
@@ -1254,6 +1356,16 @@ var ACM_FAQ_TEXT = [
    "",
    "Width controls how much of the hue neighborhood around the selected band is affected. Narrow width is more selective; wide width reaches a broader family of colors. Feather controls how softly the selection falls off beyond the stronger inner region. Higher feather produces smoother transitions and lowers the chance of abrupt color boundaries.",
    "",
+   "7A. WHAT IS SELECTED BAND SOFTEN?",
+   "",
+   "Selected Band Soften is a spatial softening control for the active color band mask. It is different from Feather. Feather softens the transition across hue distance; Soften blurs the final mask slightly across neighboring image pixels.",
+   "",
+   "This can help when a strong adjustment reveals the edge of the color mask on starless nebula, galaxy, or dust data. The control is intentionally modest: Off, 1 px, 2 px, 3 px, 4 px, or 5 px.",
+   "",
+   "Selected Band Soften is only active in Starless / Star-Reduced mode. In Stars Present mode it is disabled because spatially blurring a color mask can bleed adjustments into star cores, halos, and nearby structures. This is not a substitute for real star masking or star protection.",
+   "",
+   "Use it cautiously. Start with 1 px, inspect Current Band Mask or Combined Mask, and compare before and after. Values up to 5 px can be useful for starless color-mask work, but if stars will be recombined later, keep the soften value as low as the image allows so the star layer and starless layer still blend naturally.",
+   "",
    "8. WHAT IS RANGE MASK?",
    "",
    "Range Mask is a luminance-based selection. Low and High define the brightness interval, while Feather softens the inclusion edges. Use it for background work, faint signal work, highlight protection, bright cores, stars, or any pass that should act only in a luminance slice. Range Mask belongs to the active pass, not the whole tool globally.",
@@ -1276,7 +1388,7 @@ var ACM_FAQ_TEXT = [
    "",
    "12. WHAT ARE MASK VIEWS?",
    "",
-   "Mask views let you see what the current band, the Range Mask, or the combined mask is including. In general terms, white means strongly included and black means largely excluded. They are especially useful before strong saturation, luminance, or cleanup adjustments.",
+   "Mask views let you see what the current band, the Range Mask, or the combined mask is including. In general terms, white means strongly included and black means largely excluded. They are especially useful before strong saturation, luminance, or cleanup adjustments. In Starless / Star-Reduced mode, Current Band Mask and Combined Mask reflect any selected-band Soften value.",
    "",
    "13. WHY CAN PREVIEW DIFFER FROM FINAL OUTPUT?",
    "",
@@ -1284,7 +1396,7 @@ var ACM_FAQ_TEXT = [
    "",
    "14. WHAT IS AN ADJUSTMENT SET?",
    "",
-   "Adjustment sets are JSON settings files. They preserve passes, sliders, selected band settings, Width and Feather, Range Mask values, image type, sensitivity, and related adjustment state. They are useful for repeatability, documentation, sharing, and complex multi-pass sessions.",
+   "Adjustment sets are JSON settings files. They preserve passes, sliders, selected band settings, Width, Feather, selected-band Soften values, Range Mask values, image type, sensitivity, and related adjustment state. They are useful for repeatability, documentation, sharing, and complex multi-pass sessions.",
    "",
    "15. COMMON MISTAKES",
    "",
@@ -1293,6 +1405,7 @@ var ACM_FAQ_TEXT = [
    "  - Enabling Range Mask without checking the mask views first.",
    "  - Doing highly targeted work in Base Pass instead of a new Refinement Pass.",
    "  - Trusting hue in neutral or low-saturation background regions.",
+   "  - Using mask softening as if it were star protection. It is only active for starless or star-reduced work.",
    "  - Forgetting that the preview is stale after changing controls.",
    "  - Using Apply to Target when a new output image would be safer.",
    "  - Treating the band names as strict physical classifications instead of practical editing regions.",
@@ -1318,7 +1431,7 @@ var ACM_FAQ_TEXT = [
    "  Use Stars Present mode. Work with small saturation and hue changes, inspect Current Band Mask before strong edits, and use Range Mask if the change should avoid bright star cores. If star color begins to look forced, reduce the adjustment or split the work into a narrower pass.",
    "",
    "E. Starless nebula refinement before recombination",
-   "  Use Starless / Star-Reduced mode. Add passes for broad nebula saturation, local cyan or red balance, and faint structure luminance. Keep adjustments moderate if stars will be recombined later so the star layer and nebula layer still feel coherent.",
+   "  Use Starless / Star-Reduced mode. Add passes for broad nebula saturation, local cyan or red balance, and faint structure luminance. If a strong selected-band edit reveals a hard mask boundary, try 1 px of selected-band Soften and inspect the mask view before going farther. Keep adjustments moderate if stars will be recombined later so the star layer and nebula layer still feel coherent.",
    "",
    "For the complete package documentation, see README.md, docs/FAQ.md, and docs/TECHNICAL_APPENDIX.md in the PixInsight package folder."
 ].join("\n");
@@ -1401,6 +1514,30 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
    "",
    "Hue Radius controls the outerWidth. Feather controls the distance between the stronger inner region and the outer falloff boundary. A higher Feather value makes the transition softer and reduces abrupt color boundaries.",
    "",
+   "6A. SELECTED BAND SPATIAL SOFTENING",
+   "",
+   "Selected Band Soften is an optional spatial blur applied to the active band's final mask. It is not part of hue selection itself, and it is not a luminance Range Mask control.",
+   "",
+   "The distinction is important:",
+   "",
+   "  - Feather softens selection as hue distance approaches the edge of the selected band.",
+   "  - Range Mask Feather softens luminance inclusion at the low and high range boundaries.",
+   "  - Selected Band Soften smooths the already-built band mask across neighboring image pixels.",
+   "",
+   "The implementation uses small whole-pixel radii only: Off, 1 px, 2 px, 3 px, 4 px, or 5 px. This is intended to reduce visible mask-edge artifacts when a strong adjustment is used on starless or strongly star-reduced data.",
+   "",
+   "Selected Band Soften is gated by Image Type. It is applied only when Image Type is Starless / Star-Reduced. In Stars Present mode, saved soften values are ignored by the processing path because spatially blurring a color mask can leak adjustments into star cores, halos, and adjacent stellar structures.",
+   "",
+   "Conceptual sequence for a band adjustment:",
+   "",
+   "rawBandMask = hueMask * saturationReliability * protection * rangeMask",
+   "if imageType == starless and selectedBandSoften > 0:",
+   "    workingBandMask = spatialBlur(rawBandMask, selectedBandSoften)",
+   "else:",
+   "    workingBandMask = rawBandMask",
+   "",
+   "Current Band Mask and Combined Mask preview modes show the softened mask only when the soften value is active. Range Mask preview remains a luminance-only diagnostic and is not spatially softened.",
+   "",
    "7. SATURATION RELIABILITY",
    "",
    "Very low-saturation pixels do not carry stable hue information. Astro Color Mixer therefore uses a saturation reliability term to reduce false hue selection in neutral areas. This prevents weakly colored background pixels from being treated like confidently blue, magenta, or green structures. The Neutral / Low-Saturation luminance control provides a separate path for those pixels.",
@@ -1455,6 +1592,8 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
    "",
    "The exact implementation details follow the actual code path, but conceptually the tool combines hue selection, saturation reliability, luminance gating, and protection terms before the adjustment is applied.",
    "",
+   "If Selected Band Soften is active, the band mask is spatially softened after these selection terms are combined and before the hue, saturation, or luminance adjustment is applied. This means Soften changes the edge behavior of the selection mask, not the color math itself.",
+   "",
    "For Neutral / Low-Saturation luminance adjustment, the neutral mask replaces hue selection as the main inclusion term. Range Mask and protection weighting can still limit where the neutral adjustment is allowed to act.",
    "",
    "13. REFINEMENT PASSES",
@@ -1475,16 +1614,16 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
    "",
    "Diagnostics are decision aids:",
    "",
-   "  - Current Band Mask shows hue-band inclusion",
+   "  - Current Band Mask shows hue-band inclusion, including active selected-band Soften in Starless / Star-Reduced mode",
    "  - Range Mask shows luminance-range inclusion",
-   "  - Combined Mask shows the active selection stack",
+   "  - Combined Mask shows the active selection stack, including active selected-band Soften in Starless / Star-Reduced mode",
    "  - Histogram helps place luminance ranges",
    "  - Polar Plot shows hue and saturation distribution",
    "  - Probe reports local luminance, hue, saturation, and nearest reliable band",
    "",
    "15. ADJUSTMENT SET MODEL",
    "",
-   "Adjustment sets are stored as JSON and preserve the important editing state, including image type, sensitivity, pass order, band settings, Width and Feather, Range Mask configuration, and neutral luminance terms. Diagnostic readouts are interactive session tools and are not the main purpose of the saved adjustment-set file.",
+   "Adjustment sets are stored as JSON and preserve the important editing state, including image type, sensitivity, pass order, band settings, Width, Feather, selected-band Soften values, Range Mask configuration, and neutral luminance terms. Diagnostic readouts are interactive session tools and are not the main purpose of the saved adjustment-set file.",
    "",
    "Adjustment sets are intended for repeatability, review, documentation, and sharing. They are not a replacement for the source image and do not store preview bitmap data.",
    "",
@@ -1517,7 +1656,7 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
 
 var ACM_ABOUT_TEXT =
       "About Astro Color Mixer\n\n" +
-      "Astro Color Mixer v0.9.7.4-beta\n\n" +
+      "Astro Color Mixer v0.9.7.5-beta\n\n" +
 "A Cosgrove's Cosmos tool for nonlinear RGB chroma-vector color control in astrophotography.\n\n" +
 "Core capabilities:\n" +
 "- H/S/L color-band adjustment\n" +
@@ -2619,7 +2758,9 @@ function acmComputeSelectedBandMaskData(sourceRgb, width, height, passState, ima
       else
          masks[index] = built.finalMask;
    }
-   return masks;
+   return mode === "rangeMask" || imageType !== "starless"
+      ? masks
+      : acmMaybeSoftenMask(masks, width, height, { radius: band.maskSoftenRadius });
 }
 
 function acmGetViewportRectForScale(panelWidth, panelHeight, bitmapWidth, bitmapHeight, scale, panX, panY) {
@@ -2687,7 +2828,8 @@ function acmCloneBand(band) {
       saturation: band.saturation,
       luminance: band.luminance,
       width: band.width,
-      feather: band.feather
+      feather: band.feather,
+      maskSoftenRadius: acmGetMaskSoftenRadius({ radius: band.maskSoftenRadius })
    };
 }
 
@@ -2741,7 +2883,8 @@ function acmBandDiffersFromDefault(band) {
       Math.abs(band.saturation) > ACM_EPSILON ||
       Math.abs(band.luminance) > ACM_EPSILON ||
       Math.abs((typeof band.width === "number" ? band.width : 45) - 45) > ACM_EPSILON ||
-      Math.abs((typeof band.feather === "number" ? band.feather : 0.75) - 0.75) > ACM_EPSILON;
+      Math.abs((typeof band.feather === "number" ? band.feather : 0.75) - 0.75) > ACM_EPSILON ||
+      acmGetMaskSoftenRadius({ radius: band.maskSoftenRadius }) > ACM_EPSILON;
 }
 
 function acmRangeMaskDiffersFromDefault(rangeMask) {
@@ -2855,7 +2998,8 @@ function acmBuildRecipeFromEditorState(state) {
             saturation: band.saturation,
             luminance: band.luminance,
             width: band.width,
-            feather: band.feather
+            feather: band.feather,
+            maskSoftenRadius: acmGetMaskSoftenRadius({ radius: band.maskSoftenRadius })
          };
       }
       passes.push({
@@ -2966,13 +3110,35 @@ function acmSummarizeRangeMaskStatus(rangeMask) {
    return "Range Mask: " + label + rangeMask.low.toFixed(2) + "–" + rangeMask.high.toFixed(2) + " · F " + rangeMask.feather.toFixed(2);
 }
 
+function acmSummarizeMaskSoftenStatus(maskSoften) {
+   var radius = acmGetMaskSoftenRadius(maskSoften);
+   return radius > 0
+      ? "Selected Band Soften: " + radius.toFixed(1) + " px. Starless / Star-Reduced only."
+      : "Selected Band Soften: Off";
+}
+
+function acmMaskSoftenDropdownIndexForRadius(radius) {
+   return Math.round(acmGetMaskSoftenRadius({ radius: radius }));
+}
+
+function acmMaskSoftenRadiusForDropdownIndex(index) {
+   return acmClamp(Math.round(index || 0), 0, 5);
+}
+
+function acmMaskSoftenLabelForRadius(radius, imageType) {
+   var value = acmGetMaskSoftenRadius({ radius: radius });
+   if (imageType !== "starless")
+      return value > 0 ? "Soften saved: " + value.toFixed(0) + " px · active only in Starless / Star-Reduced" : "Soften: Off · starless only";
+   return value > 0 ? "Soften: " + value.toFixed(0) + " px" : "Soften: Off";
+}
+
 function AstroColorMixerUI03Dialog() {
    this.__base__ = Dialog;
    this.__base__();
    acmHelpHostDialog = this;
 
    var self = this;
-   this.windowTitle = "Astro Color Mixer v0.9.7.4-beta";
+   this.windowTitle = "Astro Color Mixer v0.9.7.5-beta";
    this.recipeFilePath = "";
    this.activeTab = ACM_TAB_SAT;
    this.activeToolPanel = "selectedBand";
@@ -3138,7 +3304,7 @@ function AstroColorMixerUI03Dialog() {
       g.brush = new Brush(ACM_GRAY_UI_THEME.header);
       g.fillRect(0, 0, this.width, this.height, g.brush);
       var mainTitle = "Astro Color Mixer";
-      var versionText = "v0.9.7.4-beta";
+      var versionText = "v0.9.7.5-beta";
       var titleFont = new Font;
       titleFont.bold = true;
       titleFont.pixelSize = 27;
@@ -3211,6 +3377,7 @@ function AstroColorMixerUI03Dialog() {
    this.imageTypeCombo.currentItem = 0;
    this.imageTypeCombo.onItemSelected = function(index) {
       self.editorState.imageType = index === 0 ? "stars" : "starless";
+      self.refreshSelectedBandControls();
       self.markPreviewStale();
    };
 
@@ -3339,7 +3506,7 @@ function AstroColorMixerUI03Dialog() {
    this.selectedBandHelpButton = acmCreateHelpButton(
       this,
       "Selected Band",
-      "Selected Band controls which hue region is being shaped. The color sliders set how much to change; Hue Radius sets the outer limit on each side of the hue center, and Feather controls how quickly the selection falls from the strong core to that outer limit. Neutral / Low-Saturation is selected by low chroma rather than hue angle, so Hue Radius does not apply there.",
+      "Selected Band controls which hue region is being shaped. Hue Radius sets the outer limit on each side of the hue center, and Feather controls how quickly the selection falls from the strong core to that outer limit. Soften is a spatial mask blur for the selected band and is active only in Starless / Star-Reduced mode. Neutral / Low-Saturation is selected by low chroma rather than hue angle, so Hue Radius does not apply there.",
       "selectedBand"
    );
    this.selectedBandHelpBox = acmCreateHelpBox(this);
@@ -3727,6 +3894,25 @@ function AstroColorMixerUI03Dialog() {
    };
    acmAttachPreviewSliderHooks(this, this.rangeMaskFeatherControl);
 
+   this.maskSoftenLabel = new Label(this);
+   this.maskSoftenLabel.text = "Soften";
+   this.maskSoftenLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
+   this.maskSoftenCombo = new ComboBox(this);
+   this.maskSoftenCombo.addItem("Off");
+   this.maskSoftenCombo.addItem("1 px");
+   this.maskSoftenCombo.addItem("2 px");
+   this.maskSoftenCombo.addItem("3 px");
+   this.maskSoftenCombo.addItem("4 px");
+   this.maskSoftenCombo.addItem("5 px");
+   this.maskSoftenCombo.currentItem = 0;
+   this.maskSoftenCombo.setFixedWidth(70);
+   this.maskSoftenCombo.toolTip = "Selected-band mask softening. It is applied only in Starless / Star-Reduced mode.";
+   this.maskSoftenCombo.onItemSelected = function(index) {
+      self.getSelectedBand().maskSoftenRadius = acmMaskSoftenRadiusForDropdownIndex(index);
+      self.refreshSelectedBandReadoutAndVisualization(true);
+      self.markPreviewStale();
+   };
+
    this.resetRangeMaskButton = new PushButton(this);
    this.resetRangeMaskButton.text = "Reset Range Mask";
    this.resetRangeMaskButton.onClick = function() {
@@ -3735,6 +3921,10 @@ function AstroColorMixerUI03Dialog() {
 
    this.rangeMaskStatusLabel = new Label(this);
    this.rangeMaskStatusLabel.wordWrapping = true;
+
+   this.maskSoftenStatusLabel = new Label(this);
+   this.maskSoftenStatusLabel.wordWrapping = false;
+   this.maskSoftenStatusLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
 
    this.previewSectionLabel = new Label(this);
    this.previewSectionLabel.useRichText = true;
@@ -4361,6 +4551,8 @@ function AstroColorMixerUI03Dialog() {
    acmApplyLightText(this.rangeMaskLowControl.label);
    acmApplyLightText(this.rangeMaskHighControl.label);
    acmApplyLightText(this.rangeMaskFeatherControl.label);
+   acmApplyLightText(this.maskSoftenLabel);
+   acmApplyLightText(this.maskSoftenStatusLabel);
    this.widthControl.label.useRichText = true;
    this.widthControl.label.text = acmThemeRichText("Hue Radius:", ACM_GRAY_UI_THEME.text, false);
    this.featherControl.label.useRichText = true;
@@ -4371,6 +4563,7 @@ function AstroColorMixerUI03Dialog() {
    this.rangeMaskHighControl.label.text = acmThemeRichText("High", ACM_GRAY_UI_THEME.text, false);
    this.rangeMaskFeatherControl.label.useRichText = true;
    this.rangeMaskFeatherControl.label.text = acmThemeRichText("Feather", ACM_GRAY_UI_THEME.text, false);
+   acmSetThemeLabel(this.maskSoftenLabel, "Soften", ACM_GRAY_UI_THEME.text, false);
 
    this.faqButton.setFixedWidth(132);
    this.technicalButton.setFixedWidth(170);
@@ -4449,6 +4642,8 @@ function AstroColorMixerUI03Dialog() {
    selectedBandControlsRow.spacing = 8;
    selectedBandControlsRow.add(this.widthControl, 100);
    selectedBandControlsRow.add(this.featherControl, 100);
+   selectedBandControlsRow.add(this.maskSoftenLabel);
+   selectedBandControlsRow.add(this.maskSoftenCombo);
 
    var selectedBandVizRow = new HorizontalSizer;
    selectedBandVizRow.spacing = 10;
@@ -4566,6 +4761,7 @@ function AstroColorMixerUI03Dialog() {
    this.selectedBandPanel.sizer.add(selectedBandHeaderRow);
    this.selectedBandPanel.sizer.add(selectedBandRow);
    this.selectedBandPanel.sizer.add(selectedBandControlsRow);
+   this.selectedBandPanel.sizer.add(this.maskSoftenStatusLabel);
    this.selectedBandPanel.sizer.add(this.selectedBandHelpLabel);
    this.selectedBandPanel.sizer.add(selectedBandVizRow, 100);
    this.selectedBandPanel.visible = true;
@@ -4980,7 +5176,7 @@ AstroColorMixerPOC8Dialog.prototype.refreshPassSummary = function() {
    var activePass = this.getActivePassState();
    this.passEnabledCheck.checked = activePass.enabled !== false;
    this.deletePassButton.enabled = activePass.id !== "pass-1";
-   this.passSummaryLabel.text = "Active Pass: " + activePass.name + "\n" + activePass.name + " · " + acmSummarizePass(activePass) + " · " + acmSummarizeRangeMask(activePass.rangeMask);
+   this.passSummaryLabel.text = "Active Pass: " + activePass.name + "\n" + activePass.name + " · " + acmSummarizePass(activePass) + " · " + acmSummarizePassMaskControls(activePass);
    this.passCountLabel.text = "Passes: " + acmCountEnabledPasses(this.editorState) + " enabled / " + this.editorState.passes.length + " total";
 };
 
@@ -5189,7 +5385,7 @@ AstroColorMixerPOC8Dialog.prototype.refreshPassViewer = function() {
       var rowBar = new HorizontalSizer;
       rowBar.spacing = 2;
       var rowSelect = new RadioButton(this.passViewerBody);
-      rowSelect.text = (pass.enabled !== false ? "✓ " : "□ ") + pass.name + " · " + acmSummarizePass(pass) + " · " + acmSummarizeRangeMask(pass.rangeMask);
+      rowSelect.text = (pass.enabled !== false ? "✓ " : "□ ") + pass.name + " · " + acmSummarizePass(pass) + " · " + acmSummarizePassMaskControls(pass);
       rowSelect.toolTip = rowSelect.text;
       rowSelect.font = passRowFont;
       rowSelect.foregroundColor = 0xff161616;
@@ -5732,6 +5928,14 @@ AstroColorMixerPOC8Dialog.prototype.refreshSelectedBandControls = function() {
       this.widthControl.edit.enabled = !neutralActive;
    this.widthControl.setValue(selectedBand.width);
    this.featherControl.setValue(selectedBand.feather);
+   if (this.maskSoftenCombo) {
+      this.maskSoftenCombo.currentItem = acmMaskSoftenDropdownIndexForRadius(selectedBand.maskSoftenRadius);
+      this.maskSoftenCombo.enabled = this.editorState.imageType === "starless" && !neutralActive;
+   }
+   if (this.maskSoftenLabel)
+      this.maskSoftenLabel.enabled = this.editorState.imageType === "starless" && !neutralActive;
+   if (this.maskSoftenStatusLabel)
+      acmSetThemeLabel(this.maskSoftenStatusLabel, acmMaskSoftenLabelForRadius(selectedBand.maskSoftenRadius, this.editorState.imageType), ACM_GRAY_UI_THEME.muted, false);
    this.refreshSelectedBandReadoutAndVisualization();
 };
 
@@ -6340,6 +6544,7 @@ AstroColorMixerPOC8Dialog.prototype.resetSelectedBand = function() {
    band.luminance = 0;
    band.width = 45;
    band.feather = 0.75;
+   band.maskSoftenRadius = 0;
    this.refreshSelectedBandControls();
    this.refreshBandControls();
    this.markPreviewStale();
@@ -6463,7 +6668,7 @@ AstroColorMixerPOC8Dialog.prototype.applyRecipe = function() {
       var normalized = acmNormalizeRecipe(recipe);
       console.writeln("Pass count: " + normalized.passes.length + " total / " + acmCountEnabledPasses({ passes: normalized.passes }) + " enabled");
       for (var i = 0; i < normalized.passes.length; ++i)
-         console.writeln(normalized.passes[i].label + " [" + (normalized.passes[i].enabled ? "enabled" : "disabled") + "] · " + acmSummarizePass(normalized.passes[i]) + " · " + acmSummarizeRangeMask(normalized.passes[i].rangeMask));
+         console.writeln(normalized.passes[i].label + " [" + (normalized.passes[i].enabled ? "enabled" : "disabled") + "] · " + acmSummarizePass(normalized.passes[i]) + " · " + acmSummarizePassMaskControls(normalized.passes[i]));
 
       var result = applyAstroColorMixerPasses(active.rgb, active.width, active.height, recipe);
       var outputId = "AstroColorMixer_" + sanitizeViewId(active.viewId);
@@ -6549,6 +6754,6 @@ try {
    if (!(error && error.__acmHandled)) {
       var message = "Unexpected dialog failure: " + (error && error.message ? error.message : String(error));
       console.criticalln(message);
-      showMessage(message, "Astro Color Mixer v0.9.7.4-beta", StdIcon_Error);
+      showMessage(message, "Astro Color Mixer v0.9.7.5-beta", StdIcon_Error);
    }
 }

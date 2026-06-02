@@ -1,11 +1,11 @@
 #feature-id    Cosgrove's Cosmos > Astro Color Mixer
-#feature-info  Astro Color Mixer v0.9.7.5-beta. Nonlinear RGB color and luminance refinement for astrophotography.
+#feature-info  Astro Color Mixer v0.9.7.6-beta. Nonlinear RGB color and luminance refinement for astrophotography.
 
 /*
  * Astro Color Mixer for PixInsight
  *
  * Beta build:
- * Astro Color Mixer v0.9.7.5-beta
+ * Astro Color Mixer v0.9.7.6-beta
  */
 
 #include <pjsr/UndoFlag.jsh>
@@ -19,7 +19,7 @@
 #include <pjsr/SampleType.jsh>
 
 function showMessage(text, title, icon) {
-   (new MessageBox(text, title || "Astro Color Mixer v0.9.7.5-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
+   (new MessageBox(text, title || "Astro Color Mixer v0.9.7.6-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
 }
 
 var acmHelpHostDialog = null;
@@ -34,7 +34,7 @@ function showHelpTopic(title, text) {
 
 function fail(text) {
    console.criticalln(text);
-   showMessage(text, "Astro Color Mixer v0.9.7.5-beta", StdIcon_Error);
+   showMessage(text, "Astro Color Mixer v0.9.7.6-beta", StdIcon_Error);
    var error = new Error(text);
    error.__acmHandled = true;
    throw error;
@@ -326,7 +326,7 @@ function acmCreateInfoBox(parent) {
    return box;
 }
 
-console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.7.5-beta</b>");
+console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.7.6-beta</b>");
 
 // -------------------------------------------------------------------------
 // Minimal copied core logic
@@ -856,7 +856,7 @@ function acmNormalizeBand(sourceBand, defaultBand) {
       luminance: sourceBand && typeof sourceBand.luminance === "number" ? sourceBand.luminance : 0,
       width: sourceBand && typeof sourceBand.width === "number" ? sourceBand.width : defaultBand.width,
       feather: sourceBand && typeof sourceBand.feather === "number" ? sourceBand.feather : defaultBand.feather,
-      maskSoftenRadius: sourceBand && typeof sourceBand.maskSoftenRadius === "number"
+      maskSoftenRadius: sourceBand && sourceBand.hasOwnProperty && sourceBand.hasOwnProperty("maskSoftenRadius") && typeof sourceBand.maskSoftenRadius === "number"
          ? acmGetMaskSoftenRadius({ radius: sourceBand.maskSoftenRadius })
          : 0
    };
@@ -881,7 +881,9 @@ function acmNormalizeBands(inputBands) {
                luminance: inputBands[key].luminance,
                width: inputBands[key].width,
                feather: inputBands[key].feather,
-               maskSoftenRadius: inputBands[key].maskSoftenRadius
+               maskSoftenRadius: inputBands[key] && inputBands[key].hasOwnProperty && inputBands[key].hasOwnProperty("maskSoftenRadius")
+                  ? inputBands[key].maskSoftenRadius
+                  : 0
             };
          }
       }
@@ -970,7 +972,9 @@ function acmNormalizeRecipe(recipe) {
          feather: typeof rangeMask.feather === "number" ? rangeMask.feather : 0.10,
          preset: rangeMask.preset || "All"
       };
-      var legacyPassSoftenRadius = acmGetMaskSoftenRadius(pass.maskSoften);
+      var legacyPassSoftenRadius = pass && pass.hasOwnProperty && pass.hasOwnProperty("maskSoften")
+         ? acmGetMaskSoftenRadius(pass.maskSoften)
+         : 0;
       if (legacyPassSoftenRadius > 0) {
          for (var softenBandIndex = 0; softenBandIndex < bands.length; ++softenBandIndex)
             if (!bands[softenBandIndex].maskSoftenRadius)
@@ -1656,7 +1660,7 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
 
 var ACM_ABOUT_TEXT =
       "About Astro Color Mixer\n\n" +
-      "Astro Color Mixer v0.9.7.5-beta\n\n" +
+      "Astro Color Mixer v0.9.7.6-beta\n\n" +
 "A Cosgrove's Cosmos tool for nonlinear RGB chroma-vector color control in astrophotography.\n\n" +
 "Core capabilities:\n" +
 "- H/S/L color-band adjustment\n" +
@@ -3138,7 +3142,7 @@ function AstroColorMixerUI03Dialog() {
    acmHelpHostDialog = this;
 
    var self = this;
-   this.windowTitle = "Astro Color Mixer v0.9.7.5-beta";
+   this.windowTitle = "Astro Color Mixer v0.9.7.6-beta";
    this.recipeFilePath = "";
    this.activeTab = ACM_TAB_SAT;
    this.activeToolPanel = "selectedBand";
@@ -3304,7 +3308,7 @@ function AstroColorMixerUI03Dialog() {
       g.brush = new Brush(ACM_GRAY_UI_THEME.header);
       g.fillRect(0, 0, this.width, this.height, g.brush);
       var mainTitle = "Astro Color Mixer";
-      var versionText = "v0.9.7.5-beta";
+      var versionText = "v0.9.7.6-beta";
       var titleFont = new Font;
       titleFont.bold = true;
       titleFont.pixelSize = 27;
@@ -6754,6 +6758,6 @@ try {
    if (!(error && error.__acmHandled)) {
       var message = "Unexpected dialog failure: " + (error && error.message ? error.message : String(error));
       console.criticalln(message);
-      showMessage(message, "Astro Color Mixer v0.9.7.5-beta", StdIcon_Error);
+      showMessage(message, "Astro Color Mixer v0.9.7.6-beta", StdIcon_Error);
    }
 }

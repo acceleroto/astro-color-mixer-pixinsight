@@ -12,7 +12,7 @@ Use the tool after calibration, integration, background correction, color calibr
 
 \section Image Type
 
-Stars Present is the safer mode for images that still contain normal stars, bright stellar cores, and halos. Starless / Star-Reduced is intended for images where stars have been removed or strongly reduced, allowing more freedom in nebulae, galaxies, dust, and faint structures.
+Stars Present is the safer mode for images that still contain normal stars, bright stellar cores, and halos. Starless is intended for images where stars have been removed, allowing more freedom in nebulae, galaxies, dust, and faint structures.
 
 This setting does not remove stars and does not create a star mask.
 
@@ -24,7 +24,7 @@ This setting does not remove stars and does not create a star mask.
 4. Make broad H/S/L changes.
 5. Use probe, histogram, and polar plot.
 6. Refine Width and Feather.
-7. On starless or strongly star-reduced data, use Selected Band Soften only when a hard selected-band mask edge is visible.
+7. On starless data, use Selected Band Blur only when a hard selected-band mask edge is visible.
 8. Use Range Mask for luminance targeting.
 9. Add targeted Refinement Passes.
 10. Inspect preview and mask views.
@@ -45,11 +45,17 @@ This setting does not remove stars and does not create a star mask.
 
 Hue rotates color direction. Saturation scales color intensity. Luminance brightens or darkens the active band. Width controls hue span. Feather controls transition softness. Range Mask limits the active pass by luminance. Neutral / Low-Saturation handles weak-color pixels where hue is unreliable.
 
-\section Selected Band Soften
+\section Selected Band Blur
 
-Selected Band Soften is a spatial softening control for the active selected-band mask. It is different from Feather: Feather softens the transition across hue distance, while Soften blurs the final mask across neighboring image pixels.
+Selected Band Blur is a spatial blur control for the active selected-band mask. It is different from Feather: Feather softens the transition across hue distance, while Blur spatially smooths the final mask across neighboring image pixels.
 
-Soften is only active in Starless / Star-Reduced mode. In Stars Present mode it is disabled because spatially blurring a color mask can bleed adjustments into star cores, halos, and adjacent stellar structures. Use it for starless color-mask edge cleanup, starting with 1 px and increasing only as needed up to 5 px.
+Blur is only active in Starless mode. In Stars Present mode it is disabled because spatially blurring a color mask can bleed adjustments into star cores, halos, and adjacent stellar structures. Use it for starless color-mask edge cleanup, starting with 1 px and increasing only as needed up to 5 px.
+
+\section Low-Saturation Galaxies
+
+Some broadband galaxy images have real but very weak color in outer arms, dust, and faint halo structures. Protect Low Sat may reduce slider response in these pixels because low saturation makes hue less reliable.
+
+Turning off Protect Low Sat can help reveal faint blue, cyan, orange, or red galaxy color, but it also raises the risk of blotchy color, noisy hue patches, and colored star halos. The safest workflow is to use a starless image, inspect the Band Mask and Combined Mask, and build the result with multiple smaller passes rather than one extreme pass.
 
 \section Refinement Passes
 
@@ -57,8 +63,8 @@ Refinement Passes are sequential ordered passes. Base Pass handles broad work, a
 
 \section Diagnostics
 
-The probe reports luminance, hue, and saturation from preview pixels. The histogram summarizes preview luminance and helps place Range Mask. The polar plot summarizes hue and saturation distribution. Mask views show selected band, Range Mask, or combined influence. In Starless / Star-Reduced mode, Current Band Mask and Combined Mask reflect active Selected Band Soften.
+The probe reports luminance, hue, and saturation from preview pixels. The histogram summarizes preview luminance and helps place Range Mask. The polar plot summarizes hue and saturation distribution. Mask views show selected band, Range Mask, or combined influence. In Starless mode, Current Band Mask and Combined Mask reflect active Selected Band Blur.
 
 \section Adjustment Sets
 
-Adjustment Sets are JSON files that preserve passes, band values, Width, Feather, selected-band Soften values, Range Mask settings, neutral luminance settings, image type, and related working state.
+Adjustment Sets are JSON files that preserve passes, band values, Width, Feather, selected-band Blur values, Range Mask settings, neutral luminance settings, image type, and related working state.

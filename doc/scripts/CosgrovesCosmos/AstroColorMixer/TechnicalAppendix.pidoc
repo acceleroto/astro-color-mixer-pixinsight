@@ -25,7 +25,7 @@ This appendix summarizes the practical processing model used by Astro Color Mixe
 
 \section Image Type
 
-Stars Present is more conservative around bright stellar structures. Starless / Star-Reduced allows more freedom in nebulae, galaxies, dust, and faint structures. This setting does not detect stars, remove stars, or create a star mask.
+Stars Present is more conservative around bright stellar structures. Starless allows more freedom in nebulae, galaxies, dust, and faint structures after stars have been removed. This setting does not detect stars, remove stars, or create a star mask.
 
 \section Luminance Model
 
@@ -55,17 +55,17 @@ These are practical editing regions, not strict physical line definitions.
 distance = circularHueDistance(hue, center)
 mask = 1 - smoothstep(innerWidth, outerWidth, distance)
 
-\section Selected Band Spatial Soften
+\section Selected Band Spatial Blur
 
-Selected Band Soften is an optional spatial blur applied to the active band's final mask. It is not part of hue selection itself and is not a luminance Range Mask control.
+Selected Band Blur is an optional spatial blur applied to the active band's final mask. It is not part of hue selection itself and is not a luminance Range Mask control.
 
-Feather softens selection as hue distance approaches the edge of the selected band. Range Mask Feather softens luminance inclusion at the low and high range boundaries. Selected Band Soften smooths the already-built band mask across neighboring image pixels.
+Feather softens selection as hue distance approaches the edge of the selected band. Range Mask Feather softens luminance inclusion at the low and high range boundaries. Selected Band Blur smooths the already-built band mask across neighboring image pixels.
 
-The implementation uses modest whole-pixel radii only: Off, 1 px, 2 px, 3 px, 4 px, or 5 px. It is applied only when Image Type is Starless / Star-Reduced. In Stars Present mode, saved soften values are ignored because spatially blurring a color mask can leak adjustments into star cores, halos, and adjacent stellar structures.
+The implementation uses modest whole-pixel radii only: Off, 1 px, 2 px, 3 px, 4 px, or 5 px. It is applied only when Image Type is Starless. In Stars Present mode, saved blur values are ignored because spatially blurring a color mask can leak adjustments into star cores, halos, and adjacent stellar structures.
 
 rawBandMask = hueMask * saturationReliability * protection * rangeMask
-if imageType == starless and selectedBandSoften > 0:
-    workingBandMask = spatialBlur(rawBandMask, selectedBandSoften)
+if imageType == starless and selectedBandBlur > 0:
+    workingBandMask = spatialBlur(rawBandMask, selectedBandBlur)
 else:
     workingBandMask = rawBandMask
 
@@ -83,6 +83,12 @@ rangeMask = clamp01(leftRamp * rightRamp)
 
 neutralMask = 1 - smoothstep(satStart, satFull, saturation)
 
+\section Low-Saturation Galaxy Case
+
+Some broadband galaxies have real but weak color in outer arms, dust, and faint halos. Protect Low Sat reduces the response of hue-band sliders when saturation is low because hue is less reliable there.
+
+Turning off Protect Low Sat can help extract faint galaxy color, but it also increases the risk of blotchy color, noisy hue patches, and colored star halos. For aggressive galaxy or dust work, use a starless image when possible, inspect the Band Mask and Combined Mask, and prefer multiple smaller passes over one extreme pass.
+
 \section Chroma-Vector Adjustment
 
 Conceptually, the tool separates a luminance-like neutral component from chroma, scales saturation, rotates hue, adjusts luminance, recombines the result, and clamps back into a valid nonlinear RGB range.
@@ -96,7 +102,7 @@ finalMask =
   highlightProtection *
   rangeMask
 
-If Selected Band Soften is active, the band mask is spatially softened after these selection terms are combined and before the hue, saturation, or luminance adjustment is applied.
+If Selected Band Blur is active, the band mask is spatially blurred after these selection terms are combined and before the hue, saturation, or luminance adjustment is applied.
 
 \section Refinement Passes
 

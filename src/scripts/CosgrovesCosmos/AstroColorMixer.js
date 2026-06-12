@@ -1,13 +1,13 @@
 #engine v8
 
 #feature-id    Cosgrove's Cosmos > Astro Color Mixer
-#feature-info  Astro Color Mixer v0.9.7.7-beta. Nonlinear RGB color and luminance refinement for astrophotography.
+#feature-info  Astro Color Mixer v0.9.7.8-beta. Nonlinear RGB color and luminance refinement for astrophotography.
 
 /*
  * Astro Color Mixer for PixInsight
  *
  * Beta build:
- * Astro Color Mixer v0.9.7.7-beta
+ * Astro Color Mixer v0.9.7.8-beta
  */
 
 #include <pjsr/UndoFlag.jsh>
@@ -22,7 +22,7 @@
 CoreApplication.ensureMinimumVersion( 1, 9, 4 );
 
 function showMessage(text, title, icon) {
-   (new MessageBox(text, title || "Astro Color Mixer v0.9.7.7-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
+   (new MessageBox(text, title || "Astro Color Mixer v0.9.7.8-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
 }
 
 var acmHelpHostDialog = null;
@@ -37,7 +37,7 @@ function showHelpTopic(title, text) {
 
 function fail(text) {
    console.criticalln(text);
-   showMessage(text, "Astro Color Mixer v0.9.7.7-beta", StdIcon_Error);
+   showMessage(text, "Astro Color Mixer v0.9.7.8-beta", StdIcon_Error);
    var error = new Error(text);
    error.__acmHandled = true;
    throw error;
@@ -62,6 +62,16 @@ function acmThemeRichText(text, color, bold) {
    return bold ? "<b>" + wrapped + "</b>" : wrapped;
 }
 
+function acmThemeColorToArgb(color, fallbackArgb) {
+   var value = String(color || "");
+   if (value.charAt(0) === "#" && value.length === 7) {
+      var parsed = parseInt(value.substring(1), 16);
+      if (!isNaN(parsed))
+         return 0xff000000 | parsed;
+   }
+   return fallbackArgb == null ? 0xfff2f2f2 : fallbackArgb;
+}
+
 function acmSetThemeLabel(label, text, color, bold) {
    if (!label)
       return;
@@ -69,6 +79,15 @@ function acmSetThemeLabel(label, text, color, bold) {
    label.text = acmThemeRichText(text, color, bold);
    label.foregroundColor = color === ACM_GRAY_UI_THEME.darkText ? 0xff161616 : 0xfff2f2f2;
    label.textColor = label.foregroundColor;
+}
+
+function acmSetGoldTitleLabel(label, text) {
+   if (!label)
+      return;
+   label.useRichText = true;
+   label.text = acmThemeRichText(text, "#ffc43a", true);
+   label.foregroundColor = 0xffffc43a;
+   label.textColor = 0xffffc43a;
 }
 
 function acmRethemeLabelText(label, color, bold) {
@@ -95,8 +114,73 @@ function acmPlainLightLabel(label, text) {
    acmApplyLightText(label);
 }
 
+function acmParkHiddenControl(control) {
+   if (!control)
+      return;
+   try {
+      control.text = "";
+   } catch (e1) {
+   }
+   try {
+      control.visible = false;
+   } catch (e2) {
+   }
+   try {
+      control.hide();
+   } catch (e3) {
+   }
+   try {
+      control.setFixedSize(1, 1);
+   } catch (e4) {
+   }
+}
+
 function acmStripRichTags(text) {
    return String(text || "").replace(/<[^>]*>/g, "");
+}
+
+function acmNowMs() {
+   return (new Date()).getTime();
+}
+
+function acmFormatElapsedSeconds(startMs, endMs) {
+   var elapsed = Math.max(0, (endMs == null ? acmNowMs() : endMs) - startMs) / 1000;
+   return elapsed.toFixed(elapsed >= 10 ? 1 : 2) + " s";
+}
+
+function acmFormatImageTypeForUser(imageType) {
+   return imageType === "starless" ? "Starless" : "Stars Present";
+}
+
+function acmFormatMaskModeForUser(maskMode) {
+   if (maskMode === "BandMask")
+      return "Band Mask";
+   if (maskMode === "RangeMask")
+      return "Range Mask";
+   if (maskMode === "StarProtectionMask")
+      return "Star Protection Mask";
+   if (maskMode === "CombinedMask")
+      return "Combined Mask";
+   return String(maskMode || "Mask");
+}
+
+function acmFlushUi() {
+   try {
+      if (typeof CoreApplication !== "undefined" && CoreApplication && typeof CoreApplication.processEvents === "function")
+         CoreApplication.processEvents();
+   } catch (e1) {
+   }
+   try {
+      if (console && typeof console.flush === "function")
+         console.flush();
+   } catch (e2) {
+   }
+}
+
+function acmHistogramSubtitleText(rangeMaskEnabled) {
+   if (ACM_HOST_IS_WINDOWS)
+      return rangeMaskEnabled ? "\u00b7 Luminance \u00b7 RM gold" : "\u00b7 Luminance";
+   return rangeMaskEnabled ? "\u00b7 Preview luminance \u00b7 Range Mask shown in gold" : "\u00b7 Preview luminance";
 }
 
 function acmPlainDarkLabel(label, text) {
@@ -258,11 +342,12 @@ function acmGetControlPositionRelativeToDialog(control, dialog) {
 }
 
 function acmConfigureResponsiveDialogBounds(dialog) {
-   var safeMargin = 72;
-   var targetMinWidth = 1240;
-   var targetMinHeight = acmHostIsWindows() ? 780 : 900;
-   var defaultWidth = 2000;
-   var defaultHeight = acmHostIsWindows() ? 920 : 940;
+   var isWindows = acmHostIsWindows();
+   var safeMargin = isWindows ? 48 : 72;
+   var targetMinWidth = isWindows ? 1680 : 1240;
+   var targetMinHeight = isWindows ? 820 : 900;
+   var defaultWidth = isWindows ? 2220 : 2000;
+   var defaultHeight = isWindows ? 1040 : 940;
    var screenSize = acmGetDialogAvailableScreenSize(dialog);
    var minWidth = targetMinWidth;
    var minHeight = targetMinHeight;
@@ -270,7 +355,7 @@ function acmConfigureResponsiveDialogBounds(dialog) {
    var height = defaultHeight;
 
    if (screenSize) {
-      minWidth = Math.max(1120, Math.min(targetMinWidth, screenSize.width - safeMargin));
+      minWidth = Math.max(isWindows ? 1440 : 1120, Math.min(targetMinWidth, screenSize.width - safeMargin));
       minHeight = Math.max(720, Math.min(targetMinHeight, screenSize.height - safeMargin));
       width = Math.max(minWidth, Math.min(defaultWidth, screenSize.width - safeMargin));
       height = Math.max(minHeight, Math.min(defaultHeight, screenSize.height - safeMargin));
@@ -329,7 +414,7 @@ function acmCreateInfoBox(parent) {
    return box;
 }
 
-console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.7.7-beta</b>");
+console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.7.8-beta</b>");
 
 // -------------------------------------------------------------------------
 // Minimal copied core logic
@@ -392,13 +477,15 @@ var ACM_PROTECTION_PRESETS = {
 var ACM_SENSITIVITY_RANGES = {
    Fine: { hueShift: 5, saturation: 15, luminance: 10 },
    Normal: { hueShift: 20, saturation: 60, luminance: 30 },
-   Advanced: { hueShift: 45, saturation: 100, luminance: 60 }
+   Advanced: { hueShift: 45, saturation: 100, luminance: 60 },
+   Strong: { hueShift: 45, saturation: 100, luminance: 60 }
 };
 
 var ACM_NEUTRAL_SENSITIVITY_RANGES = {
    Fine: 5,
    Normal: 20,
-   Advanced: 50
+   Advanced: 50,
+   Strong: 50
 };
 
 var ACM_BAND_DEFS = [
@@ -453,7 +540,26 @@ function acmCreateDefaultRangeMask() {
       low: 0.0,
       high: 1.0,
       feather: 0.10,
-      preset: "All"
+      preset: "All",
+      maskSoftenRadius: 0,
+      boostEnabled: false
+   };
+}
+
+function acmCreateDefaultProtectionControls() {
+   return {
+      protectStars: true,
+      protectLowSaturation: true,
+      starMaskStrength: "Strong"
+   };
+}
+
+function acmEffectiveProtectionControls(protectionControls, imageType) {
+   var source = protectionControls || acmCreateDefaultProtectionControls();
+   return {
+      protectStars: imageType === "starless" ? false : source.protectStars !== false,
+      protectLowSaturation: source.protectLowSaturation !== false,
+      starMaskStrength: acmNormalizeStarMaskStrength(source.starMaskStrength)
    };
 }
 
@@ -504,6 +610,42 @@ function acmLuma709(r, g, b) {
    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
+function acmComputeStretchAnalysis(sourceRgb, width, height) {
+   if (!sourceRgb || width <= 0 || height <= 0)
+      return null;
+
+   var pixelCount = width * height;
+   var maxSamples = 12000;
+   var step = Math.max(1, Math.floor(pixelCount / maxSamples));
+   var values = [];
+
+   for (var i = 0; i < pixelCount; i += step) {
+      var j = i * 3;
+      values.push(acmLuma709(sourceRgb[j], sourceRgb[j + 1], sourceRgb[j + 2]));
+   }
+
+   if (values.length < 16)
+      return null;
+
+   values.sort(function(a, b) { return a - b; });
+
+   function percentile(p) {
+      var index = Math.round((values.length - 1) * p);
+      return values[Math.max(0, Math.min(values.length - 1, index))];
+   }
+
+   var median = percentile(0.50);
+   var p95 = percentile(0.95);
+   var p99 = percentile(0.99);
+
+   return {
+      median: median,
+      p95: p95,
+      p99: p99,
+      likelyLinear: median < 0.035 && p95 < 0.18 && p99 < 0.45
+   };
+}
+
 function acmApplySourceHsl(sourceRgb, width, height) {
    var count = width * height;
    var h = new Float32Array(count);
@@ -513,14 +655,101 @@ function acmApplySourceHsl(sourceRgb, width, height) {
 
    for (var i = 0; i < count; ++i) {
       var base = i * 3;
-      var hsl = acmRgbToHsl(sourceRgb[base], sourceRgb[base + 1], sourceRgb[base + 2]);
-      h[i] = hsl[0];
-      s[i] = hsl[1];
-      l[i] = hsl[2];
-      y[i] = acmLuma709(sourceRgb[base], sourceRgb[base + 1], sourceRgb[base + 2]);
+      var r = sourceRgb[base];
+      var g = sourceRgb[base + 1];
+      var b = sourceRgb[base + 2];
+      var maxValue = Math.max(r, g, b);
+      var minValue = Math.min(r, g, b);
+      var lightness = (maxValue + minValue) * 0.5;
+      var hue = 0;
+      var saturation = 0;
+      var d = maxValue - minValue;
+      if (Math.abs(d) >= ACM_EPSILON) {
+         saturation = lightness > 0.5 ? d / (2 - maxValue - minValue) : d / (maxValue + minValue);
+         if (maxValue === r)
+            hue = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+         else if (maxValue === g)
+            hue = ((b - r) / d + 2) * 60;
+         else
+            hue = ((r - g) / d + 4) * 60;
+         hue = hue % 360;
+      }
+      h[i] = hue;
+      s[i] = saturation;
+      l[i] = lightness;
+      y[i] = 0.2126 * r + 0.7152 * g + 0.0722 * b;
    }
 
    return { h: h, s: s, l: l, y: y };
+}
+
+function acmBandMaskAnalysisRadius(imageType) {
+   return 2;
+}
+
+function acmBoxBlurRgb(sourceRgb, width, height, radius) {
+   var r = Math.round(radius || 0);
+   if (r <= 0 || width <= 1 || height <= 1)
+      return sourceRgb;
+
+   var count = width * height;
+   var temp = new Float32Array(count * 3);
+   var output = new Float32Array(count * 3);
+
+   for (var y = 0; y < height; ++y) {
+      for (var x = 0; x < width; ++x) {
+         var rSum = 0;
+         var gSum = 0;
+         var bSum = 0;
+         var samples = 0;
+         var x0 = Math.max(0, x - r);
+         var x1 = Math.min(width - 1, x + r);
+         for (var sx = x0; sx <= x1; ++sx) {
+            var sampleBase = (y * width + sx) * 3;
+            rSum += sourceRgb[sampleBase];
+            gSum += sourceRgb[sampleBase + 1];
+            bSum += sourceRgb[sampleBase + 2];
+            ++samples;
+         }
+         var base = (y * width + x) * 3;
+         var denom = Math.max(1, samples);
+         temp[base] = rSum / denom;
+         temp[base + 1] = gSum / denom;
+         temp[base + 2] = bSum / denom;
+      }
+   }
+
+   for (var yy = 0; yy < height; ++yy) {
+      var y0 = Math.max(0, yy - r);
+      var y1 = Math.min(height - 1, yy + r);
+      for (var xx = 0; xx < width; ++xx) {
+         var rSumY = 0;
+         var gSumY = 0;
+         var bSumY = 0;
+         var samplesY = 0;
+         for (var sy = y0; sy <= y1; ++sy) {
+            var sampleBaseY = (sy * width + xx) * 3;
+            rSumY += temp[sampleBaseY];
+            gSumY += temp[sampleBaseY + 1];
+            bSumY += temp[sampleBaseY + 2];
+            ++samplesY;
+         }
+         var outBase = (yy * width + xx) * 3;
+         var denomY = Math.max(1, samplesY);
+         output[outBase] = acmClamp01(rSumY / denomY);
+         output[outBase + 1] = acmClamp01(gSumY / denomY);
+         output[outBase + 2] = acmClamp01(bSumY / denomY);
+      }
+   }
+
+   return output;
+}
+
+function acmComputeBandMaskAnalysisHsl(sourceRgb, width, height, imageType) {
+   var radius = acmBandMaskAnalysisRadius(imageType);
+   if (radius <= 0)
+      return acmApplySourceHsl(sourceRgb, width, height);
+   return acmApplySourceHsl(acmBoxBlurRgb(sourceRgb, width, height, radius), width, height);
 }
 
 function acmCircularHueDistance(h1, h2) {
@@ -643,12 +872,17 @@ function acmComputeRangeMask(luminance, rangeMaskState) {
    return acmClamp01(leftRamp * rightRamp);
 }
 
-function acmBuildMasks(hue, saturation, lightness, band, protection, globalStrength, rangeMaskValue) {
+function acmBuildMasks(hue, saturation, lightness, band, protection, globalStrength, rangeMaskValue, protectionControls) {
+   var controls = protectionControls || acmCreateDefaultProtectionControls();
    var distance = acmCircularHueDistance(hue, band.center);
    var hueMask = acmMakeHueMask(distance, band.width, band.feather);
-   var satMask = acmSmoothstep(protection.satFloor, protection.satFull, saturation);
+   var satMask = controls.protectLowSaturation === false
+      ? 1
+      : acmSmoothstep(protection.satFloor, protection.satFull, saturation);
    var darkMask = acmSmoothstep(protection.darkFloor, protection.darkFull, lightness);
-   var highlightMask = 1 - acmSmoothstep(protection.highlightStart, protection.highlightFull, lightness);
+   var highlightMask = controls.protectStars === false
+      ? 1
+      : 1 - acmSmoothstep(protection.highlightStart, protection.highlightFull, lightness);
 
    return {
       finalMask: hueMask * satMask * darkMask * highlightMask * rangeMaskValue * globalStrength
@@ -656,18 +890,69 @@ function acmBuildMasks(hue, saturation, lightness, band, protection, globalStren
 }
 
 function acmBuildNeutralMasks(saturation, lightness, neutralState, protection, globalStrength, rangeMaskValue, options) {
+   var controls = options && options.protectionControls ? options.protectionControls : acmCreateDefaultProtectionControls();
    var neutralMask = 1 - acmSmoothstep(neutralState.satStart, neutralState.satFull, saturation);
    var neutralDarkFloor = options && options.neutralDarkFloor != null ? options.neutralDarkFloor : protection.darkFloor;
    var neutralDarkFull = options && options.neutralDarkFull != null ? options.neutralDarkFull : protection.darkFull;
    var darkMask = acmSmoothstep(neutralDarkFloor, neutralDarkFull, lightness);
-   var highlightMask = 1 - acmSmoothstep(protection.highlightStart, protection.highlightFull, lightness);
+   var highlightMask = controls.protectStars === false
+      ? 1
+      : 1 - acmSmoothstep(protection.highlightStart, protection.highlightFull, lightness);
    return neutralMask * darkMask * highlightMask * rangeMaskValue * globalStrength;
+}
+
+function acmBoxBlurMaskRadiusOne(maskValues, width, height) {
+   var count = width * height;
+   var temp = new Float32Array(count);
+   var output = new Float32Array(count);
+   var lastX = width - 1;
+   var lastY = height - 1;
+
+   for (var y = 0; y < height; ++y) {
+      var rowBase = y * width;
+      for (var x = 0; x < width; ++x) {
+         var sum = maskValues[rowBase + x];
+         var samples = 1;
+         if (x > 0) {
+            sum += maskValues[rowBase + x - 1];
+            ++samples;
+         }
+         if (x < lastX) {
+            sum += maskValues[rowBase + x + 1];
+            ++samples;
+         }
+         temp[rowBase + x] = sum / samples;
+      }
+   }
+
+   for (var yy = 0; yy < height; ++yy) {
+      var row = yy * width;
+      var prevRow = yy > 0 ? row - width : -1;
+      var nextRow = yy < lastY ? row + width : -1;
+      for (var xx = 0; xx < width; ++xx) {
+         var sumY = temp[row + xx];
+         var samplesY = 1;
+         if (prevRow >= 0) {
+            sumY += temp[prevRow + xx];
+            ++samplesY;
+         }
+         if (nextRow >= 0) {
+            sumY += temp[nextRow + xx];
+            ++samplesY;
+         }
+         output[row + xx] = acmClamp01(sumY / samplesY);
+      }
+   }
+
+   return output;
 }
 
 function acmBoxBlurMask(maskValues, width, height, radius) {
    var r = Math.round(radius || 0);
    if (r <= 0 || width <= 1 || height <= 1)
       return maskValues;
+   if (r === 1)
+      return acmBoxBlurMaskRadiusOne(maskValues, width, height);
 
    var count = width * height;
    var temp = new Float32Array(count);
@@ -716,6 +1001,178 @@ function acmMaybeSoftenMask(maskValues, width, height, maskSoften) {
    return radius > 0 ? acmBoxBlurMask(maskValues, width, height, radius) : maskValues;
 }
 
+function acmBandMaskEdgePolishRadius() {
+   return 1;
+}
+
+function acmApplyBandMaskEdgePolish(maskValues, width, height) {
+   var radius = acmBandMaskEdgePolishRadius();
+   return radius > 0 ? acmBoxBlurMask(maskValues, width, height, radius) : maskValues;
+}
+
+function acmRangeMaskBoostEnabled(rangeMaskState) {
+   return !!(rangeMaskState && (
+      rangeMaskState.boostEnabled === true ||
+      rangeMaskState.rangeMaskBoostEnabled === true
+   ));
+}
+
+function acmRangeMaskEnabled(rangeMaskState) {
+   return !!(rangeMaskState && rangeMaskState.enabled === true);
+}
+
+function acmApplyRangeMaskShaping(maskValues, width, height, rangeMaskState, maskSoften) {
+   if (!rangeMaskState || rangeMaskState.enabled !== true)
+      return maskValues;
+   var shaped = acmMaybeSoftenMask(maskValues, width, height, maskSoften);
+   if (acmRangeMaskBoostEnabled(rangeMaskState))
+      shaped = acmBoostMaskValues(shaped);
+   return shaped;
+}
+
+function acmNormalizeStarMaskStrength(value) {
+   return "Strong";
+}
+
+function acmStarMaskStrengthSettings(value) {
+   var strength = acmNormalizeStarMaskStrength(value);
+   if (strength === "Very Strong")
+      return {
+         seedFloor: 0.13,
+         contrastLow: 0.018,
+         contrastHigh: 0.090,
+         luminanceLow: 0.13,
+         luminanceHigh: 0.46,
+         radius: 7,
+         suppress: 1.0,
+         blurRadius: 1
+      };
+   if (strength === "Strong")
+      return {
+         seedFloor: 0.17,
+         contrastLow: 0.026,
+         contrastHigh: 0.115,
+         luminanceLow: 0.17,
+         luminanceHigh: 0.52,
+         radius: 5,
+         suppress: 0.97,
+         blurRadius: 1
+      };
+   return {
+      seedFloor: 0.22,
+      contrastLow: 0.04,
+      contrastHigh: 0.16,
+      luminanceLow: 0.22,
+      luminanceHigh: 0.62,
+      radius: 3,
+      suppress: 0.92,
+      blurRadius: 0
+   };
+}
+
+var ACM_STAR_EXPANSION_KERNELS = {};
+
+function acmGetStarExpansionKernel(radius) {
+   var r = Math.max(0, Math.round(radius || 0));
+   var key = "" + r;
+   if (ACM_STAR_EXPANSION_KERNELS[key])
+      return ACM_STAR_EXPANSION_KERNELS[key];
+
+   var offsets = [];
+   for (var oy = -r; oy <= r; ++oy) {
+      for (var ox = -r; ox <= r; ++ox) {
+         var dist = Math.sqrt(ox * ox + oy * oy);
+         if (dist > r)
+            continue;
+         offsets.push({
+            x: ox,
+            y: oy,
+            falloff: 1 - acmSmoothstep(0, r, dist)
+         });
+      }
+   }
+   ACM_STAR_EXPANSION_KERNELS[key] = offsets;
+   return offsets;
+}
+
+function acmBuildCompactStarProtectionMask(luminanceValues, width, height, strength) {
+   var count = width * height;
+   var seeds = new Float32Array(count);
+   if (!luminanceValues || width < 5 || height < 5)
+      return seeds;
+   var settings = acmStarMaskStrengthSettings(strength);
+
+   for (var y = 2; y < height - 2; ++y) {
+      for (var x = 2; x < width - 2; ++x) {
+         var index = y * width + x;
+         var center = luminanceValues[index];
+         if (center < settings.seedFloor)
+            continue;
+
+         var ringSum = 0;
+         var ringCount = 0;
+         var localMax = center;
+         for (var dy = -2; dy <= 2; ++dy) {
+            for (var dx = -2; dx <= 2; ++dx) {
+               if (dx === 0 && dy === 0)
+                  continue;
+               var sample = luminanceValues[(y + dy) * width + (x + dx)];
+               localMax = Math.max(localMax, sample);
+               if (Math.abs(dx) === 2 || Math.abs(dy) === 2) {
+                  ringSum += sample;
+                  ++ringCount;
+               }
+            }
+         }
+
+         if (center + 0.0001 < localMax)
+            continue;
+
+         var ringMean = ringSum / Math.max(1, ringCount);
+         var contrast = center - ringMean;
+         var compactSignal = acmSmoothstep(settings.contrastLow, settings.contrastHigh, contrast) * acmSmoothstep(settings.luminanceLow, settings.luminanceHigh, center);
+         if (compactSignal > 0)
+            seeds[index] = compactSignal;
+      }
+   }
+
+   var expanded = new Float32Array(count);
+   var radius = settings.radius;
+   var expansionKernel = acmGetStarExpansionKernel(radius);
+   for (var sy = 0; sy < height; ++sy) {
+      for (var sx = 0; sx < width; ++sx) {
+         var seed = seeds[sy * width + sx];
+         if (seed <= 0)
+            continue;
+         for (var kernelIndex = 0; kernelIndex < expansionKernel.length; ++kernelIndex) {
+            var kernel = expansionKernel[kernelIndex];
+            var ty = sy + kernel.y;
+            if (ty < 0 || ty >= height)
+               continue;
+            var tx = sx + kernel.x;
+            if (tx < 0 || tx >= width)
+               continue;
+            var targetIndex = ty * width + tx;
+            var expandedValue = seed * kernel.falloff;
+            if (expandedValue > expanded[targetIndex])
+               expanded[targetIndex] = expandedValue;
+         }
+      }
+   }
+
+   return settings.blurRadius > 0
+      ? acmMaybeSoftenMask(expanded, width, height, { radius: settings.blurRadius })
+      : expanded;
+}
+
+function acmBuildRangeMaskValues(luminanceValues, width, height, rangeMaskState, maskSoften) {
+   var count = width * height;
+   var values = new Float32Array(count);
+   for (var i = 0; i < count; ++i)
+      values[i] = acmComputeRangeMask(luminanceValues[i], rangeMaskState);
+   return acmApplyRangeMaskShaping(values, width, height, rangeMaskState, maskSoften);
+}
+
 function acmRodriguesRotate(vector, axis, angleRadians) {
    var vx = vector[0], vy = vector[1], vz = vector[2];
    var ax = axis[0], ay = axis[1], az = axis[2];
@@ -734,26 +1191,156 @@ function acmRodriguesRotate(vector, axis, angleRadians) {
 }
 
 function acmApplySingleBand(currentRgb, sourceHsl, width, height, band, options) {
-   var output = new Float32Array(currentRgb);
+   var output = currentRgb;
    var count = width * height;
+   var maskSourceHsl = options.maskSourceHsl || sourceHsl;
    var protection = options.protection;
+   var protectionControls = options.protectionControls || acmCreateDefaultProtectionControls();
+   var starMaskSettings = acmStarMaskStrengthSettings(protectionControls.starMaskStrength);
    var globalStrength = options.globalStrength != null ? options.globalStrength : 1;
    var rangeMaskState = options.rangeMaskState || null;
-   var maskValues = new Float32Array(count);
+   var maskValues = options.maskScratch || new Float32Array(count);
+   var starProtectionMask = protectionControls.protectStars === false
+      ? null
+      : (options.starProtectionMask || null);
+   var rangeMaskValues = options.rangeMaskValues || null;
+   var protectLowSat = protectionControls.protectLowSaturation !== false;
+   var protectHighlights = protectionControls.protectStars !== false;
+   var starSuppress = starMaskSettings.suppress;
+   var outerWidth = band.width;
+   var innerWidth = band.feather <= ACM_EPSILON ? outerWidth : outerWidth * (1 - band.feather);
+   var featherDenom = outerWidth - innerWidth;
+   var satAdjustBase = band.saturation / 100;
+   var lumAdjustBase = band.luminance / 100;
+   var hueShiftRadians = band.hueShift * Math.PI / 180;
+   var hasHueShift = Math.abs(band.hueShift) > ACM_EPSILON;
+   var hasBandBlur = acmGetMaskSoftenRadius(options.maskSoften) > 0;
+   var hasBandMaskEdgePolish = acmBandMaskEdgePolishRadius() > 0;
 
-   for (var i = 0; i < count; ++i) {
-      var hue = sourceHsl.h[i];
-      var saturation = sourceHsl.s[i];
-      var lightness = sourceHsl.l[i];
-      var luminance = sourceHsl.y[i];
-      var rangeMaskValue = acmComputeRangeMask(luminance, rangeMaskState);
-      maskValues[i] = acmBuildMasks(hue, saturation, lightness, band, protection, globalStrength, rangeMaskValue).finalMask;
+   function buildMaskAt(index) {
+      var delta = Math.abs((maskSourceHsl.h[index] % 360) - (band.center % 360));
+      var distance = Math.min(delta, 360 - delta);
+      var hueMask = 0;
+      if (band.feather <= ACM_EPSILON || Math.abs(featherDenom) < ACM_EPSILON) {
+         hueMask = distance <= outerWidth ? 1 : 0;
+      } else if (distance <= innerWidth + ACM_EPSILON) {
+         hueMask = 1;
+      } else if (distance <= outerWidth + ACM_EPSILON) {
+         var hueT = (distance - innerWidth) / featherDenom;
+         hueT = hueT < 0 ? 0 : hueT > 1 ? 1 : hueT;
+         hueMask = 1 - (hueT * hueT * (3 - 2 * hueT));
+      }
+      if (hueMask <= 0)
+         return 0;
+
+      var saturation = maskSourceHsl.s[index];
+      var lightness = maskSourceHsl.l[index];
+      var satMask = protectLowSat
+         ? acmSmoothstep(protection.satFloor, protection.satFull, saturation)
+         : 1;
+      var darkMask = acmSmoothstep(protection.darkFloor, protection.darkFull, lightness);
+      var highlightMask = protectHighlights
+         ? 1 - acmSmoothstep(protection.highlightStart, protection.highlightFull, lightness)
+         : 1;
+      var rangeMaskValue = rangeMaskValues ? rangeMaskValues[index] : 1;
+      var mask = hueMask * satMask * darkMask * highlightMask * rangeMaskValue * globalStrength;
+      if (starProtectionMask)
+         mask *= 1 - starSuppress * starProtectionMask[index];
+      return mask;
    }
 
-   maskValues = acmMaybeSoftenMask(maskValues, width, height, options.maskSoften);
+   if (hasBandBlur || hasBandMaskEdgePolish) {
+      for (var i = 0; i < count; ++i)
+         maskValues[i] = buildMaskAt(i);
+      if (hasBandBlur)
+         maskValues = acmMaybeSoftenMask(maskValues, width, height, options.maskSoften);
+      if (hasBandMaskEdgePolish)
+         maskValues = acmApplyBandMaskEdgePolish(maskValues, width, height);
+   } else {
+      for (var directIndex = 0; directIndex < count; ++directIndex) {
+         var delta = Math.abs((maskSourceHsl.h[directIndex] % 360) - (band.center % 360));
+         var distance = Math.min(delta, 360 - delta);
+         var hueMask = 0;
+         if (band.feather <= ACM_EPSILON || Math.abs(featherDenom) < ACM_EPSILON) {
+            hueMask = distance <= outerWidth ? 1 : 0;
+         } else if (distance <= innerWidth + ACM_EPSILON) {
+            hueMask = 1;
+         } else if (distance <= outerWidth + ACM_EPSILON) {
+            var hueT = (distance - innerWidth) / featherDenom;
+            hueT = hueT < 0 ? 0 : hueT > 1 ? 1 : hueT;
+            hueMask = 1 - (hueT * hueT * (3 - 2 * hueT));
+         }
+         if (hueMask <= 0)
+            continue;
+
+         var sourceSaturationForMask = maskSourceHsl.s[directIndex];
+         var sourceLightnessForMask = maskSourceHsl.l[directIndex];
+         var satMask = protectLowSat
+            ? acmSmoothstep(protection.satFloor, protection.satFull, sourceSaturationForMask)
+            : 1;
+         var darkMask = acmSmoothstep(protection.darkFloor, protection.darkFull, sourceLightnessForMask);
+         var highlightMask = protectHighlights
+            ? 1 - acmSmoothstep(protection.highlightStart, protection.highlightFull, sourceLightnessForMask)
+            : 1;
+         var rangeMaskValue0 = rangeMaskValues ? rangeMaskValues[directIndex] : 1;
+         var mask = hueMask * satMask * darkMask * highlightMask * rangeMaskValue0 * globalStrength;
+         if (starProtectionMask)
+            mask *= 1 - starSuppress * starProtectionMask[directIndex];
+         if (mask <= 0)
+            continue;
+
+         var directBase = directIndex * 3;
+         var r0 = output[directBase];
+         var g0 = output[directBase + 1];
+         var b0 = output[directBase + 2];
+         var y0 = 0.2126 * r0 + 0.7152 * g0 + 0.0722 * b0;
+         var rotatedR0 = (r0 - y0);
+         var rotatedG0 = (g0 - y0);
+         var rotatedB0 = (b0 - y0);
+
+         var satAdjust0 = satAdjustBase;
+         if (satAdjust0 > 0 && protectionControls.protectLowSaturation === false) {
+            var lowColorReach0 = 1 - acmSmoothstep(0.02, 0.18, sourceHsl.s[directIndex]);
+            var signalGate0 = acmSmoothstep(0.10, 0.34, y0) * (1 - acmSmoothstep(0.82, 0.98, y0));
+            satAdjust0 *= 1 + 2.4 * lowColorReach0 * signalGate0;
+         }
+         var satScale0 = Math.max(0, 1 + satAdjust0 * mask);
+         rotatedR0 *= satScale0;
+         rotatedG0 *= satScale0;
+         rotatedB0 *= satScale0;
+
+         if (hasHueShift) {
+            var angleRadians0 = hueShiftRadians * mask;
+            var ax0 = ACM_AXIS[0], ay0 = ACM_AXIS[1], az0 = ACM_AXIS[2];
+            var cosA0 = Math.cos(angleRadians0);
+            var sinA0 = Math.sin(angleRadians0);
+            var dot0 = rotatedR0 * ax0 + rotatedG0 * ay0 + rotatedB0 * az0;
+            var crossR0 = ay0 * rotatedB0 - az0 * rotatedG0;
+            var crossG0 = az0 * rotatedR0 - ax0 * rotatedB0;
+            var crossB0 = ax0 * rotatedG0 - ay0 * rotatedR0;
+            var invCos0 = 1 - cosA0;
+            var sourceR0 = rotatedR0;
+            var sourceG0 = rotatedG0;
+            var sourceB0 = rotatedB0;
+            rotatedR0 = sourceR0 * cosA0 + crossR0 * sinA0 + ax0 * dot0 * invCos0;
+            rotatedG0 = sourceG0 * cosA0 + crossG0 * sinA0 + ay0 * dot0 * invCos0;
+            rotatedB0 = sourceB0 * cosA0 + crossB0 * sinA0 + az0 * dot0 * invCos0;
+         }
+
+         var y20 = lumAdjustBase >= 0
+            ? y0 + (lumAdjustBase * ACM_POSITIVE_LUMINANCE_GAIN) * mask * (1 - y0)
+            : y0 + lumAdjustBase * mask * y0;
+
+         output[directBase] = acmClamp01(y20 + rotatedR0);
+         output[directBase + 1] = acmClamp01(y20 + rotatedG0);
+         output[directBase + 2] = acmClamp01(y20 + rotatedB0);
+      }
+
+      return output;
+   }
 
    for (var j = 0; j < count; ++j) {
-      var mask = maskValues[j];
+      var mask = hasBandBlur || hasBandMaskEdgePolish ? maskValues[j] : buildMaskAt(j);
       if (mask <= 0)
          continue;
 
@@ -762,41 +1349,72 @@ function acmApplySingleBand(currentRgb, sourceHsl, width, height, band, options)
       var g = output[base + 1];
       var b = output[base + 2];
       var y = acmLuma709(r, g, b);
-      var chroma = [r - y, g - y, b - y];
+      var chromaR = r - y;
+      var chromaG = g - y;
+      var chromaB = b - y;
 
-      var satAdjust = band.saturation / 100;
+      var sourceSaturation = sourceHsl.s[j];
+      var satAdjust = satAdjustBase;
+      if (satAdjust > 0 && protectionControls.protectLowSaturation === false) {
+         var lowColorReach = 1 - acmSmoothstep(0.02, 0.18, sourceSaturation);
+         var signalGate = acmSmoothstep(0.10, 0.34, y) * (1 - acmSmoothstep(0.82, 0.98, y));
+         satAdjust *= 1 + 2.4 * lowColorReach * signalGate;
+      }
       var satScale = Math.max(0, 1 + satAdjust * mask);
-      var chromaScaled = [chroma[0] * satScale, chroma[1] * satScale, chroma[2] * satScale];
+      var rotatedR = chromaR * satScale;
+      var rotatedG = chromaG * satScale;
+      var rotatedB = chromaB * satScale;
 
-      var angleRadians = (band.hueShift * Math.PI / 180) * mask;
-      var rotated = acmRodriguesRotate(chromaScaled, ACM_AXIS, angleRadians);
+      if (hasHueShift) {
+         var angleRadians = hueShiftRadians * mask;
+         var ax = ACM_AXIS[0], ay = ACM_AXIS[1], az = ACM_AXIS[2];
+         var cosA = Math.cos(angleRadians);
+         var sinA = Math.sin(angleRadians);
+         var dot = rotatedR * ax + rotatedG * ay + rotatedB * az;
+         var crossR = ay * rotatedB - az * rotatedG;
+         var crossG = az * rotatedR - ax * rotatedB;
+         var crossB = ax * rotatedG - ay * rotatedR;
+         var invCos = 1 - cosA;
+         var sourceR = rotatedR;
+         var sourceG = rotatedG;
+         var sourceB = rotatedB;
+         rotatedR = sourceR * cosA + crossR * sinA + ax * dot * invCos;
+         rotatedG = sourceG * cosA + crossG * sinA + ay * dot * invCos;
+         rotatedB = sourceB * cosA + crossB * sinA + az * dot * invCos;
+      }
 
-      var lumAdjust = band.luminance / 100;
+      var lumAdjust = lumAdjustBase;
       var y2 = lumAdjust >= 0
          ? y + (lumAdjust * ACM_POSITIVE_LUMINANCE_GAIN) * mask * (1 - y)
          : y + lumAdjust * mask * y;
 
-      output[base] = acmClamp01(y2 + rotated[0]);
-      output[base + 1] = acmClamp01(y2 + rotated[1]);
-      output[base + 2] = acmClamp01(y2 + rotated[2]);
+      output[base] = acmClamp01(y2 + rotatedR);
+      output[base + 1] = acmClamp01(y2 + rotatedG);
+      output[base + 2] = acmClamp01(y2 + rotatedB);
    }
 
    return output;
 }
 
 function acmApplyNeutralLuminance(currentRgb, sourceHsl, width, height, neutralState, options) {
-   var output = new Float32Array(currentRgb);
+   var output = currentRgb;
    var count = width * height;
    var protection = options.protection;
+   var protectionControls = options.protectionControls || acmCreateDefaultProtectionControls();
+   var starMaskSettings = acmStarMaskStrengthSettings(protectionControls.starMaskStrength);
    var globalStrength = options.globalStrength != null ? options.globalStrength : 1;
    var rangeMaskState = options.rangeMaskState || null;
-   var maskValues = new Float32Array(count);
+   var maskValues = options.maskScratch || new Float32Array(count);
+   var starProtectionMask = protectionControls.protectStars === false
+      ? null
+      : (options.starProtectionMask || null);
+   var rangeMaskValues = options.rangeMaskValues || null;
 
    for (var i = 0; i < count; ++i) {
       var saturation = sourceHsl.s[i];
       var lightness = sourceHsl.l[i];
       var luminance = sourceHsl.y[i];
-      var rangeMaskValue = acmComputeRangeMask(luminance, rangeMaskState);
+      var rangeMaskValue = rangeMaskValues ? rangeMaskValues[i] : 1;
       var relaxedDarkFloor = rangeMaskState && rangeMaskState.enabled ? protection.darkFloor * 0.25 : protection.darkFloor;
       var relaxedDarkFull = rangeMaskState && rangeMaskState.enabled ? protection.darkFull * 0.6 : protection.darkFull;
       maskValues[i] = acmBuildNeutralMasks(
@@ -808,9 +1426,12 @@ function acmApplyNeutralLuminance(currentRgb, sourceHsl, width, height, neutralS
          rangeMaskValue,
          {
             neutralDarkFloor: relaxedDarkFloor,
-            neutralDarkFull: relaxedDarkFull
+            neutralDarkFull: relaxedDarkFull,
+            protectionControls: protectionControls
          }
       );
+      if (starProtectionMask)
+         maskValues[i] *= 1 - starMaskSettings.suppress * starProtectionMask[i];
    }
 
    maskValues = acmMaybeSoftenMask(maskValues, width, height, options.maskSoften);
@@ -931,6 +1552,12 @@ function acmNormalizeRecipe(recipe) {
       fail("Unsupported recipe: no passes array was found.");
 
    var sensitivity = ACM_SENSITIVITY_RANGES[converted.sensitivity] ? converted.sensitivity : "Normal";
+   var sourceProtections = converted.protectionControls || acmCreateDefaultProtectionControls();
+   var protectionControls = {
+      protectStars: sourceProtections.protectStars !== false,
+      protectLowSaturation: sourceProtections.protectLowSaturation !== false,
+      starMaskStrength: acmNormalizeStarMaskStrength(sourceProtections.starMaskStrength)
+   };
    var normalizedPasses = [];
 
    for (var passIndex = 0; passIndex < converted.passes.length; ++passIndex) {
@@ -973,7 +1600,15 @@ function acmNormalizeRecipe(recipe) {
          low: typeof rangeMask.low === "number" ? rangeMask.low : 0.0,
          high: typeof rangeMask.high === "number" ? rangeMask.high : 1.0,
          feather: typeof rangeMask.feather === "number" ? rangeMask.feather : 0.10,
-         preset: rangeMask.preset || "All"
+         preset: rangeMask.preset || "All",
+         maskSoftenRadius: rangeMask && rangeMask.hasOwnProperty && rangeMask.hasOwnProperty("maskSoftenRadius")
+            ? acmGetMaskSoftenRadius({ radius: rangeMask.maskSoftenRadius })
+            : (rangeMask && rangeMask.hasOwnProperty && rangeMask.hasOwnProperty("rangeMaskSoftenPx")
+               ? acmGetMaskSoftenRadius({ radius: rangeMask.rangeMaskSoftenPx })
+               : (rangeMask && rangeMask.hasOwnProperty && rangeMask.hasOwnProperty("rangeMaskBlurPx")
+                  ? acmGetMaskSoftenRadius({ radius: rangeMask.rangeMaskBlurPx })
+                  : 0)),
+         boostEnabled: acmRangeMaskBoostEnabled(rangeMask)
       };
       var legacyPassSoftenRadius = pass && pass.hasOwnProperty && pass.hasOwnProperty("maskSoften")
          ? acmGetMaskSoftenRadius(pass.maskSoften)
@@ -1000,48 +1635,115 @@ function acmNormalizeRecipe(recipe) {
       imageType: converted.imageType || "stars",
       sensitivity: sensitivity,
       globalStrength: typeof converted.globalStrength === "number" ? converted.globalStrength : 1.0,
+      protectionControls: protectionControls,
       activePassId: converted.activePassId || normalizedPasses[0].id,
       passes: normalizedPasses
    };
 }
 
-function applyAstroColorMixerPasses(rgbFloat, width, height, recipe) {
+function applyAstroColorMixerPasses(rgbFloat, width, height, recipe, options) {
+   options = options || {};
+   var timingLogger = typeof options.timingLogger === "function" ? options.timingLogger : null;
    var normalized = acmNormalizeRecipe(recipe);
    var working = new Float32Array(rgbFloat);
    var protection = ACM_PROTECTION_PRESETS[normalized.imageType] || ACM_PROTECTION_PRESETS.stars;
+   var protectionControls = acmEffectiveProtectionControls(normalized.protectionControls, normalized.imageType);
+   var sharedStarProtectionMask = null;
+   var sharedStarProtectionMaskReady = protectionControls.protectStars === false;
 
    for (var passIndex = 0; passIndex < normalized.passes.length; ++passIndex) {
       var pass = normalized.passes[passIndex];
       if (pass.enabled === false)
          continue;
 
-      var sourceHsl = acmApplySourceHsl(working, width, height);
-
-      for (var bandIndex = 0; bandIndex < pass.bands.length; ++bandIndex) {
-         var band = pass.bands[bandIndex];
+      var adjustedBands = [];
+      for (var adjustedBandIndex = 0; adjustedBandIndex < pass.bands.length; ++adjustedBandIndex) {
+         var adjustedBand = pass.bands[adjustedBandIndex];
          if (
-            Math.abs(band.hueShift) <= ACM_EPSILON &&
-            Math.abs(band.saturation) <= ACM_EPSILON &&
-            Math.abs(band.luminance) <= ACM_EPSILON
-         ) {
-            continue;
+            Math.abs(adjustedBand.hueShift) > ACM_EPSILON ||
+            Math.abs(adjustedBand.saturation) > ACM_EPSILON ||
+            Math.abs(adjustedBand.luminance) > ACM_EPSILON
+         )
+            adjustedBands.push(adjustedBand);
+      }
+      var neutralActive = Math.abs(pass.neutralLuminance.luminance) > ACM_EPSILON;
+      if (adjustedBands.length === 0 && !neutralActive)
+         continue;
+
+      var passStart = timingLogger ? acmNowMs() : 0;
+      var stepStart = timingLogger ? acmNowMs() : 0;
+      var sourceHsl = acmApplySourceHsl(working, width, height);
+      if (timingLogger)
+         timingLogger("  " + pass.label + " analyze image color", stepStart, acmNowMs());
+
+      stepStart = timingLogger ? acmNowMs() : 0;
+      var bandMaskSourceHsl = adjustedBands.length > 0
+         ? acmComputeBandMaskAnalysisHsl(working, width, height, normalized.imageType)
+         : sourceHsl;
+      if (timingLogger && adjustedBands.length > 0)
+         timingLogger("  " + pass.label + " prepare smooth color masks", stepStart, acmNowMs());
+
+      stepStart = timingLogger ? acmNowMs() : 0;
+      var starProtectionMask = null;
+      if (protectionControls.protectStars !== false) {
+         if (!sharedStarProtectionMaskReady) {
+            sharedStarProtectionMask = acmBuildCompactStarProtectionMask(sourceHsl.y, width, height, protectionControls.starMaskStrength);
+            sharedStarProtectionMaskReady = true;
+            if (timingLogger)
+               timingLogger("  " + pass.label + " build star protection", stepStart, acmNowMs());
+         } else if (timingLogger) {
+            timingLogger("  " + pass.label + " reuse star protection", stepStart, acmNowMs());
          }
+         starProtectionMask = sharedStarProtectionMask;
+      }
+
+      var rangeMaskSoften = normalized.imageType === "starless" ? { radius: pass.rangeMask.maskSoftenRadius } : null;
+      var rangeMaskValues = null;
+      if (acmRangeMaskEnabled(pass.rangeMask)) {
+         stepStart = timingLogger ? acmNowMs() : 0;
+         rangeMaskValues = acmBuildRangeMaskValues(sourceHsl.y, width, height, pass.rangeMask, rangeMaskSoften);
+         if (timingLogger)
+            timingLogger("  " + pass.label + " build Range Mask", stepStart, acmNowMs());
+      }
+      var maskScratch = new Float32Array(width * height);
+
+      for (var bandIndex = 0; bandIndex < adjustedBands.length; ++bandIndex) {
+         var band = adjustedBands[bandIndex];
+         stepStart = timingLogger ? acmNowMs() : 0;
          working = acmApplySingleBand(working, sourceHsl, width, height, band, {
             protection: protection,
+            protectionControls: protectionControls,
             globalStrength: normalized.globalStrength,
             rangeMaskState: pass.rangeMask,
+            starProtectionMask: starProtectionMask,
+            rangeMaskSoften: rangeMaskSoften,
+            rangeMaskValues: rangeMaskValues,
+            maskSourceHsl: bandMaskSourceHsl,
+            maskScratch: maskScratch,
             maskSoften: normalized.imageType === "starless" ? { radius: band.maskSoftenRadius } : null
          });
+         if (timingLogger)
+            timingLogger("  " + pass.label + " apply " + band.label, stepStart, acmNowMs());
       }
 
-      if (Math.abs(pass.neutralLuminance.luminance) > ACM_EPSILON) {
+      if (neutralActive) {
+         stepStart = timingLogger ? acmNowMs() : 0;
          working = acmApplyNeutralLuminance(working, sourceHsl, width, height, pass.neutralLuminance, {
             protection: protection,
+            protectionControls: protectionControls,
             globalStrength: normalized.globalStrength,
             rangeMaskState: pass.rangeMask,
+            starProtectionMask: starProtectionMask,
+            rangeMaskSoften: rangeMaskSoften,
+            rangeMaskValues: rangeMaskValues,
+            maskScratch: maskScratch,
             maskSoften: null
          });
+         if (timingLogger)
+            timingLogger("  " + pass.label + " apply Neutral luminance", stepStart, acmNowMs());
       }
+      if (timingLogger)
+         timingLogger("Process " + pass.label + " (" + adjustedBands.length + " band" + (adjustedBands.length === 1 ? "" : "s") + (neutralActive ? " + neutral" : "") + ")", passStart, acmNowMs());
    }
 
    return {
@@ -1053,9 +1755,11 @@ function applyAstroColorMixerPasses(rgbFloat, width, height, recipe) {
 function acmSummarizeRangeMask(rangeMask) {
    if (!rangeMask || !rangeMask.enabled)
       return "Range Off";
+   var soften = acmGetMaskSoftenRadius({ radius: rangeMask.maskSoftenRadius });
+   var softenText = soften > 0 ? " · Blur " + soften.toFixed(0) + " px" : "";
    if (rangeMask.preset && rangeMask.preset !== "Custom" && rangeMask.preset !== "All")
-      return "Range " + rangeMask.preset;
-   return "Range " + rangeMask.low.toFixed(2) + "-" + rangeMask.high.toFixed(2) + " · F " + rangeMask.feather.toFixed(2);
+      return "Range " + rangeMask.preset + softenText;
+   return "Range " + rangeMask.low.toFixed(2) + "-" + rangeMask.high.toFixed(2) + " · Feather " + rangeMask.feather.toFixed(2) + softenText;
 }
 
 function acmSummarizePassMaskControls(pass) {
@@ -1064,7 +1768,7 @@ function acmSummarizePassMaskControls(pass) {
 
 function acmSummarizeMaskSoften(maskSoften) {
    var radius = acmGetMaskSoftenRadius(maskSoften);
-   return radius > 0 ? " · Soften " + radius.toFixed(1) + " px" : "";
+   return radius > 0 ? " · Blur " + radius.toFixed(1) + " px" : "";
 }
 
 function acmSummarizeBandSoften(pass) {
@@ -1073,7 +1777,7 @@ function acmSummarizeBandSoften(pass) {
    var maxRadius = 0;
    for (var i = 0; i < pass.bands.length; ++i)
       maxRadius = Math.max(maxRadius, acmGetMaskSoftenRadius({ radius: pass.bands[i].maskSoftenRadius }));
-   return maxRadius > 0 ? " · Band Soften max " + maxRadius.toFixed(0) + " px" : "";
+   return maxRadius > 0 ? " · Band Blur max " + maxRadius.toFixed(0) + " px" : "";
 }
 
 function acmSummarizePass(pass) {
@@ -1098,6 +1802,10 @@ function acmSummarizePass(pass) {
    if (parts.length > 4)
       return parts.slice(0, 4).join(" · ") + " ...";
    return parts.join(" · ");
+}
+
+function acmFormatPassViewerRowText(pass) {
+   return (pass.enabled !== false ? "✓ " : "□ ") + pass.name + " · " + acmSummarizePass(pass) + " · " + acmSummarizePassMaskControls(pass);
 }
 
 var ACM_LAST_RECIPE_PATH = "";
@@ -1189,37 +1897,14 @@ function acmLoadTextFile(filePath) {
 }
 
 function acmShowTextDialog(title, text) {
-   function resetDocumentationTextBoxToTop(textBox) {
-      if (!textBox)
+   function resetDocumentationScrollToTop(scrollBox) {
+      if (!scrollBox)
          return;
       try {
-         textBox.cursorPosition = 0;
+         scrollBox.horizontalScrollPosition = 0;
+         scrollBox.verticalScrollPosition = 0;
+         scrollBox.viewport.update();
       } catch (ex1) {
-      }
-      try {
-         textBox.selectionStart = 0;
-         textBox.selectionEnd = 0;
-      } catch (ex2) {
-      }
-      try {
-         if (typeof textBox.setSelection === "function")
-            textBox.setSelection(0, 0);
-      } catch (ex3) {
-      }
-      try {
-         if (typeof textBox.setCursorPosition === "function")
-            textBox.setCursorPosition(0);
-      } catch (ex4) {
-      }
-      try {
-         textBox.horizontalScrollPosition = 0;
-         textBox.verticalScrollPosition = 0;
-      } catch (ex5) {
-      }
-      try {
-         if (typeof textBox.setScrollPosition === "function")
-            textBox.setScrollPosition(0, 0);
-      } catch (ex6) {
       }
    }
 
@@ -1234,21 +1919,93 @@ function acmShowTextDialog(title, text) {
       g.end();
    };
 
-   var textBox = new TextBox(dialog);
-   textBox.readOnly = true;
-   textBox.wordWrapping = true;
-   textBox.text = text;
-   textBox.minWidth = 1100;
-   textBox.minHeight = 720;
-   textBox.setMinWidth(1100);
-   textBox.setMinHeight(720);
-   textBox.backgroundColor = ACM_GRAY_UI_THEME.panel;
-   textBox.foregroundColor = 0xfff2f2f2;
-   textBox.textColor = 0xfff2f2f2;
+   var docFontSize = ACM_HOST_IS_WINDOWS ? 18 : 15;
    var docFont = new Font;
-   docFont.pixelSize = 14;
-   textBox.font = docFont;
-   resetDocumentationTextBoxToTop(textBox);
+   docFont.pixelSize = docFontSize;
+   var docText = String(text || "");
+   var docSourceLines = docText.split("\n");
+   var docLineHeight = docFontSize + 7;
+   var docWrappedLines = [];
+   var docWrapWidth = -1;
+   var docContentHeight = 720;
+
+   function rebuildDocumentationLines(graphics, width) {
+      var maxWidth = Math.max(120, width - 24);
+      if (docWrapWidth === maxWidth && docWrappedLines.length > 0)
+         return;
+      docWrapWidth = maxWidth;
+      docWrappedLines = [];
+      for (var i = 0; i < docSourceLines.length; ++i) {
+         var line = docSourceLines[i];
+         if (line.length === 0) {
+            docWrappedLines.push("");
+            continue;
+         }
+         var words = line.split(" ");
+         var current = "";
+         for (var w = 0; w < words.length; ++w) {
+            var word = words[w];
+            var test = current.length > 0 ? current + " " + word : word;
+            if (current.length > 0 && graphics.font.width(test) > maxWidth) {
+               docWrappedLines.push(current);
+               current = word;
+            } else {
+               current = test;
+            }
+         }
+         docWrappedLines.push(current);
+      }
+      docContentHeight = Math.max(720, docWrappedLines.length * docLineHeight + 24);
+   }
+
+   var scrollBox = new ScrollBox(dialog);
+   scrollBox.autoScroll = false;
+   scrollBox.setMinWidth(1100);
+   scrollBox.setMinHeight(720);
+   scrollBox.backgroundColor = ACM_GRAY_UI_THEME.panel;
+   scrollBox.viewport.backgroundColor = ACM_GRAY_UI_THEME.panel;
+
+   function updateDocumentationScrollRange() {
+      var visibleHeight = Math.max(1, scrollBox.viewport.height);
+      if (docWrappedLines.length === 0)
+         docContentHeight = Math.max(720, docSourceLines.length * docLineHeight + 24);
+      scrollBox.setHorizontalScrollRange(0, 0);
+      scrollBox.setVerticalScrollRange(0, Math.max(0, docContentHeight - visibleHeight));
+   }
+
+   scrollBox.viewport.onResize = function() {
+      docWrapWidth = -1;
+      updateDocumentationScrollRange();
+      this.update();
+   };
+
+   scrollBox.viewport.onMouseWheel = function(x, y, delta, buttonState, modifiers) {
+      var wheelUnits = Math.max(1, Math.min(2, Math.round(Math.abs(delta) / 120)));
+      var step = Math.max(6, Math.round(docLineHeight * 0.55 * wheelUnits));
+      var next = this.parent.verticalScrollPosition - (delta > 0 ? step : -step);
+      this.parent.verticalScrollPosition = acmClamp(next, 0, this.parent.maxVerticalScrollPosition);
+      this.update();
+   };
+
+   scrollBox.viewport.onPaint = function(x0, y0, x1, y1) {
+      var g = new Graphics(this);
+      g.font = docFont;
+      rebuildDocumentationLines(g, this.width);
+      updateDocumentationScrollRange();
+      g.brush = new Brush(ACM_GRAY_UI_THEME.panel);
+      g.fillRect(0, 0, this.width, this.height, g.brush);
+      g.pen = new Pen(0xfff2f2f2);
+      var scrollY = this.parent.verticalScrollPosition;
+      var firstLine = Math.max(0, Math.floor(scrollY / docLineHeight));
+      var yBase = 12 - (scrollY - firstLine * docLineHeight) + g.font.ascent;
+      var visibleLines = Math.ceil(this.height / docLineHeight) + 2;
+      for (var i = 0; i < visibleLines && firstLine + i < docWrappedLines.length; ++i) {
+         var line = docWrappedLines[firstLine + i];
+         if (line.length > 0)
+            g.drawText(12, yBase + i * docLineHeight, line);
+      }
+      g.end();
+   };
 
    var noteLabel = new Label(dialog);
    acmSetThemeLabel(noteLabel, "Scroll to read the full document.", ACM_GRAY_UI_THEME.text, false);
@@ -1263,16 +2020,18 @@ function acmShowTextDialog(title, text) {
    dialog.sizer = new VerticalSizer;
    dialog.sizer.margin = 8;
    dialog.sizer.spacing = 8;
-   dialog.sizer.add(textBox, 100);
+   dialog.sizer.add(scrollBox, 100);
    dialog.sizer.add(buttons);
    dialog.adjustToContents();
-   resetDocumentationTextBoxToTop(textBox);
+   updateDocumentationScrollRange();
+   resetDocumentationScrollToTop(scrollBox);
    if (typeof Timer !== "undefined") {
       dialog.acmDocumentationStartTimer = new Timer;
       dialog.acmDocumentationStartTimer.interval = 0.05;
       dialog.acmDocumentationStartTimer.periodic = false;
       dialog.acmDocumentationStartTimer.onTimeout = function() {
-         resetDocumentationTextBoxToTop(textBox);
+         updateDocumentationScrollRange();
+         resetDocumentationScrollToTop(scrollBox);
       };
       dialog.acmDocumentationStartTimer.start();
    }
@@ -1301,40 +2060,51 @@ var ACM_FAQ_TEXT = [
    "  - nonlinear stretch",
    "  - initial noise reduction or contrast shaping as appropriate",
    "",
-   "Typical placement is after the image is already nonlinear, when you want controlled final color and luminance refinement. It can be used on stars-present images, starless images, star-reduced images, or separate starless/star layers depending on the target and your workflow.",
+   "Typical placement is after the image is already nonlinear, when you want controlled final color and luminance refinement. It can be used on stars-present images, starless images, or separate starless/star layers depending on the target and your workflow.",
    "",
    "3. WHAT KIND OF IMAGE SHOULD I USE?",
    "",
    "Use a nonlinear RGB image. Do not use the tool on raw linear stacks or as a substitute for earlier calibration work. The input should already have a sensible stretch and broadly reasonable color. The tool works on both stars-present and starless images, and the Image Type setting tells the processing model which protection behavior to use. Preview is downsampled for speed, while Create Image processes the full-resolution source.",
    "",
-   "3A. WHAT IS THE DIFFERENCE BETWEEN STARS PRESENT AND STARLESS / STAR-REDUCED?",
+   "3A. WHAT IS THE DIFFERENCE BETWEEN STARS PRESENT AND STARLESS?",
    "",
    "The Image Type setting changes how Astro Color Mixer protects the image during color and luminance adjustments.",
    "",
    "Stars Present is intended for images that still contain normal stars. It uses more conservative highlight and star-core protection so adjustments are less likely to damage bright stars, push star cores into odd colors, or exaggerate halos.",
    "",
-   "Starless / Star-Reduced is intended for images where stars have been removed or greatly reduced. Since there are fewer bright star structures to protect, the tool can act more freely on nebulae, galaxies, dust, and faint color regions.",
+   "Starless is intended for images where stars have been removed. Since there are fewer bright star structures to protect, the tool can act more freely on nebulae, galaxies, dust, and faint color regions.",
    "",
    "This setting does not remove stars and does not create a star mask. It only changes the protection behavior used while applying the adjustment.",
    "",
    "Practical guidance:",
    "",
    "  - Use Stars Present for normal RGB images with stars.",
-   "  - Use Starless / Star-Reduced for starless nebula, galaxy, or dust processing.",
+   "  - Use Starless for nebula, galaxy, or dust processing after stars have been removed.",
    "  - If unsure, start with Stars Present because it is the safer mode.",
    "  - Always inspect the preview and mask views before applying strong changes.",
+   "",
+   "3B. WHAT DO THE PROTECTION CHECKBOXES DO?",
+   "",
+   "Protect Stars uses a compact-star protection mask together with highlight protection. It is intended to reduce unwanted color changes in star cores, many normal stars, and some halos. It is not a full star-removal or StarNet-style star mask, and it cannot perfectly protect every bright halo, bloated star, or tiny faint star in an aggressive edit.",
+   "",
+   "Protect Low Sat reduces hue-band edits in very low-saturation pixels. This protects noisy neutral regions where hue is unreliable, but it also protects faint low-color halo fields around bright stars. Turning it off lets Astro Color Mixer reach weak broadband color in galaxy arms, dust, and faint structures more aggressively, but it also removes an important guardrail.",
+   "",
+   "For normal refinements on stars-present images, leave both protections enabled. For aggressive faint-color extraction from galaxies or dust, a starless workflow is strongly recommended: remove or separate the stars, work the starless image, then recombine the stars later.",
+   "",
+   "If you do turn Protect Low Sat off on a stars-present image, use restraint. Several modest passes are usually safer than one huge pass with multiple sliders pushed to extremes. Extreme single-pass moves can create blotchy red/orange color, noisy neutral regions, or colored halos around stars.",
    "",
    "4. BASIC WORKFLOW",
    "",
    "  1. Open a nonlinear RGB image.",
    "  2. Choose Image Type:",
    "     - Stars Present for normal RGB images with stars.",
-   "     - Starless / Star-Reduced for starless or strongly star-reduced images.",
+   "     - Starless for starless images.",
    "  3. Start with Base Pass for broad work.",
+   "  3A. For aggressive galaxy or dust color extraction, strongly consider working starless.",
    "  4. Use Hue, Saturation, and Luminance tabs for color-band adjustments.",
    "  5. Click the preview to probe useful pixels and confirm which band is active.",
    "  6. Adjust Hue Radius and Feather when a band needs to be narrower, broader, or smoother.",
-   "  6A. On starless or strongly star-reduced data, use Selected Band Soften only when a hard mask edge is visible.",
+   "  6A. On starless data, use Selected Band Blur only when a hard mask edge is visible.",
    "  7. Use Current Band Mask, Range Mask, or Combined Mask preview modes before strong edits.",
    "  8. Add a Refinement Pass for targeted work such as halos, background, highlights, or faint signal.",
    "  9. Use Range Mask when the change should affect only a luminance slice.",
@@ -1359,29 +2129,45 @@ var ACM_FAQ_TEXT = [
    "",
    "Use small moves first. A little hue movement can be useful for correcting a color family, but large hue shifts can become artificial quickly. Saturation is often the most natural first adjustment for emission and reflection structures. Luminance is useful for emphasis, background control, and balancing bright or faint structures.",
    "",
+   "6A. WHAT DOES SENSITIVITY DO?",
+   "",
+   "Sensitivity controls how strongly slider positions map into image adjustments. Fine gives smaller, more precise slider response. Normal is the default general-purpose setting. Strong gives larger visible changes for the same slider movement.",
+   "",
+   "Strong is the renamed version of the earlier Advanced setting. The behavior is the same, but the new label is clearer: it means stronger slider response, not a more complicated processing mode.",
+   "",
    "7. WHAT ARE WIDTH AND FEATHER?",
    "",
    "Width controls how much of the hue neighborhood around the selected band is affected. Narrow width is more selective; wide width reaches a broader family of colors. Feather controls how softly the selection falls off beyond the stronger inner region. Higher feather produces smoother transitions and lowers the chance of abrupt color boundaries.",
    "",
-   "7A. WHAT IS SELECTED BAND SOFTEN?",
+   "7A. WHAT IS SELECTED BAND BLUR?",
    "",
-   "Selected Band Soften is a spatial softening control for the active color band mask. It is different from Feather. Feather softens the transition across hue distance; Soften blurs the final mask slightly across neighboring image pixels.",
+   "Selected Band Blur is part of Band Mask Shaping. It is a spatial blur control for the active color band mask. It is different from Feather. Feather softens the transition across hue distance; Blur spatially smooths the final mask slightly across neighboring image pixels.",
+   "",
+   "Boost increases mask contrast by pushing brighter mask areas toward white and darker areas toward black. It is intended for mask inspection and created mask images, not as a generic image-contrast control.",
    "",
    "This can help when a strong adjustment reveals the edge of the color mask on starless nebula, galaxy, or dust data. The control is intentionally modest: Off, 1 px, 2 px, 3 px, 4 px, or 5 px.",
    "",
-   "Selected Band Soften is only active in Starless / Star-Reduced mode. In Stars Present mode it is disabled because spatially blurring a color mask can bleed adjustments into star cores, halos, and nearby structures. This is not a substitute for real star masking or star protection.",
+   "Selected Band Blur is only active in Starless mode. In Stars Present mode it is disabled because spatially blurring a color mask can bleed adjustments into star cores, halos, and nearby structures. This is not a substitute for real star masking or star protection.",
    "",
-   "Use it cautiously. Start with 1 px, inspect Current Band Mask or Combined Mask, and compare before and after. Values up to 5 px can be useful for starless color-mask work, but if stars will be recombined later, keep the soften value as low as the image allows so the star layer and starless layer still blend naturally.",
+   "Use it cautiously. Start with 1 px, inspect Current Band Mask or Combined Mask, and compare before and after. Values up to 5 px can be useful for starless color-mask work, but if stars will be recombined later, keep the blur value as low as the image allows so the star layer and starless layer still blend naturally.",
    "",
    "8. WHAT IS RANGE MASK?",
    "",
-   "Range Mask is a luminance-based selection. Low and High define the brightness interval, while Feather softens the inclusion edges. Use it for background work, faint signal work, highlight protection, bright cores, stars, or any pass that should act only in a luminance slice. Range Mask belongs to the active pass, not the whole tool globally.",
+   "Range Mask is a luminance-based selection. Low and High define the brightness interval, while Feather softens the inclusion edges. Range Mask Shaping provides Blur and Boost. Blur spatially smooths the Range Mask, and Boost increases mask contrast. Range Mask belongs to the active pass, not the whole tool globally.",
    "",
-   "A good habit is to switch Preview Mode to Range Mask or Combined Mask before making a strong edit. If the mask does not include the structures you intend to change, adjust Low, High, and Feather before touching the color sliders.",
+   "Use probe and histogram to set Low and High. The histogram shows the active range selection. A good habit is to switch Preview Mode to Range Mask or Combined Mask before making a strong edit. If the mask does not include the structures you intend to change, adjust Low, High, and Feather before touching the color sliders.",
    "",
    "9. WHAT IS NEUTRAL / LOW-SATURATION?",
    "",
    "When saturation is very low, hue becomes unreliable. Neutral / Low-Saturation is the luminance control for those pixels. It is useful for sky background, gray dust, halos, low-color transitions, and neutral structures where a hue-based edit would be misleading. This control appears with the Luminance controls.",
+   "",
+   "9A. WHY CAN LOW-SATURATION GALAXIES BE DIFFICULT?",
+   "",
+   "Some broadband galaxy images have real color in the outer arms, dust, and halo structures, but that color can be very weak. Protect Low Sat may correctly treat those pixels as unreliable hue data, which means the color sliders can appear to do very little.",
+   "",
+   "Turning Protect Low Sat off can help Astro Color Mixer reach that faint color, but it also removes a guardrail. The risks are blotchy color, noisy red/orange patches, uneven neutral backgrounds, and colored halos around stars.",
+   "",
+   "The safest approach is to work on a starless galaxy whenever possible, use modest moves, and build the result with several smaller passes instead of one aggressive pass. If you must work stars-present, keep Protect Stars enabled, inspect the mask views, and compare often.",
    "",
    "10. WHAT ARE REFINEMENT PASSES?",
    "",
@@ -1393,9 +2179,17 @@ var ACM_FAQ_TEXT = [
    "",
    "The probe samples a preview pixel and reports luminance, hue, and saturation. The histogram helps you see the preview luminance distribution and place a Range Mask intelligently. The polar plot shows hue angle and saturation radius for sampled preview pixels. If hue is reliable, the probe can auto-select the nearest color band to help you navigate the image.",
    "",
+   "Plot Info explains the polar plot and summarizes the current probe, selected band, Range Mask state, and delayed Changed / Strong estimate. Changed estimates how much of the preview visibly moved after the most recent preview update. Strong estimates the subset with larger channel movement. This is preview-resolution guidance, not photometry.",
+   "",
    "12. WHAT ARE MASK VIEWS?",
    "",
-   "Mask views let you see what the current band, the Range Mask, or the combined mask is including. In general terms, white means strongly included and black means largely excluded. They are especially useful before strong saturation, luminance, or cleanup adjustments. In Starless / Star-Reduced mode, Current Band Mask and Combined Mask reflect any selected-band Soften value.",
+   "Mask views let you see what the current band, the Range Mask, or the combined mask is including. In general terms, white means strongly included and black means largely excluded. They are especially useful before strong saturation, luminance, or cleanup adjustments. In Starless mode, Current Band Mask and Combined Mask reflect any selected-band Blur value.",
+   "",
+   "12A. WHAT IS DIFFERENCE PREVIEW?",
+   "",
+   "Difference preview shows where the current adjustment changes the image. Dark areas changed little or not at all. Brighter or more colorful areas changed more. The display is amplified with preview-only gain so subtle color work is easier to see.",
+   "",
+   "Difference preview is diagnostic only. Create Image and Apply to Target always write the normal adjusted image, not the difference view.",
    "",
    "13. WHY CAN PREVIEW DIFFER FROM FINAL OUTPUT?",
    "",
@@ -1403,7 +2197,7 @@ var ACM_FAQ_TEXT = [
    "",
    "14. WHAT IS AN ADJUSTMENT SET?",
    "",
-   "Adjustment sets are JSON settings files. They preserve passes, sliders, selected band settings, Width, Feather, selected-band Soften values, Range Mask values, image type, sensitivity, and related adjustment state. They are useful for repeatability, documentation, sharing, and complex multi-pass sessions.",
+   "Adjustment sets are JSON settings files. They preserve passes, sliders, selected band settings, Width, Feather, selected-band Blur values, Range Mask values, image type, sensitivity, and related adjustment state. They are useful for repeatability, documentation, sharing, and complex multi-pass sessions.",
    "",
    "15. COMMON MISTAKES",
    "",
@@ -1412,7 +2206,10 @@ var ACM_FAQ_TEXT = [
    "  - Enabling Range Mask without checking the mask views first.",
    "  - Doing highly targeted work in Base Pass instead of a new Refinement Pass.",
    "  - Trusting hue in neutral or low-saturation background regions.",
-   "  - Using mask softening as if it were star protection. It is only active for starless or star-reduced work.",
+   "  - Turning off Protect Low Sat and then driving several sliders to extremes on a stars-present image.",
+   "  - Expecting Protect Stars to replace a true starless workflow for aggressive galaxy color extraction.",
+   "  - Trying to do one huge low-color rescue pass when several smaller passes would be cleaner.",
+   "  - Using mask blurring as if it were star protection. It is only active for starless or starless work.",
    "  - Forgetting that the preview is stale after changing controls.",
    "  - Using Apply to Target when a new output image would be safer.",
    "  - Treating the band names as strict physical classifications instead of practical editing regions.",
@@ -1438,9 +2235,10 @@ var ACM_FAQ_TEXT = [
    "  Use Stars Present mode. Work with small saturation and hue changes, inspect Current Band Mask before strong edits, and use Range Mask if the change should avoid bright star cores. If star color begins to look forced, reduce the adjustment or split the work into a narrower pass.",
    "",
    "E. Starless nebula refinement before recombination",
-   "  Use Starless / Star-Reduced mode. Add passes for broad nebula saturation, local cyan or red balance, and faint structure luminance. If a strong selected-band edit reveals a hard mask boundary, try 1 px of selected-band Soften and inspect the mask view before going farther. Keep adjustments moderate if stars will be recombined later so the star layer and nebula layer still feel coherent.",
+   "  Use Starless mode. Add passes for broad nebula saturation, local cyan or red balance, and faint structure luminance. If a strong selected-band edit reveals a hard mask boundary, try 1 px of selected-band Blur and inspect the mask view before going farther. Keep adjustments moderate if stars will be recombined later so the star layer and nebula layer still feel coherent.",
    "",
-   "For the complete package documentation, see README.md, docs/FAQ.md, and docs/TECHNICAL_APPENDIX.md in the PixInsight package folder."
+   "F. Aggressive low-color galaxy extraction",
+   "  The safest workflow is to separate or remove stars first, then use Astro Color Mixer on the starless galaxy. If working stars-present, keep Protect Stars enabled, inspect Star Protection Mask, and turn Protect Low Sat off only when necessary. Use multiple smaller passes rather than one extreme pass, because low-saturation pixels can become blotchy when pushed too hard."
 ].join("\n");
 
 var ACM_TECHNICAL_APPENDIX_TEXT = [
@@ -1495,20 +2293,28 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
    "",
    "These bands are practical editing regions, not strict physical emission-line definitions. Labels such as H-alpha and OIII are workflow cues to help the user think about common astrophotography structures, not claims that every selected pixel belongs to a pure emission-line source.",
    "",
-   "5A. IMAGE TYPE: STARS PRESENT VS STARLESS / STAR-REDUCED",
+   "5B. SENSITIVITY",
+   "",
+   "Sensitivity changes the mapping between slider positions and adjustment strength. Fine uses smaller ranges for precise late-stage work. Normal is the default general-purpose response. Strong uses the same behavior previously labeled Advanced, with larger ranges for more visible changes.",
+   "",
+   "Sensitivity does not change the mask model or introduce a separate processing algorithm. It changes the allowed adjustment range and gradient preview response for the sliders.",
+   "",
+   "5A. IMAGE TYPE: STARS PRESENT VS STARLESS",
    "",
    "Astro Color Mixer uses the Image Type setting to choose protection behavior appropriate to the image being processed.",
    "",
    "In Stars Present mode, the tool assumes the image still contains stellar profiles, bright cores, and possible halos. The protection model is more conservative around high-luminance structures. This reduces the risk of color shifts in star cores, over-saturation around halos, or harsh luminance changes in bright stellar features.",
    "",
-   "In Starless / Star-Reduced mode, the tool assumes stars have been removed or substantially reduced. The protection model can allow more freedom in nebular, galactic, dust, and faint-signal regions because fewer bright stellar features are present.",
+   "Protect Stars adds a lightweight compact-star protection mask to this highlight protection. The mask searches for small bright local peaks, expands them modestly, and reduces hue-band influence in those regions. This is a practical guardrail, not a full astronomical star mask. It will not perfectly cover every large halo, bloated star field, or tiny faint star.",
    "",
-   "This setting affects mask construction and protection weighting. It does not perform star detection, star removal, or explicit star masking.",
+   "In Starless mode, the tool assumes stars have been removed. The protection model can allow more freedom in nebular, galactic, dust, and faint-signal regions because fewer bright stellar features are present.",
+   "",
+   "This setting affects mask construction and protection weighting. It does not remove stars. The built-in star protection is intentionally lightweight and should not be treated as a substitute for a real starless workflow when edits are aggressive.",
    "",
    "Conceptually:",
    "",
    "  - Stars Present: stronger low-saturation caution, stronger dark/background caution, and more conservative highlight/star-core protection.",
-   "  - Starless / Star-Reduced: allows more effect in faint structures, uses less restrictive highlight protection, and is useful when stars will be recombined later.",
+   "  - Starless: allows more effect in faint structures, uses less restrictive highlight protection, and is useful when stars will be recombined later.",
    "",
    "6. HUE BAND MASK",
    "",
@@ -1521,43 +2327,55 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
    "",
    "Hue Radius controls the outerWidth. Feather controls the distance between the stronger inner region and the outer falloff boundary. A higher Feather value makes the transition softer and reduces abrupt color boundaries.",
    "",
-   "6A. SELECTED BAND SPATIAL SOFTENING",
+   "6A. SELECTED BAND BLUR",
    "",
-   "Selected Band Soften is an optional spatial blur applied to the active band's final mask. It is not part of hue selection itself, and it is not a luminance Range Mask control.",
+   "Selected Band Blur is part of Band Mask Shaping. It is an optional spatial blur applied to the active band's final mask. It is not part of hue selection itself, and it is not a luminance Range Mask control.",
    "",
    "The distinction is important:",
    "",
    "  - Feather softens selection as hue distance approaches the edge of the selected band.",
    "  - Range Mask Feather softens luminance inclusion at the low and high range boundaries.",
-   "  - Selected Band Soften smooths the already-built band mask across neighboring image pixels.",
+   "  - Selected Band Blur smooths the already-built band mask across neighboring image pixels.",
    "",
-   "The implementation uses small whole-pixel radii only: Off, 1 px, 2 px, 3 px, 4 px, or 5 px. This is intended to reduce visible mask-edge artifacts when a strong adjustment is used on starless or strongly star-reduced data.",
+   "The implementation uses small whole-pixel radii only: Off, 1 px, 2 px, 3 px, 4 px, or 5 px. This is intended to reduce visible mask-edge artifacts when a strong adjustment is used on starless data.",
    "",
-   "Selected Band Soften is gated by Image Type. It is applied only when Image Type is Starless / Star-Reduced. In Stars Present mode, saved soften values are ignored by the processing path because spatially blurring a color mask can leak adjustments into star cores, halos, and adjacent stellar structures.",
+   "Selected Band Blur is gated by Image Type. It is applied only when Image Type is Starless. In Stars Present mode, saved blur values are ignored by the processing path because spatially blurring a color mask can leak adjustments into star cores, halos, and adjacent stellar structures.",
    "",
    "Conceptual sequence for a band adjustment:",
    "",
    "rawBandMask = hueMask * saturationReliability * protection * rangeMask",
-   "if imageType == starless and selectedBandSoften > 0:",
-   "    workingBandMask = spatialBlur(rawBandMask, selectedBandSoften)",
+   "if imageType == starless and selectedBandBlur > 0:",
+   "    workingBandMask = spatialBlur(rawBandMask, selectedBandBlur)",
    "else:",
    "    workingBandMask = rawBandMask",
    "",
-   "Current Band Mask and Combined Mask preview modes show the softened mask only when the soften value is active. Range Mask preview remains a luminance-only diagnostic and is not spatially softened.",
+   "Current Band Mask and Combined Mask preview modes show the blurred mask only when the blur value is active. Range Mask preview remains a luminance-only diagnostic and is not spatially blurred.",
    "",
    "7. SATURATION RELIABILITY",
    "",
    "Very low-saturation pixels do not carry stable hue information. Astro Color Mixer therefore uses a saturation reliability term to reduce false hue selection in neutral areas. This prevents weakly colored background pixels from being treated like confidently blue, magenta, or green structures. The Neutral / Low-Saturation luminance control provides a separate path for those pixels.",
    "",
+   "The Protect Low Sat checkbox controls this guardrail for hue-band edits. When it is enabled, low-saturation pixels are deliberately harder to move. This protects noisy neutral regions and also helps protect faint low-saturation halo fields around bright stars.",
+   "",
+   "When Protect Low Sat is disabled, the tool can reach weak broadband color more aggressively. This is useful for low-color galaxy arms, dust, and faint structures, but it also increases the risk of blotchy color in neutral regions and colored halos around stars. For aggressive use, several smaller passes are usually safer than one large pass.",
+   "",
+   "Low-saturation galaxy case: A broadband galaxy can have real color in faint outer arms or dust lanes while still looking nearly neutral to a hue-based tool. With Protect Low Sat enabled, Astro Color Mixer may correctly refuse to chase that weak color. Turning Protect Low Sat off can reveal the color, but it also exposes noisy hue estimates and star-halo fields. The safest approach is a starless galaxy image, modest slider movement, mask inspection, and multiple smaller passes rather than one extreme pass.",
+   "",
+   "Aggressive low-saturation color extraction is best performed on a starless image whenever possible. The recommended workflow is to remove or separate the stars, apply Astro Color Mixer to the starless target, then recombine stars afterward.",
+   "",
    "8. DARK AND HIGHLIGHT PROTECTION",
    "",
    "Very dark pixels can be noisy and unstable. Very bright pixels often include star cores, clipped highlights, or structures where strong hue changes can look unnatural quickly. The tool includes dark and highlight protection terms, and the chosen image type changes the behavior so stars-present and starless workflows can be handled differently.",
+   "",
+   "In Stars Present mode, Protect Stars also applies the compact-star mask described above. The mask mainly protects compact stellar profiles and many normal halos. Very large diffuse halos and extremely faint small stars can still be affected, especially when Protect Low Sat is disabled and multiple saturation sliders are pushed hard.",
    "",
    "These protection terms are not a substitute for user judgment. They are guardrails that make normal edits safer. Strong edits can still create artifacts if the selected mask is too broad or the adjustment is too large.",
    "",
    "9. RANGE MASK",
    "",
    "Range Mask limits the effect of a pass by luminance. Low and High define the included range, while Feather softens the shoulders at each edge.",
+   "",
+   "Range Mask Shaping operates after the base luminance mask is built. Blur spatially smooths the mask, and Boost increases mask contrast by pushing brighter mask values toward white and darker mask values toward black. Use the probe and histogram to set Low and High; the histogram shows the active range selection.",
    "",
    "Formula:",
    "",
@@ -1594,12 +2412,13 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
    "  saturationReliability *",
    "  darkProtection *",
    "  highlightProtection *",
+   "  compactStarProtection *",
    "  rangeMask *",
    "  pass terms",
    "",
    "The exact implementation details follow the actual code path, but conceptually the tool combines hue selection, saturation reliability, luminance gating, and protection terms before the adjustment is applied.",
    "",
-   "If Selected Band Soften is active, the band mask is spatially softened after these selection terms are combined and before the hue, saturation, or luminance adjustment is applied. This means Soften changes the edge behavior of the selection mask, not the color math itself.",
+   "If Selected Band Blur is active, the band mask is spatially blurred after these selection terms are combined and before the hue, saturation, or luminance adjustment is applied. This means Blur changes the edge behavior of the selection mask, not the color math itself.",
    "",
    "For Neutral / Low-Saturation luminance adjustment, the neutral mask replaces hue selection as the main inclusion term. Range Mask and protection weighting can still limit where the neutral adjustment is allowed to act.",
    "",
@@ -1621,16 +2440,23 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
    "",
    "Diagnostics are decision aids:",
    "",
-   "  - Current Band Mask shows hue-band inclusion, including active selected-band Soften in Starless / Star-Reduced mode",
+   "  - Current Band Mask shows hue-band inclusion, including active selected-band Blur in Starless mode",
    "  - Range Mask shows luminance-range inclusion",
-   "  - Combined Mask shows the active selection stack, including active selected-band Soften in Starless / Star-Reduced mode",
+   "  - Combined Mask shows the active selection stack, including active selected-band Blur in Starless mode",
    "  - Histogram helps place luminance ranges",
    "  - Polar Plot shows hue and saturation distribution",
    "  - Probe reports local luminance, hue, saturation, and nearest reliable band",
+   "  - Plot Info summarizes probe values, selected band, Range Mask state, and delayed preview change estimates",
+   "",
+   "Difference Preview is a diagnostic display mode. It renders abs(adjusted - original) with fixed preview-only 5x display gain. This makes subtle edits easier to see and helps reveal broad spillover, star effects, background movement, or overprocessing. Difference Preview is never written by Create Image or Apply to Target.",
+   "",
+   "Difference Preview is diagnostic only. The display gain is preview-only and is not used by Create Image or Apply to Target.",
+   "",
+   "Changed / Strong is also diagnostic only. It is computed after preview rendering from sampled preview pixels so it does not delay the visible preview update. Changed counts pixels with a nontrivial preview RGB difference; Strong counts pixels with a larger difference.",
    "",
    "15. ADJUSTMENT SET MODEL",
    "",
-   "Adjustment sets are stored as JSON and preserve the important editing state, including image type, sensitivity, pass order, band settings, Width, Feather, selected-band Soften values, Range Mask configuration, and neutral luminance terms. Diagnostic readouts are interactive session tools and are not the main purpose of the saved adjustment-set file.",
+   "Adjustment sets are stored as JSON and preserve the important editing state, including image type, sensitivity, pass order, band settings, Width, Feather, selected-band Blur values, Range Mask configuration, and neutral luminance terms. Diagnostic readouts are interactive session tools and are not the main purpose of the saved adjustment-set file.",
    "",
    "Adjustment sets are intended for repeatability, review, documentation, and sharing. They are not a replacement for the source image and do not store preview bitmap data.",
    "",
@@ -1663,16 +2489,54 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
 
 var ACM_ABOUT_TEXT =
       "About Astro Color Mixer\n\n" +
-      "Astro Color Mixer v0.9.7.7-beta\n\n" +
+      "Astro Color Mixer v0.9.7.8-beta\n\n" +
 "A Cosgrove's Cosmos tool for nonlinear RGB chroma-vector color control in astrophotography.\n\n" +
-"Core capabilities:\n" +
-"- H/S/L color-band adjustment\n" +
-"- Neutral / Low-Saturation luminance\n" +
-"- Selected Band width and feather\n" +
-"- Range Mask targeting\n" +
-"- Refinement Passes\n" +
-"- preview, histogram, polar plot, probe\n" +
-"- adjustment-set save/load\n\n" +
+"Version 2 feature highlights since v0.9.7.7-beta:\n\n" +
+"Preview / Diagnostics\n" +
+"- Added Difference preview mode to show where the current adjustment changes the image.\n" +
+"- Added Plot Info beside the polar plot with probe, selected band, Range Mask, and delayed Changed / Strong readouts.\n" +
+"- Improved histogram labeling and Range Mask overlay display.\n" +
+"- Made histogram probe markers and polar plot probe markers more visible.\n" +
+"- Improved polar plot grid/readability and made diagnostics titles gold.\n" +
+"- Added delayed preview-change estimates instead of calculating them during slider movement. This minimizes compute lag during user interactions.\n\n" +
+"Performance / Output\n" +
+"- Improved high-resolution output speed, especially with multiple enabled passes.\n" +
+"- Reuses star-protection work across passes during full-resolution output.\n" +
+"- Skips enabled passes that have no active adjustments, even when their masks are configured.\n" +
+"- Added clearer PixInsight console timing for major output phases.\n" +
+"- Full-resolution mask export now creates practical PixInsight masks at target-image size.\n" +
+"- Saved Band Mask and Combined Mask output now use smoother mask transitions that match the adjustment path.\n\n" +
+"Protections\n" +
+"- Added global Protect Stars and Protect Low Sat checkboxes.\n" +
+"- Added improved compact star-protection mask behavior.\n" +
+"- Added Star Protection Mask preview mode.\n" +
+"- Starless mode now disables star-protection behavior.\n" +
+"- Turning off Protect Low Sat allows stronger action on weak/low-saturation color, with documentation warnings.\n\n" +
+"Mask Shaping\n" +
+"- Renamed visible Soften language to Blur.\n" +
+"- Added Selected Band Blur up to 5 px for starless workflows.\n" +
+"- Added Selected Band Boost for mask contrast.\n" +
+"- Added Range Mask Blur and Range Mask Boost.\n" +
+"- Added clearer Band Mask Shaping and Range Mask Shaping grouping/status text.\n\n" +
+"Range Mask / Mask Preview Responsiveness\n" +
+"- Range Mask histogram overlay updates immediately while adjusting Low/High/Feather.\n" +
+"- Range Mask preview updates faster while viewing Range Mask.\n" +
+"- Selected Band mask preview updates faster while changing band/radius/feather/blur/boost.\n" +
+"- Mask preview caches are now lazy/targeted instead of rebuilt on every full preview.\n\n" +
+"UI / Layout\n" +
+"- Larger header logo and app title.\n" +
+"- Active tabs now use gold highlighting.\n" +
+"- Fixed clipped slider rows, especially on Saturation and Luminance tabs.\n" +
+"- Improved Windows startup window size for large displays.\n" +
+"- Wider Windows layout for Plot Info and Image Type controls.\n" +
+"- Improved text fitting in several compact control areas.\n\n" +
+"Workflow / Safety\n" +
+"- Added likely-linear image warning.\n" +
+"- Sensitivity option Advanced was renamed to Strong while preserving the same behavior.\n" +
+"- Added Sensitivity tooltip/help text.\n" +
+"- Improved FAQ, About, and Technical Appendix content to cover new protections, Difference preview, mask shaping, diagnostics, and recommended starless workflows.\n\n" +
+"Release-note summary:\n" +
+"Since v0.9.7.7-beta, Astro Color Mixer has gained Difference preview, stronger diagnostics, Plot Info, visible star/low-saturation protection controls, improved star protection behavior, selected-band and range-mask Blur/Boost shaping, smoother full-resolution mask output, faster multi-pass output, a Star Protection Mask view, better mask-preview responsiveness, linear-image warnings, clearer documentation, gold active tabs, fixed slider clipping, and improved Windows startup layout.\n\n" +
 "Developed by Patrick A. Cosgrove for Cosgrove's Cosmos.\n" +
 "Copyright © 2026 Patrick A. Cosgrove. All rights reserved.\n\n" +
 "Website:\n" +
@@ -1891,6 +2755,18 @@ function acmReadRgbImageForViewId(viewId) {
 
 function sanitizeViewId(viewId) {
    return String(viewId || "MinimalEditor").replace(/[^A-Za-z0-9_]+/g, "_");
+}
+
+function acmMaskExportBandName(passState) {
+   if (!passState || !passState.bands || !passState.bands.length)
+      return "";
+   var selectedBandId = passState.selectedBandId || passState.bands[0].id;
+   for (var i = 0; i < passState.bands.length; ++i) {
+      var band = passState.bands[i];
+      if (band && band.id === selectedBandId)
+         return sanitizeViewId(band.label || selectedBandId);
+   }
+   return sanitizeViewId(selectedBandId);
 }
 
 function acmColorHexToArgb(hex) {
@@ -2140,7 +3016,7 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
    row.host.sizer = new HorizontalSizer;
    row.host.sizer.margin = 0;
    row.host.sizer.spacing = ACM_ROW_SPACING;
-   row.host.scaledMinHeight = 25;
+   row.host.scaledMinHeight = 22;
 
    if (row.isNeutral) {
       row.swatch = new Control(row.host);
@@ -2158,24 +3034,25 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
    acmApplyLightText(row.labelHost);
    row.labelHost.textAlignment = TextAlign_Right | TextAlign_VertCenter;
    row.labelHost.minWidth = ACM_MIXER_LABEL_WIDTH;
-   row.labelHost.scaledMinHeight = 18;
+   row.labelHost.scaledMinHeight = 16;
    row.labelHost.toolTip = acmMixerLabelTooltip(row.bandDef, row.isNeutral);
 
    row.edit = new Edit(row.host);
    row.edit.setFixedWidth(ACM_ROW_EDIT_WIDTH);
-   row.edit.setFixedHeight(20);
+   row.edit.setFixedHeight(18);
    row.edit.text = acmFormatMixerDisplayValue(row.value, row.precision);
 
    row.field = new Control(row.host);
    row.field.rowRef = row;
    row.field.minWidth = ACM_MIXER_SLIDER_MIN_WIDTH;
-   row.field.scaledMinHeight = 18;
+   row.field.scaledMinHeight = 16;
    row.field.onPaint = function() {
       var g = new Graphics(this);
       var r = this.rowRef;
-      var fieldTop = 3;
-      var fieldBottom = this.height - 3;
-      var fieldHeight = Math.max(12, fieldBottom - fieldTop);
+      var compactRow = !!this.acmCompactRow;
+      var fieldTop = compactRow ? 1 : 2;
+      var fieldBottom = this.height - (compactRow ? 1 : 2);
+      var fieldHeight = Math.max(compactRow ? 7 : 9, fieldBottom - fieldTop);
       var fieldRect = new Rect(0, fieldTop, this.width - 1, fieldTop + fieldHeight);
       var key = r.dialog.activeTab + ":" + (r.dialog.editorState ? r.dialog.editorState.sensitivity : "Normal") + ":" + this.width + ":" + fieldHeight + ":" + (r.isNeutral ? "neutral" : r.bandDef.id);
       if (r.cachedKey !== key) {
@@ -2198,7 +3075,7 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
       var knobX = fieldRect.left + 10 + Math.round(t * Math.max(1, (fieldRect.right - fieldRect.left - 20)));
       g.pen = new Pen(0xff5f646d, 1);
       g.brush = new Brush(0xfff1f2f4);
-      g.drawCircle(knobX, cy, 5);
+      g.drawCircle(knobX, cy, compactRow ? 4 : 5);
       var selectedRowId = r.dialog && r.dialog.getHighlightedRowId ? r.dialog.getHighlightedRowId() : "";
       if ((r.isNeutral && selectedRowId === "neutral") || (!r.isNeutral && r.bandId === selectedRowId)) {
          g.pen = new Pen(0xff000000, 2);
@@ -2212,6 +3089,7 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
 
    row.resetButton = acmCreateMiniResetButton(row.host);
 
+   row.host.sizer.addSpacing(5);
    row.host.sizer.add(row.swatch);
    row.host.sizer.add(row.labelHost);
    row.host.sizer.add(row.edit);
@@ -2256,6 +3134,7 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
       if (dialog.getActivePassState().selectedBandId !== row.bandId) {
          dialog.getActivePassState().selectedBandId = row.bandId;
          dialog.refreshSelectedBandControls();
+         dialog.refreshSelectedBandMaskPreviewIfActive();
       }
    };
    row.commitValue = function(value) {
@@ -2300,6 +3179,29 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
    };
 
    return row;
+}
+
+function acmSetMixerFieldRowDensity(row, compact) {
+   if (!row)
+      return;
+   var hostH = compact ? 28 : 30;
+   var innerH = compact ? 11 : 13;
+   var editH = compact ? 14 : 16;
+   if (row.host) {
+      row.host.setFixedHeight(hostH);
+      row.host.scaledMinHeight = hostH;
+   }
+   if (row.labelHost)
+      row.labelHost.scaledMinHeight = innerH;
+   if (row.edit)
+      row.edit.setFixedHeight(editH);
+   if (row.field) {
+      row.field.scaledMinHeight = innerH;
+      row.field.acmCompactRow = !!compact;
+      row.field.update();
+   }
+   if (row.host)
+      row.host.update();
 }
 
 function acmCreateAlignedGradientHost(parent, dialog, numericControl, bandDef, isNeutral, leftPadWidth, rightPadWidth) {
@@ -2373,7 +3275,7 @@ function acmCreateAlignedGradientHost(parent, dialog, numericControl, bandDef, i
    return outer;
 }
 
-function acmPaintRangeMaskOverlay(g, rangeMask, left, top, plotW, plotH, enabled) {
+function acmPaintRangeMaskOverlay(g, rangeMask, left, top, plotW, plotH, enabled, part) {
    if (!rangeMask || plotW <= 0 || plotH <= 0)
       return;
    var mapX = function(v) {
@@ -2387,19 +3289,28 @@ function acmPaintRangeMaskOverlay(g, rangeMask, left, top, plotW, plotH, enabled
    var featherLeftX = mapX(featherLeft);
    var featherRightX = mapX(featherRight);
 
-   if (enabled) {
+   var drawFill = !part || part === "fill";
+   var drawLines = !part || part === "lines";
+
+   if (enabled && drawFill) {
       if (featherLeftX < lowX) {
-         g.brush = new Brush(0x60684612);
+         g.brush = new Brush(0x4c4f3d16);
          g.fillRect(featherLeftX, top, lowX, top + plotH, g.brush);
       }
       if (lowX < highX) {
-         g.brush = new Brush(0x807d5b19);
+         g.brush = new Brush(0x6666501b);
          g.fillRect(lowX, top, highX, top + plotH, g.brush);
       }
       if (highX < featherRightX) {
-         g.brush = new Brush(0x60684612);
+         g.brush = new Brush(0x4c4f3d16);
          g.fillRect(highX, top, featherRightX, top + plotH, g.brush);
       }
+   }
+
+   if (!drawLines)
+      return;
+
+   if (enabled) {
       g.pen = new Pen(0xffffd15c, 3);
    } else {
       g.pen = new Pen(0xff8c95a6, 2);
@@ -2451,6 +3362,30 @@ function writeResultImage(width, height, rgb, outputId) {
       outputImage.setSamples(r, rect, 0);
       outputImage.setSamples(g, rect, 1);
       outputImage.setSamples(b, rect, 2);
+   } finally {
+      outputView.endProcess();
+   }
+   outputWindow.show();
+   outputWindow.zoomToOptimalFit();
+   return outputWindow;
+}
+
+function writeGrayResultImage(width, height, values, outputId) {
+   var count = width * height;
+   var gray = new Float32Array(count);
+   for (var i = 0; i < count; ++i)
+      gray[i] = acmClamp01(values[i]);
+
+   var outputWindow = new ImageWindow(width, height, 1, 32, true, false, outputId || "AstroColorMixer_Mask");
+   if (outputWindow.isNull)
+      fail("Could not create the mask image window.");
+
+   var outputView = outputWindow.mainView;
+   var outputImage = outputView.image;
+   var rect = new Rect(0, 0, width, height);
+   outputView.beginProcess(UndoFlag_NoSwapFile);
+   try {
+      outputImage.setSamples(gray, rect, 0);
    } finally {
       outputView.endProcess();
    }
@@ -2587,6 +3522,15 @@ function acmRenderBitmapFromRgb(width, height, rgb) {
    tempImage.setSamples(g, rect, 1);
    tempImage.setSamples(b, rect, 2);
   return tempImage.render();
+}
+
+function acmRenderDifferenceBitmapFromRgb(width, height, originalRgb, adjustedRgb, gain) {
+   var count = width * height;
+   var diff = new Float32Array(count * 3);
+   var displayGain = typeof gain === "number" ? gain : 5;
+   for (var i = 0; i < count * 3; ++i)
+      diff[i] = acmClamp01(Math.abs((adjustedRgb ? adjustedRgb[i] : 0) - (originalRgb ? originalRgb[i] : 0)) * displayGain);
+   return acmRenderBitmapFromRgb(width, height, diff);
 }
 
 function acmTryLoadBitmap(path) {
@@ -2735,10 +3679,81 @@ function acmRenderGrayBitmapFromMask(width, height, maskValues) {
    return acmRenderBitmapFromRgb(width, height, rgb);
 }
 
-function acmComputeSelectedBandMaskData(sourceRgb, width, height, passState, imageType, mode) {
+function acmComputeLuminanceValues(sourceRgb, width, height) {
+   var count = width * height;
+   var values = new Float32Array(count);
+   for (var i = 0; i < count; ++i) {
+      var base = i * 3;
+      values[i] = acmLuma709(sourceRgb[base], sourceRgb[base + 1], sourceRgb[base + 2]);
+   }
+   return values;
+}
+
+function acmComputeInfluenceStats(maskValues, passEnabled) {
+   if (!passEnabled)
+      return { active: false, targeted: 0, strong: 0 };
+   if (!maskValues || !maskValues.length)
+      return { active: true, targeted: 0, strong: 0 };
+   var targeted = 0;
+   var strong = 0;
+   for (var i = 0; i < maskValues.length; ++i) {
+      var v = maskValues[i];
+      if (v > 0.05)
+         ++targeted;
+      if (v > 0.50)
+         ++strong;
+   }
+   return {
+      active: true,
+      targeted: targeted / maskValues.length,
+      strong: strong / maskValues.length
+   };
+}
+
+function acmComputePreviewChangeStats(originalRgb, adjustedRgb, width, height) {
+   if (!originalRgb || !adjustedRgb || !width || !height)
+      return { active: false, changed: 0, strong: 0 };
+   var pixels = Math.min(Math.floor(originalRgb.length / 3), width * height);
+   if (pixels <= 0)
+      return { active: false, changed: 0, strong: 0 };
+   var sampleLimit = 60000;
+   var step = Math.max(1, Math.floor(pixels / sampleLimit));
+   var samples = 0;
+   var changed = 0;
+   var strong = 0;
+   for (var p = 0; p < pixels; p += step) {
+      var base = p * 3;
+      var dr = Math.abs(adjustedRgb[base] - originalRgb[base]);
+      var dg = Math.abs(adjustedRgb[base + 1] - originalRgb[base + 1]);
+      var db = Math.abs(adjustedRgb[base + 2] - originalRgb[base + 2]);
+      var d = Math.max(dr, dg, db);
+      if (d > 0.01)
+         ++changed;
+      if (d > 0.05)
+         ++strong;
+      ++samples;
+   }
+   if (samples <= 0)
+      return { active: false, changed: 0, strong: 0 };
+   return { active: true, changed: changed / samples, strong: strong / samples };
+}
+
+function acmBoostMaskValues(maskValues) {
+   var boosted = new Float32Array(maskValues.length);
+   for (var i = 0; i < maskValues.length; ++i) {
+      var v = acmClamp01(maskValues[i]);
+      boosted[i] = Math.pow(v, 0.55);
+   }
+   return boosted;
+}
+
+function acmComputeSelectedBandMaskData(sourceRgb, width, height, passState, imageType, mode, protectionControls, sourceHslOverride, maskSourceHslOverride) {
    var count = width * height;
    var masks = new Float32Array(count);
-   var sourceHsl = acmApplySourceHsl(sourceRgb, width, height);
+   var sourceHsl = sourceHslOverride || acmApplySourceHsl(sourceRgb, width, height);
+   var maskSourceHsl = maskSourceHslOverride || (mode === "rangeMask"
+      ? sourceHsl
+      : acmComputeBandMaskAnalysisHsl(sourceRgb, width, height, imageType));
    var protection = ACM_PROTECTION_PRESETS[imageType || "stars"] || ACM_PROTECTION_PRESETS.stars;
    var band = null;
    if (passState && passState.selectedBandId)
@@ -2749,25 +3764,151 @@ function acmComputeSelectedBandMaskData(sourceRgb, width, height, passState, ima
    if (!band)
       return masks;
    var rangeMaskState = passState.rangeMask || null;
+   var controls = acmEffectiveProtectionControls(protectionControls, imageType);
+   var starProtectionMask = controls.protectStars === false
+      ? null
+      : acmBuildCompactStarProtectionMask(sourceHsl.y, width, height, controls.starMaskStrength);
+   var rangeMaskValues = acmBuildRangeMaskValues(
+      sourceHsl.y,
+      width,
+      height,
+      rangeMaskState,
+      imageType === "starless" ? { radius: rangeMaskState ? rangeMaskState.maskSoftenRadius : 0 } : null
+   );
    for (var index = 0; index < count; ++index) {
       var hue = sourceHsl.h[index];
       var saturation = sourceHsl.s[index];
       var lightness = sourceHsl.l[index];
       var luminance = sourceHsl.y[index];
-      var rangeMaskValue = acmComputeRangeMask(luminance, rangeMaskState);
+      var rangeMaskValue = rangeMaskValues[index];
       if (mode === "rangeMask") {
          masks[index] = rangeMaskValue;
          continue;
       }
-      var built = acmBuildMasks(hue, saturation, lightness, band, protection, 1, rangeMaskValue);
+      hue = maskSourceHsl.h[index];
+      saturation = maskSourceHsl.s[index];
+      lightness = maskSourceHsl.l[index];
+      var built = acmBuildMasks(hue, saturation, lightness, band, protection, 1, rangeMaskValue, controls);
+      var finalMask = built.finalMask;
+      if (starProtectionMask)
+         finalMask *= 1 - 0.92 * starProtectionMask[index];
       if (mode === "bandMask")
-         masks[index] = acmClamp01(built.finalMask / Math.max(ACM_EPSILON, rangeMaskValue));
+         masks[index] = acmClamp01(finalMask / Math.max(ACM_EPSILON, rangeMaskValue));
       else
-         masks[index] = built.finalMask;
+         masks[index] = finalMask;
    }
-   return mode === "rangeMask" || imageType !== "starless"
-      ? masks
-      : acmMaybeSoftenMask(masks, width, height, { radius: band.maskSoftenRadius });
+   if (mode === "rangeMask")
+      return masks;
+   masks = acmApplyBandMaskEdgePolish(masks, width, height);
+   if (imageType === "starless")
+      masks = acmMaybeSoftenMask(masks, width, height, { radius: band.maskSoftenRadius });
+   return masks;
+}
+
+function acmComputePreviewMaskData(sourceRgb, width, height, passState, imageType, protectionControls) {
+   var count = width * height;
+   var bandMaskValues = new Float32Array(count);
+   var rangeMaskValues = new Float32Array(count);
+   var combinedMaskValues = new Float32Array(count);
+   var sourceHsl = acmApplySourceHsl(sourceRgb, width, height);
+   var maskSourceHsl = acmComputeBandMaskAnalysisHsl(sourceRgb, width, height, imageType);
+   var protection = ACM_PROTECTION_PRESETS[imageType || "stars"] || ACM_PROTECTION_PRESETS.stars;
+   var band = null;
+   if (passState && passState.selectedBandId)
+      for (var i = 0; i < passState.bands.length; ++i)
+         if (passState.bands[i].id === passState.selectedBandId)
+            band = passState.bands[i];
+   band = band || (passState && passState.bands.length ? passState.bands[0] : null);
+   var controls = acmEffectiveProtectionControls(protectionControls, imageType);
+   var starMaskValues = controls.protectStars === false
+      ? new Float32Array(count)
+      : acmBuildCompactStarProtectionMask(sourceHsl.y, width, height, controls.starMaskStrength);
+   if (!band)
+      return {
+         bandMaskValues: bandMaskValues,
+         rangeMaskValues: rangeMaskValues,
+         combinedMaskValues: combinedMaskValues,
+         starMaskValues: starMaskValues
+      };
+
+   var rangeMaskState = passState.rangeMask || null;
+   rangeMaskValues = acmBuildRangeMaskValues(
+      sourceHsl.y,
+      width,
+      height,
+      rangeMaskState,
+      imageType === "starless" ? { radius: rangeMaskState ? rangeMaskState.maskSoftenRadius : 0 } : null
+   );
+   for (var index = 0; index < count; ++index) {
+      var rangeMaskValue = rangeMaskValues[index];
+      var built = acmBuildMasks(
+         maskSourceHsl.h[index],
+         maskSourceHsl.s[index],
+         maskSourceHsl.l[index],
+         band,
+         protection,
+         1,
+         rangeMaskValue,
+         controls
+      );
+      var finalMask = built.finalMask;
+      if (controls.protectStars !== false)
+         finalMask *= 1 - 0.92 * starMaskValues[index];
+      bandMaskValues[index] = acmClamp01(finalMask / Math.max(ACM_EPSILON, rangeMaskValue));
+      combinedMaskValues[index] = finalMask;
+   }
+   bandMaskValues = acmApplyBandMaskEdgePolish(bandMaskValues, width, height);
+   combinedMaskValues = acmApplyBandMaskEdgePolish(combinedMaskValues, width, height);
+   if (imageType === "starless") {
+      bandMaskValues = acmMaybeSoftenMask(bandMaskValues, width, height, { radius: band.maskSoftenRadius });
+      combinedMaskValues = acmMaybeSoftenMask(combinedMaskValues, width, height, { radius: band.maskSoftenRadius });
+   }
+   return {
+      bandMaskValues: bandMaskValues,
+      rangeMaskValues: rangeMaskValues,
+      combinedMaskValues: combinedMaskValues,
+      starMaskValues: starMaskValues
+   };
+}
+
+function acmComputeMaskValuesForPreviewMode(sourceRgb, width, height, passState, imageType, previewMode, protectionControls, boostBandMask) {
+   var count = width * height;
+   var sourceHsl = acmApplySourceHsl(sourceRgb, width, height);
+
+   if (previewMode === "rangeMask") {
+      var rangeMaskState = passState ? passState.rangeMask : null;
+      return acmBuildRangeMaskValues(
+         sourceHsl.y,
+         width,
+         height,
+         rangeMaskState,
+         imageType === "starless" ? { radius: rangeMaskState ? rangeMaskState.maskSoftenRadius : 0 } : null
+      );
+   }
+
+   if (previewMode === "starMask") {
+      var controls = acmEffectiveProtectionControls(protectionControls, imageType);
+      if (controls.protectStars === false)
+         return new Float32Array(count);
+      return acmBuildCompactStarProtectionMask(sourceHsl.y, width, height, controls.starMaskStrength);
+   }
+
+   var mode = previewMode === "combinedMask" ? "combinedMask" : "bandMask";
+   var maskSourceHsl = acmComputeBandMaskAnalysisHsl(sourceRgb, width, height, imageType);
+   var maskValues = acmComputeSelectedBandMaskData(
+      sourceRgb,
+      width,
+      height,
+      passState,
+      imageType,
+      mode,
+      protectionControls,
+      sourceHsl,
+      maskSourceHsl
+   );
+   if (previewMode === "bandMask" && boostBandMask)
+      maskValues = acmBoostMaskValues(maskValues);
+   return maskValues;
 }
 
 function acmGetViewportRectForScale(panelWidth, panelHeight, bitmapWidth, bitmapHeight, scale, panX, panY) {
@@ -2869,7 +4010,9 @@ function acmClonePass(pass, newId, newName) {
       low: pass.rangeMask.low,
       high: pass.rangeMask.high,
       feather: pass.rangeMask.feather,
-      preset: pass.rangeMask.preset
+      preset: pass.rangeMask.preset,
+      maskSoftenRadius: acmGetMaskSoftenRadius({ radius: pass.rangeMask.maskSoftenRadius }),
+      boostEnabled: acmRangeMaskBoostEnabled(pass.rangeMask)
    };
    return clone;
 }
@@ -2901,6 +4044,8 @@ function acmRangeMaskDiffersFromDefault(rangeMask) {
       Math.abs((typeof rangeMask.low === "number" ? rangeMask.low : 0) - 0.0) > ACM_EPSILON ||
       Math.abs((typeof rangeMask.high === "number" ? rangeMask.high : 1) - 1.0) > ACM_EPSILON ||
       Math.abs((typeof rangeMask.feather === "number" ? rangeMask.feather : 0.10) - 0.10) > ACM_EPSILON ||
+      acmGetMaskSoftenRadius({ radius: rangeMask.maskSoftenRadius }) > ACM_EPSILON ||
+      acmRangeMaskBoostEnabled(rangeMask) ||
       (rangeMask.preset || "All") !== "All";
 }
 
@@ -2918,6 +4063,9 @@ function acmEditorStateHasPendingChanges(state) {
    if ((state.imageType || "stars") !== "stars")
       return true;
    if ((state.sensitivity || "Normal") !== "Normal")
+      return true;
+   var protections = state.protectionControls || acmCreateDefaultProtectionControls();
+   if (protections.protectStars === false || protections.protectLowSaturation === false)
       return true;
    if (state.passes.length !== 1)
       return true;
@@ -2986,6 +4134,7 @@ function acmCreateBaseEditorState() {
       imageType: "stars",
       sensitivity: "Normal",
       globalStrength: 1.0,
+      protectionControls: acmCreateDefaultProtectionControls(),
       activePassId: "pass-1",
       passes: [
          acmCreateDefaultPass("pass-1", "Base Pass")
@@ -3025,7 +4174,9 @@ function acmBuildRecipeFromEditorState(state) {
             low: pass.rangeMask.low,
             high: pass.rangeMask.high,
             feather: pass.rangeMask.feather,
-            preset: pass.rangeMask.preset
+            preset: pass.rangeMask.preset,
+            maskSoftenRadius: acmGetMaskSoftenRadius({ radius: pass.rangeMask.maskSoftenRadius }),
+            rangeMaskBoostEnabled: acmRangeMaskBoostEnabled(pass.rangeMask)
          }
       });
    }
@@ -3035,6 +4186,11 @@ function acmBuildRecipeFromEditorState(state) {
       imageType: state.imageType || "stars",
       sensitivity: state.sensitivity || "Normal",
       globalStrength: typeof state.globalStrength === "number" ? state.globalStrength : 1.0,
+      protectionControls: {
+         protectStars: !state.protectionControls || state.protectionControls.protectStars !== false,
+         protectLowSaturation: !state.protectionControls || state.protectionControls.protectLowSaturation !== false,
+         starMaskStrength: acmNormalizeStarMaskStrength(state.protectionControls ? state.protectionControls.starMaskStrength : null)
+      },
       activePassId: state.activePassId || (passes.length ? passes[0].id : "pass-1"),
       passes: passes
    };
@@ -3047,6 +4203,7 @@ function acmLoadPassesIntoEditorState(recipe) {
    state.imageType = normalized.imageType;
    state.sensitivity = normalized.sensitivity;
    state.globalStrength = normalized.globalStrength;
+   state.protectionControls = normalized.protectionControls || acmCreateDefaultProtectionControls();
    state.passes = [];
    for (var passIndex = 0; passIndex < normalized.passes.length; ++passIndex) {
       var sourcePass = normalized.passes[passIndex];
@@ -3109,19 +4266,95 @@ function acmFindRangeMaskPreset(name) {
 }
 
 function acmSummarizeRangeMaskStatus(rangeMask) {
+   var blur = acmGetMaskSoftenRadius({ radius: rangeMask ? rangeMask.maskSoftenRadius : 0 });
+   var shaping = "Mask Shaping: Blur " + (blur > 0 ? blur.toFixed(0) + " px" : "Off") +
+      " (starless only) · Boost " + (acmRangeMaskBoostEnabled(rangeMask) ? "On" : "Off");
    if (!rangeMask || !rangeMask.enabled)
-      return "Range Mask: Off";
+      return "Range Mask: Off · Active range: All\n" + shaping;
    var label = rangeMask.preset && rangeMask.preset !== "All" && rangeMask.preset !== "Custom"
-      ? rangeMask.preset + " · "
+      ? " · Preset: " + rangeMask.preset
       : "";
-   return "Range Mask: " + label + rangeMask.low.toFixed(2) + "–" + rangeMask.high.toFixed(2) + " · F " + rangeMask.feather.toFixed(2);
+   return "Range Mask: On" + label + " · Active range: " + rangeMask.low.toFixed(3) + "–" + rangeMask.high.toFixed(3) +
+      " · Feather " + rangeMask.feather.toFixed(3) + "\n" + shaping;
 }
 
 function acmSummarizeMaskSoftenStatus(maskSoften) {
    var radius = acmGetMaskSoftenRadius(maskSoften);
    return radius > 0
-      ? "Selected Band Soften: " + radius.toFixed(1) + " px. Starless / Star-Reduced only."
-      : "Selected Band Soften: Off";
+      ? "Selected Band Blur: " + radius.toFixed(1) + " px. Starless only."
+      : "Selected Band Blur: Off";
+}
+
+function acmSummarizeBandMaskStatus(band, imageType, boostEnabled) {
+   var blur = acmGetMaskSoftenRadius({ radius: band ? band.maskSoftenRadius : 0 });
+   var blurText = blur > 0 ? blur.toFixed(0) + " px" : "Off";
+   var scopeText = imageType === "starless" ? "Starless active" : "Starless only";
+   return "Band Shaping: Blur " + blurText + " · Boost " + (boostEnabled ? "On" : "Off") + " · " + scopeText;
+}
+
+function acmRangeMaskStatusShort(rangeMask) {
+   return rangeMask && rangeMask.enabled ? "Range Mask: On" : "Range Mask: Off";
+}
+
+function acmProbeBandShortLabel(probeData) {
+   if (!probeData)
+      return "";
+   if (probeData.suggestedNeutral)
+      return "Neutral";
+   if (probeData.nearestBand)
+      return probeData.nearestBand.shortLabel || probeData.nearestBand.label || "";
+   return "";
+}
+
+function acmFormatProbeDiagnostics(probeData, rangeMaskState) {
+   var rangeText = acmRangeMaskStatusShort(rangeMaskState);
+   if (!probeData)
+      return "Preview diagnostics · Probe: none · " + rangeText;
+   return "Preview diagnostics · Probe active · " + rangeText;
+}
+
+function acmPolarInfoLine(text, color, bold) {
+   return acmThemeRichText(text, color || ACM_GRAY_UI_THEME.muted, !!bold);
+}
+
+function acmFormatPolarInfoHtml(probeData, band, rangeMask, neutralActive, changeStats) {
+   var lines = [];
+   lines.push(acmPolarInfoLine("Angle = Hue", ACM_GRAY_UI_THEME.muted, false));
+   lines.push(acmPolarInfoLine("Radius = Sat", ACM_GRAY_UI_THEME.muted, false));
+   if (probeData) {
+      var probeText = "Probe L" + probeData.y709.toFixed(3);
+      if (probeData.suggestedNeutral)
+         probeText += " · H unreliable";
+      else
+         probeText += " · H" + probeData.h.toFixed(0) + "°";
+      probeText += " · S" + probeData.s.toFixed(2);
+      lines.push(acmPolarInfoLine(probeText, ACM_GRAY_UI_THEME.muted, false));
+   } else {
+      lines.push(acmPolarInfoLine("Probe: none", ACM_GRAY_UI_THEME.muted, false));
+   }
+   if (neutralActive) {
+      lines.push(acmPolarInfoLine("Band: Neutral / Low-Sat", ACM_GRAY_UI_THEME.text, true));
+      lines.push(acmPolarInfoLine("Hue radius not used", ACM_GRAY_UI_THEME.muted, false));
+   } else if (band) {
+      lines.push(acmPolarInfoLine("Band: " + band.label, ACM_GRAY_UI_THEME.text, true));
+      lines.push(acmPolarInfoLine("C " + acmFormatAngleDegrees(band.center) + "° · R ±" + acmFormatAngleDegrees(band.width) + "°", ACM_GRAY_UI_THEME.muted, false));
+   } else {
+      lines.push(acmPolarInfoLine("Band: none", ACM_GRAY_UI_THEME.muted, false));
+   }
+   if (rangeMask && rangeMask.enabled) {
+      var blur = acmGetMaskSoftenRadius({ radius: rangeMask.maskSoftenRadius });
+      lines.push(acmPolarInfoLine("Range " + rangeMask.low.toFixed(3) + "–" + rangeMask.high.toFixed(3), ACM_GRAY_UI_THEME.muted, false));
+      lines.push(acmPolarInfoLine("Blur " + (blur > 0 ? blur.toFixed(0) : "Off") + " · Boost " + (acmRangeMaskBoostEnabled(rangeMask) ? "On" : "Off"), ACM_GRAY_UI_THEME.muted, false));
+   } else {
+      lines.push(acmPolarInfoLine("Range Mask: Off", ACM_GRAY_UI_THEME.muted, false));
+   }
+   if (changeStats) {
+      if (changeStats.state === "pending")
+         lines.push(acmPolarInfoLine("Changed pending...", ACM_GRAY_UI_THEME.muted, false));
+      else if (changeStats.active)
+         lines.push(acmPolarInfoLine("Changed " + Math.round(changeStats.changed * 100) + "% · Strong " + Math.round(changeStats.strong * 100) + "%", ACM_GRAY_UI_THEME.muted, false));
+   }
+   return lines.join("<br/>");
 }
 
 function acmMaskSoftenDropdownIndexForRadius(radius) {
@@ -3135,8 +4368,15 @@ function acmMaskSoftenRadiusForDropdownIndex(index) {
 function acmMaskSoftenLabelForRadius(radius, imageType) {
    var value = acmGetMaskSoftenRadius({ radius: radius });
    if (imageType !== "starless")
-      return value > 0 ? "Soften saved: " + value.toFixed(0) + " px · active only in Starless / Star-Reduced" : "Soften: Off · starless only";
-   return value > 0 ? "Soften: " + value.toFixed(0) + " px" : "Soften: Off";
+      return value > 0 ? "Blur saved: " + value.toFixed(0) + " px · active only in Starless" : "Blur: Off · starless only";
+   return value > 0 ? "Blur: " + value.toFixed(0) + " px" : "Blur: Off";
+}
+
+function acmRangeMaskSoftenLabelForRadius(radius, imageType) {
+   var value = acmGetMaskSoftenRadius({ radius: radius });
+   if (imageType !== "starless")
+      return value > 0 ? "Blur saved: " + value.toFixed(0) + " px · active only in Starless" : "Blur: Off · starless only";
+   return value > 0 ? "Blur: " + value.toFixed(0) + " px" : "Blur: Off";
 }
 
 class AstroColorMixerUI03Dialog extends Dialog {
@@ -3145,7 +4385,7 @@ constructor() {
    acmHelpHostDialog = this;
 
    var self = this;
-   this.windowTitle = "Astro Color Mixer v0.9.7.7-beta";
+   this.windowTitle = "Astro Color Mixer v0.9.7.8-beta";
    this.recipeFilePath = "";
    this.activeTab = ACM_TAB_SAT;
    this.activeToolPanel = "selectedBand";
@@ -3153,23 +4393,36 @@ constructor() {
    this.bandControls = [];
    this.targetViewId = null;
    this.previewSource = null;
+   this.previewLuminanceValues = null;
+   this.previewSourceHsl = null;
    this.previewOriginalRgb = null;
    this.previewAdjustedRgb = null;
+   this.previewInfluenceStats = null;
+   this.previewChangeStats = null;
+   this.previewChangeStatsStamp = 0;
+   this.previewChangeStatsPendingStamp = 0;
    this.previewBitmapOriginal = null;
    this.previewBitmapAdjusted = null;
+   this.previewBitmapDifference = null;
    this.previewBitmapBandMask = null;
    this.previewBitmapRangeMask = null;
    this.previewBitmapCombinedMask = null;
+   this.previewBitmapStarMask = null;
    this.previewBitmapLastPass = null;
    this.previewBandMaskRgb = null;
    this.previewRangeMaskRgb = null;
    this.previewCombinedMaskRgb = null;
+   this.previewStarMaskRgb = null;
    this.previewLastPassRgb = null;
    this.previewTempCompare = false;
    this.previewCompareBitmap = null;
    this.previewCompareRgb = null;
    this.previewCompareMetrics = null;
    this.previewCompareLabel = "Original";
+   this.maskBoostEnabled = false;
+   this.maskBoostSyncing = false;
+   this.linearWarningViewIds = {};
+   this.protectionControlsSyncing = false;
    this.compareMode = "auto";
    this.previewDisplayOriginal = null;
    this.previewDisplayAdjusted = null;
@@ -3241,6 +4494,16 @@ constructor() {
          this.dialog.renderDetailPreviewForCurrentViewport();
       };
    }
+   this.previewChangeStatsTimer = null;
+   if (typeof Timer !== "undefined") {
+      this.previewChangeStatsTimer = new Timer;
+      this.previewChangeStatsTimer.interval = 1.4;
+      this.previewChangeStatsTimer.periodic = false;
+      this.previewChangeStatsTimer.dialog = this;
+      this.previewChangeStatsTimer.onTimeout = function() {
+         this.dialog.computeDeferredPreviewChangeStats();
+      };
+   }
    this.previewHoldTimer = null;
    if (typeof Timer !== "undefined") {
       this.previewHoldTimer = new Timer;
@@ -3279,8 +4542,8 @@ constructor() {
    ]);
    this.headerLogoControl = new Control(this);
    this.headerLogoControl.acmDialogRef = this;
-   this.headerLogoControl.scaledMinWidth = 170;
-   this.headerLogoControl.scaledMinHeight = 74;
+   this.headerLogoControl.scaledMinWidth = 230;
+   this.headerLogoControl.scaledMinHeight = 96;
    this.headerLogoControl.onPaint = function() {
       var g = new Graphics(this);
       var dialog = this.acmDialogRef;
@@ -3303,22 +4566,22 @@ constructor() {
    };
    this.headerBrandControl = new Control(this);
    this.headerBrandControl.acmDialogRef = this;
-   this.headerBrandControl.scaledMinWidth = 300;
-   this.headerBrandControl.scaledMinHeight = 74;
+   this.headerBrandControl.scaledMinWidth = 370;
+   this.headerBrandControl.scaledMinHeight = 96;
    this.headerBrandControl.onPaint = function() {
       var g = new Graphics(this);
       g.pen = new Pen(0x00000000, 0);
       g.brush = new Brush(ACM_GRAY_UI_THEME.header);
       g.fillRect(0, 0, this.width, this.height, g.brush);
       var mainTitle = "Astro Color Mixer";
-      var versionText = "v0.9.7.7-beta";
+      var versionText = "v0.9.7.8-beta";
       var titleFont = new Font;
       titleFont.bold = true;
-      titleFont.pixelSize = 27;
+      titleFont.pixelSize = 36;
       var versionFont = new Font;
       versionFont.bold = false;
-      versionFont.pixelSize = 13;
-      while (titleFont.pixelSize > 16) {
+      versionFont.pixelSize = 15;
+      while (titleFont.pixelSize > 20) {
          g.font = titleFont;
          var totalWidth = g.font.width(mainTitle) + 8;
          g.font = versionFont;
@@ -3326,7 +4589,7 @@ constructor() {
          if (totalWidth <= Math.max(60, this.width - 8))
             break;
          --titleFont.pixelSize;
-         if (versionFont.pixelSize > 10)
+         if (versionFont.pixelSize > 11)
             --versionFont.pixelSize;
       }
       g.pen = new Pen(0xfff2f2f2);
@@ -3350,7 +4613,7 @@ constructor() {
 
    this.targetImageLabel = new Label(this);
    this.targetImageLabel.text = "Target Image:";
-   this.targetImageLabel.minWidth = 96;
+   this.targetImageLabel.minWidth = ACM_HOST_IS_WINDOWS ? 112 : 96;
    this.targetImageLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
 
    this.targetImageCombo = new ComboBox(this);
@@ -3375,37 +4638,92 @@ constructor() {
    this.imageTypeHelpButton = acmCreateHelpButton(
       this,
       "Image Type",
-      "Stars Present is the safer mode for images that still contain normal stars, bright cores, and halos. Starless / Star-Reduced is intended for images where stars have been removed or greatly reduced, allowing more freedom for nebula, galaxy, dust, and faint-signal refinement. This setting does not remove stars; it changes the protection behavior used during adjustments.",
+      "Stars Present is the safer mode for images that still contain normal stars, bright cores, and halos. Starless is intended for images where stars have been removed, allowing more freedom for nebula, galaxy, dust, and faint-signal refinement. This setting does not remove stars; it changes the protection behavior used during adjustments.",
       "imageType"
    );
    this.imageTypeCombo = new ComboBox(this);
    this.imageTypeCombo.addItem("Stars Present");
-   this.imageTypeCombo.addItem("Starless / Star-Reduced");
+   this.imageTypeCombo.addItem("Starless");
    this.imageTypeCombo.currentItem = 0;
    this.imageTypeCombo.onItemSelected = function(index) {
       self.editorState.imageType = index === 0 ? "stars" : "starless";
+      self.invalidateMaskPreviewCaches();
       self.refreshSelectedBandControls();
+      self.refreshRangeMaskControls();
+      self.refreshProtectionControls();
       self.markPreviewStale();
+      self.refreshSelectedBandMaskPreviewIfActive();
+      self.refreshRangeMaskPreviewIfActive();
+   };
+
+   this.protectionPolicyLabel = new Label(this);
+   this.protectionPolicyLabel.text = "Protections";
+   this.protectionPolicyLabel.minWidth = 72;
+   this.protectionPolicyLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
+   this.protectionPolicyHelpButton = acmCreateHelpButton(
+      this,
+      "Protection Controls",
+      "Protections are guardrails, not hard laws. Protect Stars uses a compact-star mask plus highlight protection to reduce damage to stars and many halos in Stars Present mode. In Starless mode, star protection is disabled because there should be no meaningful star layer to protect. Protect Low Sat prevents hue-band edits from chasing weak or noisy color in very low-saturation regions, and it also helps protect faint halo fields around bright stars. For aggressive faint-color galaxy or dust work, a starless image is strongly recommended. If Low Sat protection is off, use several modest passes rather than one extreme move.",
+      "protectionControls"
+   );
+   this.protectStarsCheck = new CheckBox(this);
+   this.protectStarsCheck.text = "Protect Stars";
+   this.protectStarsCheck.checked = true;
+   this.protectStarsCheck.toolTip = "Use compact-star and highlight protection to limit strong edits in stars and many halos.";
+   this.protectStarsCheck.onCheck = function(checked) {
+      if (self.protectionControlsSyncing)
+         return;
+      if (self.editorState.imageType === "starless") {
+         self.refreshProtectionControls();
+         return;
+      }
+      self.editorState.protectionControls = self.editorState.protectionControls || acmCreateDefaultProtectionControls();
+      self.editorState.protectionControls.protectStars = checked;
+      self.invalidateMaskPreviewCaches();
+      self.refreshProtectionControls();
+      self.markPreviewStale();
+      self.refreshSelectedBandMaskPreviewIfActive();
+   };
+   this.protectLowSatCheck = new CheckBox(this);
+   this.protectLowSatCheck.text = "Protect Low Sat";
+   this.protectLowSatCheck.checked = true;
+   this.protectLowSatCheck.toolTip = "Reduce hue-band edits in very low-saturation regions, including noisy neutral areas and faint halo fields.";
+   this.protectLowSatCheck.onCheck = function(checked) {
+      if (self.protectionControlsSyncing)
+         return;
+      self.editorState.protectionControls = self.editorState.protectionControls || acmCreateDefaultProtectionControls();
+      self.editorState.protectionControls.protectLowSaturation = checked;
+      self.invalidateMaskPreviewCaches();
+      self.markPreviewStale();
+      self.refreshSelectedBandMaskPreviewIfActive();
    };
 
    this.sensitivityLabel = new Label(this);
    this.sensitivityLabel.text = "Sensitivity";
-   this.sensitivityLabel.setFixedWidth(ACM_HOST_IS_WINDOWS ? 92 : 64);
+   this.sensitivityLabel.toolTip = "Controls slider response: Fine for subtle changes, Normal for general work, Strong for larger visible changes.";
+   this.sensitivityLabel.setFixedWidth(ACM_HOST_IS_WINDOWS ? 108 : 64);
    this.sensitivityLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
    this.sensitivityCombo = new ComboBox(this);
    this.sensitivityCombo.addItem("Fine");
    this.sensitivityCombo.addItem("Normal");
-   this.sensitivityCombo.addItem("Advanced");
+   this.sensitivityCombo.addItem("Strong");
+   this.sensitivityCombo.toolTip = "Controls slider response: Fine for subtle changes, Normal for general work, Strong for larger visible changes.";
    this.sensitivityCombo.currentItem = 1;
    this.sensitivityCombo.setFixedHeight(24);
    this.sensitivityCombo.setFixedWidth(ACM_HOST_IS_WINDOWS ? 128 : 116);
    this.sensitivityCombo.onItemSelected = function(index) {
       var sensitivity = self.sensitivityCombo.itemText(index);
-      self.editorState.sensitivity = sensitivity;
+      self.editorState.sensitivity = sensitivity === "Strong" ? "Advanced" : sensitivity;
       self.clampBandValuesForSensitivity();
       self.refreshBandControls();
       self.markPreviewStale();
    };
+   this.sensitivityHelpButton = acmCreateHelpButton(
+      this,
+      "Sensitivity",
+      "Sensitivity controls slider response. Fine gives smaller, more precise slider movement. Normal is the default general-purpose setting. Strong gives larger visible changes for the same slider movement.",
+      "sensitivity"
+   );
 
    this.editorState.globalStrength = 1.0;
 
@@ -3416,6 +4734,8 @@ constructor() {
    this.passSectionLabel.hide();
 
    this.passActiveCombo = new ComboBox(this);
+   if (ACM_HOST_IS_WINDOWS)
+      this.passActiveCombo.setFixedWidth(148);
    this.passActiveCombo.onItemSelected = function(index) {
       if (self.passComboSyncing)
          return;
@@ -3427,7 +4747,8 @@ constructor() {
    };
 
    this.passEnabledCheck = new CheckBox(this);
-   this.passEnabledCheck.text = "Enabled";
+   this.passEnabledCheck.text = ACM_HOST_IS_WINDOWS ? "On" : "Enabled";
+   this.passEnabledCheck.toolTip = "Enable or disable the active pass.";
    this.passEnabledCheck.onCheck = function(checked) {
       self.getActivePassState().enabled = checked;
       self.refreshPassControls();
@@ -3436,14 +4757,19 @@ constructor() {
 
    this.newPassButton = new PushButton(this);
    this.newPassButton.text = "New";
+   this.newPassButton.setFixedWidth(ACM_HOST_IS_WINDOWS ? 56 : 90);
    this.newPassButton.onClick = function() { self.createNewPass(); };
 
    this.duplicatePassButton = new PushButton(this);
-   this.duplicatePassButton.text = "Duplicate";
+   this.duplicatePassButton.text = ACM_HOST_IS_WINDOWS ? "Dup" : "Duplicate";
+   this.duplicatePassButton.toolTip = "Duplicate the active pass.";
+   this.duplicatePassButton.setFixedWidth(ACM_HOST_IS_WINDOWS ? 58 : 110);
    this.duplicatePassButton.onClick = function() { self.duplicateActivePass(); };
 
    this.deletePassButton = new PushButton(this);
-   this.deletePassButton.text = "Delete";
+   this.deletePassButton.text = ACM_HOST_IS_WINDOWS ? "Del" : "Delete";
+   this.deletePassButton.toolTip = "Delete the active pass.";
+   this.deletePassButton.setFixedWidth(ACM_HOST_IS_WINDOWS ? 56 : 90);
    this.deletePassButton.onClick = function() { self.deleteActivePass(); };
 
    this.passSummaryLabel = new Label(this);
@@ -3460,7 +4786,7 @@ constructor() {
 
    this.tabHueButton = new PushButton(this);
    this.tabHueButton.text = "Hue";
-   this.tabHueButton.setFixedWidth(40);
+   this.tabHueButton.setFixedWidth(36);
    this.tabHueButton.setFixedHeight(24);
    this.tabHueButton.onClick = function() { self.setActiveTab(ACM_TAB_HUE); };
 
@@ -3513,7 +4839,7 @@ constructor() {
    this.selectedBandHelpButton = acmCreateHelpButton(
       this,
       "Selected Band",
-      "Selected Band controls which hue region is being shaped. Hue Radius sets the outer limit on each side of the hue center, and Feather controls how quickly the selection falls from the strong core to that outer limit. Soften is a spatial mask blur for the selected band and is active only in Starless / Star-Reduced mode. Neutral / Low-Saturation is selected by low chroma rather than hue angle, so Hue Radius does not apply there.",
+      "Selected Band controls which hue region is being shaped. Hue Radius sets the outer limit on each side of the hue center, and Feather controls how quickly the selection falls from the strong core to that outer limit. Blur is a spatial mask blur for the selected band and is active only in Starless mode. Neutral / Low-Saturation is selected by low chroma rather than hue angle, so Hue Radius does not apply there.",
       "selectedBand"
    );
    this.selectedBandHelpBox = acmCreateHelpBox(this);
@@ -3521,6 +4847,8 @@ constructor() {
    this.selectedBandHelpLabel = new Label(this);
    this.selectedBandHelpLabel.wordWrapping = true;
    this.selectedBandHelpLabel.text = "Hue Radius sets the outer limit on each side of the hue center. Feather controls how quickly the selection falls from the strong core to that outer limit.";
+   this.selectedBandHelpLabel.visible = false;
+   this.selectedBandHelpLabel.hide();
 
    this.selectedBandReadoutTitle = new Label(this);
    this.selectedBandReadoutTitle.useRichText = true;
@@ -3529,16 +4857,18 @@ constructor() {
    this.selectedBandReadoutPrimary = new Label(this);
    this.selectedBandReadoutPrimary.useRichText = false;
    this.selectedBandReadoutPrimary.text = "Hue center: 0°  Hue Radius: ±45°  Strong core: ±11.25°";
+   this.selectedBandReadoutPrimary.scaledMinWidth = ACM_HOST_IS_WINDOWS ? 390 : 360;
    acmApplyLightText(this.selectedBandReadoutPrimary);
 
    this.selectedBandReadoutSecondary = new Label(this);
    this.selectedBandReadoutSecondary.useRichText = false;
    this.selectedBandReadoutSecondary.text = "Falloff: 11.25°–45°  Affected range: 315°–45°  Feather: 0.75";
+   this.selectedBandReadoutSecondary.scaledMinWidth = ACM_HOST_IS_WINDOWS ? 390 : 360;
    acmApplyLightText(this.selectedBandReadoutSecondary);
 
    this.selectedBandProfileBar = new Control(this);
    this.selectedBandProfileBar.scaledMinHeight = 26;
-   this.selectedBandProfileBar.scaledMinWidth = 150;
+   this.selectedBandProfileBar.scaledMinWidth = ACM_HOST_IS_WINDOWS ? 390 : 360;
    this.selectedBandProfileBar.acmDialogRef = this;
    this.selectedBandProfileBar.toolTip = "Mask response profile. Bright center = strong core, darker shoulders = feather falloff, dark ends = off.";
    this.selectedBandProfileBar.onPaint = function() {
@@ -3600,7 +4930,7 @@ constructor() {
 
    this.selectedBandReadoutPanel = new Control(this);
    acmSetThemePanel(this.selectedBandReadoutPanel, ACM_GRAY_UI_THEME.panelInset, ACM_GRAY_UI_THEME.line);
-   this.selectedBandReadoutPanel.scaledMinWidth = 150;
+   this.selectedBandReadoutPanel.scaledMinWidth = ACM_HOST_IS_WINDOWS ? 410 : 380;
    this.selectedBandReadoutPanel.sizer = new VerticalSizer;
    this.selectedBandReadoutPanel.sizer.margin = 8;
    this.selectedBandReadoutPanel.sizer.spacing = 6;
@@ -3753,12 +5083,13 @@ constructor() {
     for (var bandItemIndex = 0; bandItemIndex < ACM_BAND_DEFS.length; ++bandItemIndex)
        this.selectedBandCombo.addItem(ACM_BAND_DEFS[bandItemIndex].label);
     this.selectedBandCombo.currentItem = 0;
-    this.selectedBandCombo.onItemSelected = function(index) {
-       self.getActivePassState().selectedBandId = ACM_BAND_DEFS[index].id;
-       self.setHighlightedRowId(ACM_BAND_DEFS[index].id);
-       self.refreshSelectedBandControls();
-       self.markPreviewStale();
-    };
+   this.selectedBandCombo.onItemSelected = function(index) {
+      self.getActivePassState().selectedBandId = ACM_BAND_DEFS[index].id;
+      self.setHighlightedRowId(ACM_BAND_DEFS[index].id);
+      self.refreshSelectedBandControls();
+      self.refreshSelectedBandMaskPreviewIfActive();
+      self.markPreviewStaleForMaskControl("Current Band Mask");
+   };
 
     this.widthControl = new NumericControl(this);
     this.widthControl.label.text = "Hue Radius:";
@@ -3776,7 +5107,8 @@ constructor() {
    this.widthControl.onValueUpdated = function(value) {
       self.getSelectedBand().width = value;
       self.refreshSelectedBandReadoutAndVisualization(!self.deferSelectedBandTextUpdates);
-      self.markPreviewStale();
+      self.refreshSelectedBandMaskPreviewIfActive();
+      self.markPreviewStaleForMaskControl("Current Band Mask");
    };
    acmAttachPreviewSliderHooks(this, this.widthControl);
 
@@ -3797,7 +5129,8 @@ constructor() {
    this.featherControl.onValueUpdated = function(value) {
       self.getSelectedBand().feather = value;
       self.refreshSelectedBandReadoutAndVisualization(!self.deferSelectedBandTextUpdates);
-      self.markPreviewStale();
+      self.refreshSelectedBandMaskPreviewIfActive();
+      self.markPreviewStaleForMaskControl("Current Band Mask");
    };
    acmAttachPreviewSliderHooks(this, this.featherControl);
 
@@ -3820,6 +5153,7 @@ constructor() {
 
    this.rangeMaskEnabledCheck = new CheckBox(this);
    this.rangeMaskEnabledCheck.text = "Enable Range Mask";
+   this.rangeMaskEnabledCheck.toolTip = "Limits the current pass adjustment to the selected luminance range.";
    this.rangeMaskEnabledCheck.checked = false;
    this.rangeMaskEnabledCheck.onCheck = function(checked) {
       var pass = self.getActivePassState();
@@ -3839,7 +5173,9 @@ constructor() {
       if (!checked)
          pass.rangeMask.preset = "All";
       self.refreshRangeMaskControls();
-      self.markPreviewStale();
+      self.refreshHistogramRangeMaskOverlay();
+      self.refreshRangeMaskPreviewIfActive();
+      self.markPreviewStaleForMaskControl("Range Mask");
    };
 
    this.rangeMaskPresetLabel = new Label(this);
@@ -3850,7 +5186,9 @@ constructor() {
       this.rangeMaskPresetCombo.addItem(presetDefs[presetIndex].name);
    this.rangeMaskPresetCombo.onItemSelected = function(index) {
       self.applyRangeMaskPreset(self.rangeMaskPresetCombo.itemText(index));
-      self.markPreviewStale();
+      self.refreshHistogramRangeMaskOverlay();
+      self.refreshRangeMaskPreviewIfActive();
+      self.markPreviewStaleForMaskControl("Range Mask");
    };
 
    this.rangeMaskLowControl = new NumericControl(this);
@@ -3866,7 +5204,9 @@ constructor() {
          pass.rangeMask.high = pass.rangeMask.low;
       self.updateRangeMaskPresetFromCustomValues();
       self.refreshRangeMaskControls();
-      self.markPreviewStale();
+      self.refreshHistogramRangeMaskOverlay();
+      self.refreshRangeMaskPreviewIfActive();
+      self.markPreviewStaleForMaskControl("Range Mask");
    };
    acmAttachPreviewSliderHooks(this, this.rangeMaskLowControl);
 
@@ -3883,7 +5223,9 @@ constructor() {
          pass.rangeMask.low = pass.rangeMask.high;
       self.updateRangeMaskPresetFromCustomValues();
       self.refreshRangeMaskControls();
-      self.markPreviewStale();
+      self.refreshHistogramRangeMaskOverlay();
+      self.refreshRangeMaskPreviewIfActive();
+      self.markPreviewStaleForMaskControl("Range Mask");
    };
    acmAttachPreviewSliderHooks(this, this.rangeMaskHighControl);
 
@@ -3897,12 +5239,46 @@ constructor() {
       self.getActivePassState().rangeMask.feather = value;
       self.updateRangeMaskPresetFromCustomValues();
       self.refreshRangeMaskControls();
-      self.markPreviewStale();
+      self.refreshHistogramRangeMaskOverlay();
+      self.refreshRangeMaskPreviewIfActive();
+      self.markPreviewStaleForMaskControl("Range Mask");
    };
    acmAttachPreviewSliderHooks(this, this.rangeMaskFeatherControl);
 
+   this.rangeMaskSoftenLabel = new Label(this);
+   this.rangeMaskSoftenLabel.text = "Blur";
+   this.rangeMaskSoftenLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
+   this.rangeMaskSoftenCombo = new ComboBox(this);
+   this.rangeMaskSoftenCombo.addItem("Off");
+   this.rangeMaskSoftenCombo.addItem("1 px");
+   this.rangeMaskSoftenCombo.addItem("2 px");
+   this.rangeMaskSoftenCombo.addItem("3 px");
+   this.rangeMaskSoftenCombo.addItem("4 px");
+   this.rangeMaskSoftenCombo.addItem("5 px");
+   this.rangeMaskSoftenCombo.currentItem = 0;
+   this.rangeMaskSoftenCombo.setFixedWidth(70);
+   this.rangeMaskSoftenCombo.toolTip = "Blurs the Range Mask to soften transitions and reduce hard edges.";
+   this.rangeMaskSoftenCombo.onItemSelected = function(index) {
+      self.getActivePassState().rangeMask.maskSoftenRadius = acmMaskSoftenRadiusForDropdownIndex(index);
+      self.refreshRangeMaskControls();
+      self.refreshHistogramRangeMaskOverlay();
+      self.refreshRangeMaskPreviewIfActive();
+      self.markPreviewStaleForMaskControl("Range Mask");
+   };
+
+   this.rangeMaskBoostCheck = new CheckBox(this);
+   this.rangeMaskBoostCheck.text = "Boost";
+   this.rangeMaskBoostCheck.toolTip = "Boost increases Range Mask contrast, pushing brighter mask areas toward white and darker areas toward black. Inspect the mask view before using it.";
+   this.rangeMaskBoostCheck.onCheck = function(checked) {
+      self.getActivePassState().rangeMask.boostEnabled = checked;
+      self.refreshRangeMaskControls();
+      self.refreshHistogramRangeMaskOverlay();
+      self.refreshRangeMaskPreviewIfActive();
+      self.markPreviewStaleForMaskControl("Range Mask");
+   };
+
    this.maskSoftenLabel = new Label(this);
-   this.maskSoftenLabel.text = "Soften";
+   this.maskSoftenLabel.text = "Blur";
    this.maskSoftenLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
    this.maskSoftenCombo = new ComboBox(this);
    this.maskSoftenCombo.addItem("Off");
@@ -3913,11 +5289,12 @@ constructor() {
    this.maskSoftenCombo.addItem("5 px");
    this.maskSoftenCombo.currentItem = 0;
    this.maskSoftenCombo.setFixedWidth(70);
-   this.maskSoftenCombo.toolTip = "Selected-band mask softening. It is applied only in Starless / Star-Reduced mode.";
+   this.maskSoftenCombo.toolTip = "Selected-band mask blur. It is applied only in Starless mode.";
    this.maskSoftenCombo.onItemSelected = function(index) {
       self.getSelectedBand().maskSoftenRadius = acmMaskSoftenRadiusForDropdownIndex(index);
       self.refreshSelectedBandReadoutAndVisualization(true);
-      self.markPreviewStale();
+      self.refreshSelectedBandMaskPreviewIfActive();
+      self.markPreviewStaleForMaskControl("Current Band Mask");
    };
 
    this.resetRangeMaskButton = new PushButton(this);
@@ -3929,9 +5306,26 @@ constructor() {
    this.rangeMaskStatusLabel = new Label(this);
    this.rangeMaskStatusLabel.wordWrapping = true;
 
+   this.rangeMaskSoftenStatusLabel = new Label(this);
+   this.rangeMaskSoftenStatusLabel.wordWrapping = false;
+   this.rangeMaskSoftenStatusLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
+
    this.maskSoftenStatusLabel = new Label(this);
    this.maskSoftenStatusLabel.wordWrapping = false;
    this.maskSoftenStatusLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
+
+   this.bandMaskShapingLabel = new Label(this);
+   this.bandMaskShapingLabel.text = "Band Mask Shaping:";
+   this.bandMaskShapingLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
+
+   this.rangeMaskShapingLabel = new Label(this);
+   this.rangeMaskShapingLabel.text = "Range Mask Shaping:";
+   this.rangeMaskShapingLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
+
+   this.rangeMaskHistogramHintLabel = new Label(this);
+   this.rangeMaskHistogramHintLabel.wordWrapping = false;
+   this.rangeMaskHistogramHintLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
+   this.rangeMaskHistogramHintLabel.text = "Histogram shows the active Range Mask selection.";
 
    this.previewSectionLabel = new Label(this);
    this.previewSectionLabel.useRichText = true;
@@ -3951,7 +5345,7 @@ constructor() {
    this.previewHelpButton = acmCreateHelpButton(
       this,
       "Preview / Mask Views",
-      "Preview uses downsampled data for speed. At 6x and higher, Auto preview switches to Detail Crop Preview and renders the visible region from source pixels instead of only enlarging the fast preview. Apply to New Image processes the full-resolution image. Mask views show what the active selection or Range Mask is affecting.",
+      "Preview uses downsampled data for speed. Difference preview shows where the current adjustment changes the image with preview-only 5x display gain; it does not affect saved output. At 6x and higher, Auto preview switches to Detail Crop Preview and renders the visible region from source pixels instead of only enlarging the fast preview. Apply to New Image processes the full-resolution image. Mask views show what the active selection or Range Mask is affecting.",
       "preview"
    );
    this.previewHelpBox = acmCreateHelpBox(this);
@@ -3961,14 +5355,17 @@ constructor() {
    this.previewModeCombo.addItem("Current Band Mask");
    this.previewModeCombo.addItem("Range Mask");
    this.previewModeCombo.addItem("Combined Mask");
+   this.previewModeCombo.addItem("Difference");
    this.previewModeCombo.currentItem = 0;
-   this.previewModeCombo.setFixedWidth(168);
+   this.previewModeCombo.setFixedWidth(196);
    this.previewModeCombo.onItemSelected = function(index) {
       var modeMap = {
          "Adjusted": "adjusted",
+         "Difference": "difference",
          "Original": "original",
          "Current Band Mask": "bandMask",
          "Range Mask": "rangeMask",
+         "Star Protection Mask": "starMask",
          "Combined Mask": "combinedMask"
       };
       self.previewMode = modeMap[self.previewModeCombo.itemText(index)] || "adjusted";
@@ -4026,9 +5423,11 @@ constructor() {
    this.previewZoomReadout.minWidth = 34;
 
    this.previewInteractionHintLabel = new Label(this);
-   this.previewInteractionHintLabel.wordWrapping = true;
+   this.previewInteractionHintLabel.wordWrapping = false;
    this.previewInteractionHintLabel.text =
       "Click: probe · Hold: compare · Drag: pan";
+   this.previewInteractionHintLabel.textAlignment = TextAlign_Right|TextAlign_VertCenter;
+   this.previewInteractionHintLabel.setFixedWidth(ACM_HOST_IS_WINDOWS ? 290 : 230);
    this.previewInteractionHintLabel.toolTip =
       "Click a preview pixel to probe it. Click and hold in the preview to temporarily show the selected Compare reference. Drag to pan when zoomed.";
 
@@ -4137,14 +5536,14 @@ constructor() {
    this.diagnosticsHelpButton = acmCreateHelpButton(
       this,
       "Diagnostics",
-      "Click the preview to probe a pixel. The histogram shows preview luminance distribution and helps you place Low, High, and Feather when Range Mask is enabled. The polar plot shows sampled preview pixels by hue angle and saturation radius.",
+      "Click the preview to probe a pixel. The histogram shows preview luminance distribution; gold overlay/markers show active Range Mask selection. The polar plot shows sampled preview pixels by hue angle and saturation radius.",
       "diagnostics"
    );
    this.diagnosticsHelpBox = acmCreateHelpBox(this);
 
    this.diagnosticsHelpLabel = new Label(this);
    this.diagnosticsHelpLabel.wordWrapping = true;
-   this.diagnosticsHelpLabel.text = "Preview-resolution diagnostics";
+   this.diagnosticsHelpLabel.text = "Preview diagnostics";
    this.diagnosticsHelpLabel.visible = false;
    this.diagnosticsHelpLabel.hide();
 
@@ -4152,9 +5551,17 @@ constructor() {
    this.histogramLabel.useRichText = true;
    this.histogramLabel.text = "<b>Histogram</b>";
 
+   this.histogramSubtitleLabel = new Label(this);
+   this.histogramSubtitleLabel.wordWrapping = false;
+   this.histogramSubtitleLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
+   this.histogramSubtitleLabel.text = acmHistogramSubtitleText(false);
+   if (ACM_HOST_IS_WINDOWS)
+      this.histogramSubtitleLabel.setFixedWidth(128);
+
    this.histogramControl = new Control(this);
-   this.histogramControl.scaledMinHeight = 104;
+   this.histogramControl.scaledMinHeight = ACM_HOST_IS_WINDOWS ? 154 : 122;
    this.histogramControl.acmDialogRef = this;
+   this.histogramControl.toolTip = "Shows preview luminance distribution. Gold overlay/markers show the active Range Mask selection.";
    this.histogramControl.onPaint = function() {
       var g = new Graphics(this);
       g.pen = new Pen(0xff404854);
@@ -4163,9 +5570,9 @@ constructor() {
       var dialog = this.acmDialogRef;
       var data = dialog.histogramData;
       var left = 8;
-      var top = 8;
+      var top = 6;
       var plotW = Math.max(1, this.width - 16);
-      var plotH = Math.max(1, this.height - 16);
+      var plotH = Math.max(1, this.height - 8);
       if (data && data.maxBin > 0) {
          var rangeMask = dialog.getActivePassState().rangeMask;
          acmPaintRangeMaskOverlay(g, rangeMask, left, top, plotW, plotH, !!(rangeMask && rangeMask.enabled));
@@ -4178,8 +5585,7 @@ constructor() {
          }
          if (data.probeY !== null) {
             var probeX = left + Math.round(data.probeY * plotW);
-            g.pen = new Pen(0xff00f5ff, 3);
-            g.drawLine(probeX - 1, top, probeX - 1, top + plotH);
+            g.pen = new Pen(0xff00f5ff, 2);
             g.drawLine(probeX, top, probeX, top + plotH);
             g.pen = new Pen(0xffffffff, 1);
             g.drawLine(probeX + 1, top, probeX + 1, top + plotH);
@@ -4212,33 +5618,80 @@ constructor() {
       g.end();
    };
 
+   this.histogramRampLabel = new Label(this);
+   this.histogramRampLabel.wordWrapping = false;
+   this.histogramRampLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
+   this.histogramRampLabel.text = "";
+
    this.polarLabel = new Label(this);
    this.polarLabel.useRichText = true;
    this.polarLabel.text = "<b>Polar Plot</b>";
 
+   this.plotInfoLabel = new Label(this);
+   this.plotInfoLabel.useRichText = true;
+   this.plotInfoLabel.text = "<b>Plot Info</b>";
+
+   this.polarSubtitleLabel = new Label(this);
+   this.polarSubtitleLabel.wordWrapping = false;
+   this.polarSubtitleLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
+   this.polarSubtitleLabel.text = "Hue angle · Saturation radius";
+
+   this.polarInfoLabel = new Label(this);
+   this.polarInfoLabel.useRichText = true;
+   this.polarInfoLabel.wordWrapping = true;
+   this.polarInfoLabel.textAlignment = TextAlign_Left;
+   this.polarInfoLabel.text = "";
+   this.polarInfoLabel.toolTip = "Shows the active color-band selection used by the current pass, current probe color position, and active Range Mask state.";
+   if (ACM_HOST_IS_WINDOWS) {
+      var polarInfoFont = new Font;
+      polarInfoFont.pixelSize = 14;
+      this.polarInfoLabel.font = polarInfoFont;
+   }
+
    this.polarControl = new Control(this);
-   this.polarControl.scaledMinHeight = 104;
+   this.polarControl.scaledMinHeight = ACM_HOST_IS_WINDOWS ? 166 : 134;
    this.polarControl.acmDialogRef = this;
+   this.polarControl.toolTip = "Shows preview color distribution. Angle represents hue; distance from center represents saturation.";
    this.polarControl.onPaint = function() {
       var g = new Graphics(this);
-      g.pen = new Pen(0xff404854);
-      g.brush = new Brush(0xff161a22);
+      g.pen = new Pen(0xff1f242c);
+      g.brush = new Brush(0xff0f1319);
       g.drawRect(this.boundsRect);
       var dialog = this.acmDialogRef;
       var cx = Math.round(this.width * 0.5);
       var cy = Math.round(this.height * 0.5);
-      var radius = Math.max(12, Math.min(this.width, this.height) * 0.42);
-      g.pen = new Pen(0xff7a838f, 1);
+      var radius = Math.round(Math.max(18, Math.min(this.width, this.height) * 0.39));
+      g.brush = new Brush(0xff171c24);
+      g.pen = new Pen(0xff303844);
+      g.drawEllipse(cx - radius - 9, cy - radius - 9, cx + radius + 9, cy + radius + 9);
+      g.pen = new Pen(0xff222832, 1);
+      for (var halo = 1; halo <= 3; ++halo)
+         g.drawEllipse(cx - radius - halo * 3, cy - radius - halo * 3, cx + radius + halo * 3, cy + radius + halo * 3);
       for (var ring = 1; ring <= 4; ++ring) {
          var rr = Math.round(radius * ring / 4);
+         g.pen = new Pen(ring === 4 ? 0xff66717f : 0xff414b58, ring === 4 ? 2 : 1);
          g.drawEllipse(cx - rr, cy - rr, cx + rr, cy + rr);
       }
-      for (var deg = 0; deg < 360; deg += 30) {
+      g.pen = new Pen(0xff29313c, 1);
+      for (var fineDeg = 0; fineDeg < 360; fineDeg += 15) {
+         if (fineDeg % 45 === 0)
+            continue;
+         var fineRad = fineDeg * Math.PI / 180;
+         var fineX = cx + Math.round(Math.cos(fineRad) * radius);
+         var fineY = cy - Math.round(Math.sin(fineRad) * radius);
+         g.drawLine(cx, cy, fineX, fineY);
+      }
+      for (var deg = 0; deg < 360; deg += 15) {
+         if (deg % 45 !== 0)
+            continue;
          var rad = deg * Math.PI / 180;
          var x = cx + Math.round(Math.cos(rad) * radius);
          var y = cy - Math.round(Math.sin(rad) * radius);
+         g.pen = new Pen(deg % 90 === 0 ? 0xff737e8d : 0xff56616f, deg % 90 === 0 ? 2 : 1);
          g.drawLine(cx, cy, x, y);
       }
+      g.pen = new Pen(0xff242b35, 1);
+      g.drawEllipse(cx - Math.round(radius * 0.07), cy - Math.round(radius * 0.07), cx + Math.round(radius * 0.07), cy + Math.round(radius * 0.07));
       var points = dialog.polarSamples || [];
       for (var i = 0; i < points.length; ++i) {
          var p = points[i];
@@ -4248,33 +5701,46 @@ constructor() {
          var py = cy - Math.round(Math.sin(radp) * rp);
          var color = 0xff000000 | ((Math.round(p.r * 255) & 0xff) << 16) | ((Math.round(p.g * 255) & 0xff) << 8) | (Math.round(p.b * 255) & 0xff);
          g.pen = new Pen(color, 1);
-         g.drawLine(px - 1, py, px + 1, py);
-         g.drawLine(px, py - 1, px, py + 1);
+         if (p.s > 0.45) {
+            g.drawLine(px - 1, py - 1, px + 1, py - 1);
+            g.drawLine(px - 1, py, px + 1, py);
+            g.drawLine(px - 1, py + 1, px + 1, py + 1);
+         } else {
+            g.drawLine(px - 1, py, px + 1, py);
+            g.drawLine(px, py - 1, px, py + 1);
+         }
       }
       if (dialog.probeData) {
          var probeRad = dialog.probeData.h * Math.PI / 180;
          var probeR = dialog.probeData.s * radius;
          var mx = cx + Math.round(Math.cos(probeRad) * probeR);
          var my = cy - Math.round(Math.sin(probeRad) * probeR);
-         g.pen = new Pen(0xffffd86a, 1);
+         g.pen = new Pen(0xff7df8ff, 2);
          g.drawEllipse(mx - 5, my - 5, mx + 5, my + 5);
-         g.pen = new Pen(0xfffff3c2, 1);
-         g.drawEllipse(mx - 2, my - 2, mx + 2, my + 2);
-         g.pen = new Pen(0xffffd86a, 1);
-         g.drawLine(mx - 7, my, mx - 3, my);
-         g.drawLine(mx + 3, my, mx + 7, my);
-         g.drawLine(mx, my - 7, mx, my - 3);
-         g.drawLine(mx, my + 3, mx, my + 7);
+         g.pen = new Pen(0xffffffff, 1);
+         g.drawEllipse(mx - 3, my - 3, mx + 3, my + 3);
+         g.pen = new Pen(0xff7df8ff, 1);
+         g.drawLine(mx - 8, my, mx - 4, my);
+         g.drawLine(mx + 4, my, mx + 8, my);
+         g.drawLine(mx, my - 8, mx, my - 4);
+         g.drawLine(mx, my + 4, mx, my + 8);
+         g.pen = new Pen(0xffffffff, 1);
+         g.drawLine(mx - 1, my, mx + 1, my);
+         g.drawLine(mx, my - 1, mx, my + 1);
       }
       g.end();
    };
 
    this.probeReadoutLabel = new Label(this);
    this.probeReadoutLabel.wordWrapping = true;
-   this.probeReadoutLabel.text = "Preview-resolution diagnostics · Probe: none";
+   this.probeReadoutLabel.text = "Preview diagnostics · Probe: none · Range Mask: Off";
+   this.probeReadoutLabel.toolTip = "Click the preview to inspect pixel luminance, hue, saturation, and band position.";
+   this.probeReadoutLabel.visible = false;
+   this.probeReadoutLabel.hide();
 
    this.autoSelectProbeBandCheck = new CheckBox(this);
-   this.autoSelectProbeBandCheck.text = "Auto-select band from probe";
+   this.autoSelectProbeBandCheck.text = ACM_HOST_IS_WINDOWS ? "Auto probe band" : "Auto-select band from probe";
+   this.autoSelectProbeBandCheck.toolTip = "Auto-select the nearest reliable color band when probing the preview.";
    this.autoSelectProbeBandCheck.checked = true;
    this.autoSelectProbeBandCheck.onCheck = function() {
       self.refreshDiagnosticsData();
@@ -4342,9 +5808,9 @@ constructor() {
    this.footerNoticeLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
    this.footerNoticeLabel.text = "Developed by Patrick A. Cosgrove for Cosgrove's Cosmos · © 2026";
    var footerFont = new Font;
-   footerFont.pixelSize = 9;
+   footerFont.pixelSize = ACM_HOST_IS_WINDOWS ? 11 : 10;
    this.footerNoticeLabel.font = footerFont;
-   this.footerNoticeLabel.scaledMinHeight = 12;
+   this.footerNoticeLabel.scaledMinHeight = ACM_HOST_IS_WINDOWS ? 18 : 14;
 
    this.previewOutputHelpLabel = new Label(this);
    this.previewOutputHelpLabel.wordWrapping = true;
@@ -4452,12 +5918,39 @@ constructor() {
 
    this.applyButton = new PushButton(this);
    this.applyButton.text = "Create Image";
+   this.applyButton.setFixedWidth(ACM_HOST_IS_WINDOWS ? 220 : 180);
    this.applyButton.defaultButton = true;
    this.applyButton.toolTip = "Creates a new adjusted image window and leaves the target unchanged.";
    this.applyButton.onClick = function() { self.handlePrimaryOutputAction(); };
 
+   this.bandMaskBoostCheck = new CheckBox(this);
+   this.bandMaskBoostCheck.text = "Boost";
+   this.bandMaskBoostCheck.toolTip = "Boost increases mask contrast by pushing brighter mask areas toward white and darker areas toward black. Inspect the mask view before using it.";
+   this.bandMaskBoostCheck.checked = false;
+   this.bandMaskBoostCheck.onCheck = function(checked) {
+      if (self.maskBoostSyncing)
+         return;
+      self.maskBoostEnabled = checked;
+      self.refreshOutputButtons();
+      self.refreshSelectedBandMaskPreviewIfActive();
+      self.markPreviewStaleForMaskControl("Current Band Mask");
+   };
+   this.bandMaskBoostHelpButton = acmCreateHelpButton(
+      this,
+      "Boost Mask",
+      "Boost applies a display/output contrast enhancement to the current selected-band mask preview. Mid-gray mask values become brighter, while black and white stay anchored.",
+      "maskBoost"
+   );
+   this.rangeMaskBoostHelpButton = acmCreateHelpButton(
+      this,
+      "Range Mask Shaping",
+      "Blur softens the Range Mask. Boost increases mask contrast. Inspect the mask view before applying strong changes.",
+      "maskBoost"
+   );
+
    this.applyToTargetButton = new PushButton(this);
    this.applyToTargetButton.text = "Apply to Target";
+   this.applyToTargetButton.setFixedWidth(ACM_HOST_IS_WINDOWS ? 190 : 160);
    this.applyToTargetButton.toolTip = "Writes the adjusted result back into the target image. If the target has an active PixInsight mask, it is respected.";
    this.applyToTargetButton.onClick = function() { self.applyToTargetImage(); };
 
@@ -4520,6 +6013,9 @@ constructor() {
 
    acmSetThemeLabel(this.targetImageLabel, "Target Image:", ACM_GRAY_UI_THEME.text, true);
    acmSetThemeLabel(this.imageTypeLabel, "Image Type", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.protectionPolicyLabel, "Protections", ACM_GRAY_UI_THEME.text, true);
+   acmApplyLightText(this.protectStarsCheck);
+   acmApplyLightText(this.protectLowSatCheck);
    acmSetThemeLabel(this.sensitivityLabel, "Sensitivity", ACM_GRAY_UI_THEME.text, true);
    acmSetThemeLabel(this.selectedBandSectionLabel, "Selected Band", ACM_GRAY_UI_THEME.text, true);
    acmSetThemeLabel(this.selectedBandHelpLabel, "Hue Radius sets the outer limit on each side of the hue center. Feather controls how quickly the selection falls from the strong core to that outer limit.", ACM_GRAY_UI_THEME.muted, false);
@@ -4533,8 +6029,13 @@ constructor() {
    acmSetThemeLabel(this.previewZoomLabel, "Zoom", ACM_GRAY_UI_THEME.text, true);
    acmSetThemeLabel(this.compareModeLabel, "Compare", ACM_GRAY_UI_THEME.text, true);
    acmSetThemeLabel(this.diagnosticsSectionLabel, "Diagnostics &amp; Passes", ACM_GRAY_UI_THEME.text, true);
-   acmSetThemeLabel(this.histogramLabel, "Histogram", ACM_GRAY_UI_THEME.text, true);
-   acmSetThemeLabel(this.polarLabel, "Polar Plot", ACM_GRAY_UI_THEME.text, true);
+   acmSetGoldTitleLabel(this.histogramLabel, "Histogram");
+   acmSetThemeLabel(this.histogramSubtitleLabel, acmHistogramSubtitleText(false), ACM_GRAY_UI_THEME.muted, false);
+   acmSetThemeLabel(this.histogramRampLabel, "Gray level ramp 0.0–1.0", ACM_GRAY_UI_THEME.muted, false);
+   acmSetGoldTitleLabel(this.polarLabel, "Polar Plot");
+   acmSetGoldTitleLabel(this.plotInfoLabel, "Plot Info");
+   acmSetThemeLabel(this.polarSubtitleLabel, "", ACM_GRAY_UI_THEME.muted, false);
+   acmSetThemeLabel(this.polarInfoLabel, "", ACM_GRAY_UI_THEME.muted, false);
    acmSetThemeLabel(this.passViewerLabel, "Pass Viewer", ACM_GRAY_UI_THEME.text, true);
    acmSetThemeLabel(this.recipeSectionLabel, "Adjustment Set", ACM_GRAY_UI_THEME.text, true);
    acmSetThemeLabel(this.previewOutputHelpLabel, "Use the preview to judge settings first. 'Create Image' leaves the target unchanged. 'Apply to Target' writes the adjusted result back and respects the active PixInsight mask.", ACM_GRAY_UI_THEME.muted, false);
@@ -4542,7 +6043,7 @@ constructor() {
    acmSetThemeLabel(this.previewZoomReadout, "Fit", ACM_GRAY_UI_THEME.text, false);
    acmSetThemeLabel(this.previewInteractionHintLabel, "Click: probe • Hold: compare • Drag: pan", ACM_GRAY_UI_THEME.text, true);
    acmSetThemeLabel(this.previewSamplingStatusLabel, "Preview: Fast", ACM_GRAY_UI_THEME.text, true);
-   acmSetThemeLabel(this.probeReadoutLabel, "Preview-resolution diagnostics · Probe: none", ACM_GRAY_UI_THEME.muted, false);
+   acmSetThemeLabel(this.probeReadoutLabel, "Preview diagnostics · Probe: none · Range Mask: Off", ACM_GRAY_UI_THEME.muted, false);
    acmSetThemeLabel(this.targetApplyMaskStatusLabel, "Target Mask: none", ACM_GRAY_UI_THEME.text, true);
    acmApplyLightText(this.activeStatusLabel);
    acmApplyLightText(this.pendingChangesLabel);
@@ -4551,6 +6052,8 @@ constructor() {
    acmApplyLightText(this.outputFeedbackLabel);
    acmApplyLightText(this.passEnabledCheck);
    acmApplyLightText(this.rangeMaskEnabledCheck);
+   acmApplyLightText(this.bandMaskBoostCheck);
+   acmApplyLightText(this.rangeMaskBoostCheck);
    acmApplyLightText(this.autoPreviewCheck);
    acmApplyLightText(this.autoSelectProbeBandCheck);
    acmApplyLightText(this.widthControl.label);
@@ -4558,8 +6061,13 @@ constructor() {
    acmApplyLightText(this.rangeMaskLowControl.label);
    acmApplyLightText(this.rangeMaskHighControl.label);
    acmApplyLightText(this.rangeMaskFeatherControl.label);
+   acmApplyLightText(this.rangeMaskSoftenLabel);
+   acmApplyLightText(this.rangeMaskSoftenStatusLabel);
    acmApplyLightText(this.maskSoftenLabel);
    acmApplyLightText(this.maskSoftenStatusLabel);
+   acmApplyLightText(this.bandMaskShapingLabel);
+   acmApplyLightText(this.rangeMaskShapingLabel);
+   acmApplyLightText(this.rangeMaskHistogramHintLabel);
    this.widthControl.label.useRichText = true;
    this.widthControl.label.text = acmThemeRichText("Hue Radius:", ACM_GRAY_UI_THEME.text, false);
    this.featherControl.label.useRichText = true;
@@ -4570,12 +6078,16 @@ constructor() {
    this.rangeMaskHighControl.label.text = acmThemeRichText("High", ACM_GRAY_UI_THEME.text, false);
    this.rangeMaskFeatherControl.label.useRichText = true;
    this.rangeMaskFeatherControl.label.text = acmThemeRichText("Feather", ACM_GRAY_UI_THEME.text, false);
-   acmSetThemeLabel(this.maskSoftenLabel, "Soften", ACM_GRAY_UI_THEME.text, false);
+   acmSetThemeLabel(this.rangeMaskSoftenLabel, "Blur", ACM_GRAY_UI_THEME.text, false);
+   acmSetThemeLabel(this.maskSoftenLabel, "Blur", ACM_GRAY_UI_THEME.text, false);
+   acmSetThemeLabel(this.bandMaskShapingLabel, "Band Mask Shaping:", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.rangeMaskShapingLabel, "Range Mask Shaping:", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.rangeMaskHistogramHintLabel, "Histogram shows the active Range Mask selection.", ACM_GRAY_UI_THEME.muted, false);
 
    this.faqButton.setFixedWidth(132);
    this.technicalButton.setFixedWidth(170);
    this.aboutButton.setFixedWidth(122);
-   this.imageTypeCombo.setFixedWidth(236);
+   this.imageTypeCombo.setFixedWidth(ACM_HOST_IS_WINDOWS ? 270 : 236);
    this.activeStatusLabel.minWidth = 0;
 
    var targetTopRow = new HorizontalSizer;
@@ -4601,12 +6113,29 @@ constructor() {
    targetModeRow.add(this.imageTypeCombo);
    targetModeRow.addStretch();
 
+   var protectionPolicyRow = new HorizontalSizer;
+   protectionPolicyRow.spacing = 8;
+   protectionPolicyRow.addSpacing(100);
+   protectionPolicyRow.add(this.protectionPolicyLabel);
+   protectionPolicyRow.add(this.protectionPolicyHelpButton);
+   protectionPolicyRow.add(this.protectStarsCheck);
+   protectionPolicyRow.add(this.protectLowSatCheck);
+   protectionPolicyRow.addStretch();
+
+   var protectionPolicyHost = new Control(this);
+   protectionPolicyHost.sizer = new VerticalSizer;
+   protectionPolicyHost.sizer.margin = 0;
+   protectionPolicyHost.sizer.spacing = 0;
+   protectionPolicyHost.sizer.addSpacing(3);
+   protectionPolicyHost.sizer.add(protectionPolicyRow);
+
    var targetColumn = new VerticalSizer;
    targetColumn.margin = 0;
    targetColumn.spacing = 2;
    targetColumn.add(targetTopRow);
    targetColumn.add(targetBottomRow);
    targetColumn.add(targetModeRow);
+   targetColumn.add(protectionPolicyHost);
 
    var docsStack = new VerticalSizer;
    docsStack.margin = 0;
@@ -4632,7 +6161,7 @@ constructor() {
    workflowRow.add(rightMetaRow);
 
    var passControlsRow = new HorizontalSizer;
-   passControlsRow.spacing = 6;
+   passControlsRow.spacing = ACM_HOST_IS_WINDOWS ? 4 : 6;
    passControlsRow.add(this.passActiveCombo, 100);
    passControlsRow.add(this.passEnabledCheck);
    passControlsRow.add(this.newPassButton);
@@ -4642,6 +6171,7 @@ constructor() {
    var selectedBandRow = new HorizontalSizer;
    selectedBandRow.spacing = 8;
    selectedBandRow.add(this.selectedBandLabel);
+   selectedBandRow.add(this.selectedBandHelpButton);
    selectedBandRow.add(this.selectedBandCombo, 100);
    selectedBandRow.add(this.resetSelectedButton);
 
@@ -4649,8 +6179,15 @@ constructor() {
    selectedBandControlsRow.spacing = 8;
    selectedBandControlsRow.add(this.widthControl, 100);
    selectedBandControlsRow.add(this.featherControl, 100);
-   selectedBandControlsRow.add(this.maskSoftenLabel);
-   selectedBandControlsRow.add(this.maskSoftenCombo);
+
+   var selectedBandMaskOptionsRow = new HorizontalSizer;
+   selectedBandMaskOptionsRow.spacing = 6;
+   selectedBandMaskOptionsRow.add(this.bandMaskShapingLabel);
+   selectedBandMaskOptionsRow.add(this.maskSoftenLabel);
+   selectedBandMaskOptionsRow.add(this.maskSoftenCombo);
+   selectedBandMaskOptionsRow.add(this.bandMaskBoostCheck);
+   selectedBandMaskOptionsRow.add(this.bandMaskBoostHelpButton);
+   selectedBandMaskOptionsRow.addStretch();
 
    var selectedBandVizRow = new HorizontalSizer;
    selectedBandVizRow.spacing = 10;
@@ -4659,6 +6196,7 @@ constructor() {
 
    var tabsRow = new HorizontalSizer;
    tabsRow.spacing = 0;
+   tabsRow.addSpacing(6);
    tabsRow.add(this.tabHueButton);
    tabsRow.add(this.tabSaturationButton);
    tabsRow.add(this.tabLuminanceButton);
@@ -4666,6 +6204,7 @@ constructor() {
    colorMixerSensitivityRow.spacing = 1;
    colorMixerSensitivityRow.add(this.sensitivityLabel);
    colorMixerSensitivityRow.add(this.sensitivityCombo);
+   colorMixerSensitivityRow.add(this.sensitivityHelpButton);
    tabsRow.addSpacing(2);
    tabsRow.add(colorMixerSensitivityRow);
    tabsRow.addStretch();
@@ -4720,17 +6259,20 @@ constructor() {
    rangeMaskPresetRow.add(this.rangeMaskPresetCombo, 100);
    rangeMaskPresetRow.add(this.resetRangeMaskButton);
 
-   var selectedBandHeaderRow = new HorizontalSizer;
-   selectedBandHeaderRow.spacing = 4;
-   selectedBandHeaderRow.add(this.selectedBandSectionLabel);
-   selectedBandHeaderRow.add(this.selectedBandHelpButton);
-   selectedBandHeaderRow.addStretch();
+   var rangeMaskEnableRow = new HorizontalSizer;
+   rangeMaskEnableRow.spacing = 4;
+   rangeMaskEnableRow.add(this.rangeMaskEnabledCheck);
+   rangeMaskEnableRow.add(this.rangeMaskHelpButton);
+   rangeMaskEnableRow.addStretch();
 
-   var rangeMaskHeaderRow = new HorizontalSizer;
-   rangeMaskHeaderRow.spacing = 4;
-   rangeMaskHeaderRow.add(this.rangeMaskSectionLabel);
-   rangeMaskHeaderRow.add(this.rangeMaskHelpButton);
-   rangeMaskHeaderRow.addStretch();
+   var rangeMaskSoftenRow = new HorizontalSizer;
+   rangeMaskSoftenRow.spacing = 5;
+   rangeMaskSoftenRow.add(this.rangeMaskShapingLabel);
+   rangeMaskSoftenRow.add(this.rangeMaskSoftenLabel);
+   rangeMaskSoftenRow.add(this.rangeMaskSoftenCombo);
+   rangeMaskSoftenRow.add(this.rangeMaskBoostCheck);
+   rangeMaskSoftenRow.add(this.rangeMaskBoostHelpButton);
+   rangeMaskSoftenRow.addStretch();
 
    var diagnosticsHeaderRow = new HorizontalSizer;
    diagnosticsHeaderRow.spacing = 4;
@@ -4743,6 +6285,7 @@ constructor() {
    passViewerHeaderRow.add(this.passViewerLabel);
    passViewerHeaderRow.add(this.refinementPassHelpButton);
    passViewerHeaderRow.addStretch();
+   passViewerHeaderRow.add(this.autoSelectProbeBandCheck);
 
    var previewOutputHeaderRow = new HorizontalSizer;
    previewOutputHeaderRow.spacing = 4;
@@ -4755,9 +6298,15 @@ constructor() {
    this.colorMixerPanel.sizer.margin = 0;
    this.colorMixerPanel.sizer.spacing = 0;
    this.colorMixerPanel.sizer.add(tabsRow);
-   this.colorMixerPanel.sizer.addSpacing(4);
-   this.colorMixerPanel.sizer.add(this.bandSectionLabel);
-    this.colorMixerPanel.sizer.add(this.bandControlsHost, 100);
+   this.colorMixerPanel.sizer.addSpacing(1);
+   var bandSectionRow = new HorizontalSizer;
+   bandSectionRow.spacing = 0;
+   bandSectionRow.addSpacing(6);
+   bandSectionRow.add(this.bandSectionLabel);
+   bandSectionRow.addStretch();
+   this.colorMixerPanel.sizer.add(bandSectionRow);
+   this.colorMixerPanel.sizer.add(this.bandControlsHost);
+   this.colorMixerPanel.sizer.addStretch();
    this.colorMixerPanel.visible = true;
 
    this.selectedBandPanel = new Control(this);
@@ -4765,11 +6314,10 @@ constructor() {
    this.selectedBandPanel.sizer = new VerticalSizer;
    this.selectedBandPanel.sizer.margin = 0;
    this.selectedBandPanel.sizer.spacing = 3;
-   this.selectedBandPanel.sizer.add(selectedBandHeaderRow);
    this.selectedBandPanel.sizer.add(selectedBandRow);
    this.selectedBandPanel.sizer.add(selectedBandControlsRow);
+   this.selectedBandPanel.sizer.add(selectedBandMaskOptionsRow);
    this.selectedBandPanel.sizer.add(this.maskSoftenStatusLabel);
-   this.selectedBandPanel.sizer.add(this.selectedBandHelpLabel);
    this.selectedBandPanel.sizer.add(selectedBandVizRow, 100);
    this.selectedBandPanel.visible = true;
 
@@ -4778,26 +6326,31 @@ constructor() {
    this.rangeMaskPanel.sizer = new VerticalSizer;
    this.rangeMaskPanel.sizer.margin = 0;
    this.rangeMaskPanel.sizer.spacing = 2;
-   this.rangeMaskPanel.sizer.add(rangeMaskHeaderRow);
-   this.rangeMaskPanel.sizer.add(this.rangeMaskEnabledCheck);
+   this.rangeMaskPanel.sizer.add(rangeMaskEnableRow);
    this.rangeMaskPanel.sizer.add(rangeMaskPresetRow);
    this.rangeMaskPanel.sizer.add(this.rangeMaskLowControl);
    this.rangeMaskPanel.sizer.add(this.rangeMaskHighControl);
    this.rangeMaskPanel.sizer.add(this.rangeMaskFeatherControl);
+   this.rangeMaskPanel.sizer.add(rangeMaskSoftenRow);
+   this.rangeMaskPanel.sizer.add(this.rangeMaskHistogramHintLabel);
    this.rangeMaskPanel.sizer.add(this.rangeMaskStatusLabel);
    this.rangeMaskPanel.visible = true;
 
    var diagnosticsMetaRow = new HorizontalSizer;
    diagnosticsMetaRow.spacing = 8;
-   diagnosticsMetaRow.add(this.probeReadoutLabel, 100);
-   diagnosticsMetaRow.add(this.autoSelectProbeBandCheck);
+   diagnosticsMetaRow.addStretch();
 
    var histogramPanel = new Control(this);
    acmSetThemePanel(histogramPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.panel);
    histogramPanel.sizer = new VerticalSizer;
    histogramPanel.sizer.margin = 0;
-   histogramPanel.sizer.spacing = 2;
-   histogramPanel.sizer.add(this.histogramLabel);
+   histogramPanel.sizer.spacing = 0;
+   var histogramTitleRow = new HorizontalSizer;
+   histogramTitleRow.spacing = 4;
+   histogramTitleRow.add(this.histogramLabel);
+   histogramTitleRow.add(this.histogramSubtitleLabel);
+   histogramTitleRow.addStretch();
+   histogramPanel.sizer.add(histogramTitleRow);
    histogramPanel.sizer.add(this.histogramControl, 100);
    histogramPanel.sizer.add(this.histogramRampControl);
 
@@ -4806,14 +6359,32 @@ constructor() {
    polarPanel.sizer = new VerticalSizer;
    polarPanel.sizer.margin = 0;
    polarPanel.sizer.spacing = 2;
-   polarPanel.sizer.add(this.polarLabel);
-   polarPanel.sizer.add(this.polarControl, 100);
+   var plotInfoWidth = ACM_HOST_IS_WINDOWS ? 210 : 162;
+   this.polarInfoLabel.setFixedWidth(plotInfoWidth);
+   this.polarInfoLabel.setFixedHeight(ACM_HOST_IS_WINDOWS ? 166 : 134);
+   this.plotInfoLabel.setFixedWidth(plotInfoWidth);
+   var polarTitleRow = new HorizontalSizer;
+   polarTitleRow.spacing = 4;
+   polarTitleRow.add(this.polarLabel);
+   polarTitleRow.addStretch();
+   polarTitleRow.add(this.plotInfoLabel);
+   polarPanel.sizer.add(polarTitleRow);
+   var polarBodyRow = new HorizontalSizer;
+   polarBodyRow.spacing = 4;
+   polarBodyRow.add(this.polarControl, 100);
+   var plotInfoBodySizer = new VerticalSizer;
+   plotInfoBodySizer.margin = 0;
+   plotInfoBodySizer.spacing = 0;
+   plotInfoBodySizer.addSpacing(4);
+   plotInfoBodySizer.add(this.polarInfoLabel, 100);
+   polarBodyRow.add(plotInfoBodySizer);
+   polarPanel.sizer.add(polarBodyRow, 100);
 
    var passViewerPanel = new Control(this);
-   acmSetThemePanel(passViewerPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.panel);
+   acmSetThemePanel(passViewerPanel, ACM_GRAY_UI_THEME.panel, 0xffe6e6e6);
    this.passViewerPanel = passViewerPanel;
    passViewerPanel.sizer = new VerticalSizer;
-   passViewerPanel.sizer.margin = 0;
+   passViewerPanel.sizer.margin = 4;
    passViewerPanel.sizer.spacing = 2;
    passViewerPanel.sizer.add(passViewerHeaderRow);
    passViewerPanel.sizer.add(this.refinementPassHelpBox);
@@ -4822,18 +6393,15 @@ constructor() {
 
    var diagnosticsPlotsRow = new HorizontalSizer;
    diagnosticsPlotsRow.spacing = 8;
-   diagnosticsPlotsRow.add(histogramPanel, 40);
-   diagnosticsPlotsRow.add(polarPanel, 29);
-   diagnosticsPlotsRow.add(passViewerPanel, 31);
+   diagnosticsPlotsRow.add(histogramPanel, ACM_HOST_IS_WINDOWS ? 34 : 36);
+   diagnosticsPlotsRow.add(polarPanel, ACM_HOST_IS_WINDOWS ? 52 : 36);
+   diagnosticsPlotsRow.add(passViewerPanel, ACM_HOST_IS_WINDOWS ? 14 : 28);
 
    this.diagnosticsPanel = new Control(this);
    acmSetThemePanel(this.diagnosticsPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.panel);
    this.diagnosticsPanel.sizer = new VerticalSizer;
    this.diagnosticsPanel.sizer.margin = 0;
    this.diagnosticsPanel.sizer.spacing = 2;
-   this.diagnosticsPanel.sizer.add(diagnosticsHeaderRow);
-   this.diagnosticsPanel.sizer.add(this.diagnosticsHelpLabel);
-   this.diagnosticsPanel.sizer.add(diagnosticsMetaRow);
    this.diagnosticsPanel.sizer.add(diagnosticsPlotsRow);
    this.diagnosticsPanel.visible = true;
    this.refinementPassHelpButton.acmDialogRef = this;
@@ -4934,6 +6502,7 @@ constructor() {
    acmApplyLightText(colorMixerTitleLabel);
    var colorMixerTitleHelpRow = new HorizontalSizer;
    colorMixerTitleHelpRow.spacing = 4;
+   colorMixerTitleHelpRow.addSpacing(8);
    colorMixerTitleHelpRow.add(colorMixerTitleLabel);
    colorMixerTitleHelpRow.add(this.colorMixerHelpButton);
    colorMixerTitleHelpRow.addStretch();
@@ -4980,9 +6549,8 @@ constructor() {
    mainContentRow.add(this.leftPanel, 24);
    mainContentRow.add(this.rightPanel, 76);
 
-   var globalSettingsGroup = new GroupBox(this);
+   var globalSettingsGroup = new Control(this);
    acmSetThemePanel(globalSettingsGroup, ACM_GRAY_UI_THEME.header, ACM_GRAY_UI_THEME.line);
-   globalSettingsGroup.title = "";
    globalSettingsGroup.sizer = new VerticalSizer;
    globalSettingsGroup.sizer.margin = 8;
    globalSettingsGroup.sizer.spacing = 0;
@@ -4998,6 +6566,33 @@ constructor() {
    this.refreshFromState();
    if (ACM_LAST_RECIPE_PATH)
       this.loadRecipePath(ACM_LAST_RECIPE_PATH);
+
+   acmParkHiddenControl(this.passSectionLabel);
+   acmParkHiddenControl(this.passSummaryLabel);
+   acmParkHiddenControl(this.passCountLabel);
+   acmParkHiddenControl(this.toolDiagnosticsButton);
+   acmParkHiddenControl(this.toolPreviewOutputButton);
+   acmParkHiddenControl(this.previewSectionLabel);
+   acmParkHiddenControl(this.previewHelpLabel);
+   acmParkHiddenControl(this.diagnosticsHelpLabel);
+   acmParkHiddenControl(this.diagnosticsSectionLabel);
+   acmParkHiddenControl(this.diagnosticsHelpButton);
+   acmParkHiddenControl(this.probeReadoutLabel);
+   acmParkHiddenControl(this.selectedBandSectionLabel);
+   acmParkHiddenControl(this.rangeMaskSectionLabel);
+   acmParkHiddenControl(this.rangeMaskSoftenStatusLabel);
+   acmParkHiddenControl(this.histogramRampLabel);
+   acmParkHiddenControl(this.polarSubtitleLabel);
+   acmParkHiddenControl(this.selectedBandHelpLabel);
+   acmParkHiddenControl(this.previewOutputSectionLabel);
+   acmParkHiddenControl(this.helpSectionLabel);
+   this.selectedBandSectionLabel = null;
+   this.rangeMaskSectionLabel = null;
+   this.rangeMaskSoftenStatusLabel = null;
+   this.histogramRampLabel = null;
+   this.polarSubtitleLabel = null;
+   this.diagnosticsSectionLabel = null;
+   this.diagnosticsHelpButton = null;
 
    this.adjustToContents();
    acmConfigureResponsiveDialogBounds(this);
@@ -5225,13 +6820,18 @@ AstroColorMixerPOC8Dialog.prototype.refreshAvailableTargets = function(reloadCur
       this.updateActiveStatus();
       if (reloadCurrent) {
          this.previewSource = null;
+         this.previewLuminanceValues = null;
+         this.previewSourceHsl = null;
          this.previewOriginalRgb = null;
          this.previewAdjustedRgb = null;
+         this.previewInfluenceStats = null;
          this.previewBitmapOriginal = null;
          this.previewBitmapAdjusted = null;
+         this.previewBitmapDifference = null;
          this.previewBitmapBandMask = null;
          this.previewBitmapRangeMask = null;
          this.previewBitmapCombinedMask = null;
+         this.previewBitmapStarMask = null;
          this.previewBitmapLastPass = null;
          this.probeData = null;
          this.polarSamples = [];
@@ -5291,24 +6891,52 @@ AstroColorMixerPOC8Dialog.prototype.handleTargetSelectionChange = function(index
    this.switchTargetImage(target.viewId);
 };
 
+AstroColorMixerPOC8Dialog.prototype.warnIfTargetAppearsLinear = function() {
+   if (!this.previewSource || !this.targetViewId)
+      return;
+
+   if (this.linearWarningViewIds[this.targetViewId])
+      return;
+
+   var analysis = acmComputeStretchAnalysis(this.previewSource.rgb, this.previewSource.width, this.previewSource.height);
+   if (!analysis || !analysis.likelyLinear)
+      return;
+
+   this.linearWarningViewIds[this.targetViewId] = true;
+   this.setOutputFeedback("Target image may be linear or only weakly stretched. Astro Color Mixer is intended for nonlinear RGB finishing.");
+   showMessage(
+      "This image appears to be linear or only weakly stretched.\n\n" +
+      "Astro Color Mixer is intended for nonlinear RGB images after calibration, integration, background correction, color calibration, and stretch. On linear data, the sliders may appear to do little or the preview may be misleading.\n\n" +
+      "You can continue if this is intentional.",
+      "Astro Color Mixer - Linear Image Check",
+      StdIcon_Warning
+   );
+};
+
 AstroColorMixerPOC8Dialog.prototype.loadTargetByViewId = function(viewId, resetZoom, feedbackText) {
    var target = acmReadRgbImageForViewId(viewId);
    var preview = acmDownsampleRgbNearest(target.rgb, target.width, target.height, this.previewCacheMaxEdge);
    this.targetViewId = target.viewId;
    this.sourceView = { viewId: target.viewId, width: target.width, height: target.height };
    this.previewSource = preview;
+   this.previewLuminanceValues = acmComputeLuminanceValues(preview.rgb, preview.width, preview.height);
+   this.previewSourceHsl = null;
    this.previewOriginalRgb = preview.rgb;
    this.previewAdjustedRgb = null;
+   this.previewInfluenceStats = null;
    this.previewBandMaskRgb = null;
    this.previewRangeMaskRgb = null;
    this.previewCombinedMaskRgb = null;
+   this.previewStarMaskRgb = null;
    this.previewLastPassRgb = null;
    this.previewBitmapOriginal = acmRenderBitmapFromRgb(preview.width, preview.height, preview.rgb);
    this.previewBitmapAdjusted = null;
+   this.previewBitmapDifference = null;
    this.previewBitmapLastPass = null;
    this.previewBitmapBandMask = null;
    this.previewBitmapRangeMask = null;
    this.previewBitmapCombinedMask = null;
+   this.previewBitmapStarMask = null;
    this.previewWidth = preview.width;
    this.previewHeight = preview.height;
    this.previewDetailCache = null;
@@ -5332,6 +6960,7 @@ AstroColorMixerPOC8Dialog.prototype.loadTargetByViewId = function(viewId, resetZ
    this.previewHost.update();
    if (feedbackText)
       this.setOutputFeedback(feedbackText);
+   this.warnIfTargetAppearsLinear();
 };
 
 AstroColorMixerPOC8Dialog.prototype.switchTargetImage = function(viewId) {
@@ -5386,13 +7015,13 @@ AstroColorMixerPOC8Dialog.prototype.refreshPassViewer = function() {
    this.passViewerRows = [];
    var self = this;
    var passRowFont = new Font;
-   passRowFont.pixelSize = 13;
+   passRowFont.pixelSize = ACM_HOST_IS_WINDOWS ? 14 : 13;
    for (var i = 0; i < this.editorState.passes.length; ++i) {
       var pass = this.editorState.passes[i];
       var rowBar = new HorizontalSizer;
       rowBar.spacing = 2;
       var rowSelect = new RadioButton(this.passViewerBody);
-      rowSelect.text = (pass.enabled !== false ? "✓ " : "□ ") + pass.name + " · " + acmSummarizePass(pass) + " · " + acmSummarizePassMaskControls(pass);
+      rowSelect.text = acmFormatPassViewerRowText(pass);
       rowSelect.toolTip = rowSelect.text;
       rowSelect.font = passRowFont;
       rowSelect.foregroundColor = 0xff161616;
@@ -5420,8 +7049,93 @@ AstroColorMixerPOC8Dialog.prototype.refreshPassViewer = function() {
          rowBar.addSpacing(3);
       }
       this.passViewerBody.sizer.add(rowBar);
+      this.passViewerRows.push({
+         passId: pass.id,
+         select: rowSelect
+      });
    }
    this.updatePassViewerScrollBars();
+};
+
+AstroColorMixerPOC8Dialog.prototype.updatePassViewerSummaries = function() {
+   if (!(this.passViewerRows instanceof Array))
+      return;
+   for (var rowIndex = 0; rowIndex < this.passViewerRows.length; ++rowIndex) {
+      var row = this.passViewerRows[rowIndex];
+      if (!row || !row.select)
+         continue;
+      var pass = null;
+      for (var passIndex = 0; passIndex < this.editorState.passes.length; ++passIndex) {
+         if (this.editorState.passes[passIndex].id === row.passId) {
+            pass = this.editorState.passes[passIndex];
+            break;
+         }
+      }
+      if (!pass)
+         continue;
+      var text = acmFormatPassViewerRowText(pass);
+      row.select.text = text;
+      row.select.toolTip = text;
+      row.select.checked = pass.id === this.editorState.activePassId;
+   }
+   if (this.passViewerBody)
+      this.passViewerBody.update();
+};
+
+AstroColorMixerPOC8Dialog.prototype.populateMaskPreviewCache = function(cache, sourceRgb, width, height) {
+   if (!cache || !sourceRgb || !width || !height)
+      return;
+   var activePass = this.getActivePassState();
+   var maskData = acmComputePreviewMaskData(sourceRgb, width, height, activePass, this.editorState.imageType, this.editorState.protectionControls);
+   var bandMaskValues = maskData.bandMaskValues;
+   var rangeMaskValues = maskData.rangeMaskValues;
+   var combinedMaskValues = maskData.combinedMaskValues;
+   var starMaskValues = maskData.starMaskValues;
+   if (this.maskBoostEnabled) {
+      bandMaskValues = acmBoostMaskValues(bandMaskValues);
+      starMaskValues = acmBoostMaskValues(starMaskValues);
+   }
+   cache.bandMaskRgb = new Float32Array(width * height * 3);
+   cache.rangeMaskRgb = new Float32Array(width * height * 3);
+   cache.combinedMaskRgb = new Float32Array(width * height * 3);
+   cache.starMaskRgb = new Float32Array(width * height * 3);
+   for (var i = 0; i < bandMaskValues.length; ++i) {
+      var base = i * 3;
+      var bv = bandMaskValues[i], rv = rangeMaskValues[i], cv = combinedMaskValues[i], sv = starMaskValues[i];
+      cache.bandMaskRgb[base] = cache.bandMaskRgb[base + 1] = cache.bandMaskRgb[base + 2] = bv;
+      cache.rangeMaskRgb[base] = cache.rangeMaskRgb[base + 1] = cache.rangeMaskRgb[base + 2] = rv;
+      cache.combinedMaskRgb[base] = cache.combinedMaskRgb[base + 1] = cache.combinedMaskRgb[base + 2] = cv;
+      cache.starMaskRgb[base] = cache.starMaskRgb[base + 1] = cache.starMaskRgb[base + 2] = sv;
+   }
+   cache.bandMaskBitmap = acmRenderGrayBitmapFromMask(width, height, bandMaskValues);
+   cache.rangeMaskBitmap = acmRenderGrayBitmapFromMask(width, height, rangeMaskValues);
+   cache.combinedMaskBitmap = acmRenderGrayBitmapFromMask(width, height, combinedMaskValues);
+   cache.starMaskBitmap = acmRenderGrayBitmapFromMask(width, height, starMaskValues);
+};
+
+AstroColorMixerPOC8Dialog.prototype.ensurePreviewMaskCache = function() {
+   if (this.previewBandMaskRgb && this.previewRangeMaskRgb && this.previewCombinedMaskRgb && this.previewStarMaskRgb)
+      return;
+   if (!this.previewSource || !this.previewSource.rgb)
+      return;
+   var cache = {};
+   this.populateMaskPreviewCache(cache, this.previewSource.rgb, this.previewSource.width, this.previewSource.height);
+   this.previewBandMaskRgb = cache.bandMaskRgb;
+   this.previewRangeMaskRgb = cache.rangeMaskRgb;
+   this.previewCombinedMaskRgb = cache.combinedMaskRgb;
+   this.previewStarMaskRgb = cache.starMaskRgb;
+   this.previewBitmapBandMask = cache.bandMaskBitmap;
+   this.previewBitmapRangeMask = cache.rangeMaskBitmap;
+   this.previewBitmapCombinedMask = cache.combinedMaskBitmap;
+   this.previewBitmapStarMask = cache.starMaskBitmap;
+};
+
+AstroColorMixerPOC8Dialog.prototype.ensureDetailPreviewMaskCache = function() {
+   if (!this.previewDetailCache || !this.previewDetailCache.originalRgb)
+      return;
+   if (this.previewDetailCache.bandMaskRgb && this.previewDetailCache.rangeMaskRgb && this.previewDetailCache.combinedMaskRgb && this.previewDetailCache.starMaskRgb)
+      return;
+   this.populateMaskPreviewCache(this.previewDetailCache, this.previewDetailCache.originalRgb, this.previewDetailCache.width, this.previewDetailCache.height);
 };
 
 AstroColorMixerPOC8Dialog.prototype.getCurrentPreviewBitmap = function() {
@@ -5435,12 +7149,22 @@ AstroColorMixerPOC8Dialog.prototype.getCurrentPreviewBitmap = function() {
       switch (this.previewMode) {
       case "original":
          return this.previewDetailCache.originalBitmap || this.previewBitmapOriginal;
+      case "difference":
+         if (!this.previewDetailCache.differenceBitmap && this.previewDetailCache.originalRgb && this.previewDetailCache.adjustedRgb)
+            this.previewDetailCache.differenceBitmap = acmRenderDifferenceBitmapFromRgb(this.previewDetailCache.width, this.previewDetailCache.height, this.previewDetailCache.originalRgb, this.previewDetailCache.adjustedRgb, 5);
+         return this.previewDetailCache.differenceBitmap || this.previewDetailCache.adjustedBitmap || this.previewBitmapAdjusted || this.previewBitmapOriginal;
       case "bandMask":
+         this.ensureDetailPreviewMaskCache();
          return this.previewDetailCache.bandMaskBitmap || this.previewBitmapBandMask || this.previewBitmapOriginal;
       case "rangeMask":
+         this.ensureDetailPreviewMaskCache();
          return this.previewDetailCache.rangeMaskBitmap || this.previewBitmapRangeMask || this.previewBitmapOriginal;
       case "combinedMask":
+         this.ensureDetailPreviewMaskCache();
          return this.previewDetailCache.combinedMaskBitmap || this.previewBitmapCombinedMask || this.previewBitmapOriginal;
+      case "starMask":
+         this.ensureDetailPreviewMaskCache();
+         return this.previewDetailCache.starMaskBitmap || this.previewBitmapStarMask || this.previewBitmapOriginal;
       case "adjusted":
       default:
          return this.previewDetailCache.adjustedBitmap || this.previewBitmapAdjusted || this.previewBitmapOriginal;
@@ -5449,12 +7173,22 @@ AstroColorMixerPOC8Dialog.prototype.getCurrentPreviewBitmap = function() {
    switch (this.previewMode) {
    case "original":
       return this.previewBitmapOriginal;
+   case "difference":
+      if (!this.previewBitmapDifference && this.previewOriginalRgb && this.previewAdjustedRgb)
+         this.previewBitmapDifference = acmRenderDifferenceBitmapFromRgb(this.previewWidth, this.previewHeight, this.previewOriginalRgb, this.previewAdjustedRgb, 5);
+      return this.previewBitmapDifference || this.previewBitmapAdjusted || this.previewBitmapOriginal;
    case "bandMask":
+      this.ensurePreviewMaskCache();
       return this.previewBitmapBandMask || this.previewBitmapOriginal;
    case "rangeMask":
+      this.ensurePreviewMaskCache();
       return this.previewBitmapRangeMask || this.previewBitmapOriginal;
    case "combinedMask":
+      this.ensurePreviewMaskCache();
       return this.previewBitmapCombinedMask || this.previewBitmapOriginal;
+   case "starMask":
+      this.ensurePreviewMaskCache();
+      return this.previewBitmapStarMask || this.previewBitmapOriginal;
    case "adjusted":
    default:
       return this.previewBitmapAdjusted || this.previewBitmapOriginal;
@@ -5750,6 +7484,8 @@ AstroColorMixerPOC8Dialog.prototype.createRangeMaskPassFromPrompt = function(pre
    pass.rangeMask.high = currentPass.rangeMask.high;
    pass.rangeMask.feather = currentPass.rangeMask.feather;
    pass.rangeMask.preset = presetName || "Custom";
+   pass.rangeMask.maskSoftenRadius = acmGetMaskSoftenRadius({ radius: currentPass.rangeMask.maskSoftenRadius });
+   pass.rangeMask.boostEnabled = acmRangeMaskBoostEnabled(currentPass.rangeMask);
    this.editorState.passes.push(pass);
    this.editorState.activePassId = pass.id;
    this.refreshFromState();
@@ -5830,10 +7566,14 @@ AstroColorMixerPOC8Dialog.prototype.refreshActiveSource = function() {
    if (!(this.availableTargets instanceof Array) || !this.availableTargets.length) {
       this.updateActiveStatus();
       this.previewSource = null;
+      this.previewLuminanceValues = null;
+      this.previewSourceHsl = null;
       this.previewOriginalRgb = null;
       this.previewAdjustedRgb = null;
+      this.previewInfluenceStats = null;
       this.previewBitmapOriginal = null;
       this.previewBitmapAdjusted = null;
+      this.previewBitmapDifference = null;
       this.previewHost.update();
       this.previewStatusLabel.text = "Preview failed: no target RGB image";
       return;
@@ -5868,8 +7608,16 @@ AstroColorMixerPOC8Dialog.prototype.setActiveTab = function(tabKey) {
 };
 
 AstroColorMixerPOC8Dialog.prototype.refreshToolTabButtons = function() {
-   this.toolSelectedBandButton.enabled = this.activeToolPanel !== "selectedBand";
-   this.toolRangeMaskButton.enabled = this.activeToolPanel !== "rangeMask";
+   var selectedActive = this.activeToolPanel === "selectedBand";
+   var rangeActive = this.activeToolPanel === "rangeMask";
+   this.toolSelectedBandButton.enabled = true;
+   this.toolSelectedBandButton.backgroundColor = selectedActive ? 0xffffc43a : 0xffeeeeee;
+   this.toolSelectedBandButton.foregroundColor = 0xff101010;
+   this.toolSelectedBandButton.textColor = 0xff101010;
+   this.toolRangeMaskButton.enabled = true;
+   this.toolRangeMaskButton.backgroundColor = rangeActive ? 0xffffc43a : 0xffeeeeee;
+   this.toolRangeMaskButton.foregroundColor = 0xff101010;
+   this.toolRangeMaskButton.textColor = 0xff101010;
 };
 
 AstroColorMixerPOC8Dialog.prototype.setActiveToolPanel = function(panelKey) {
@@ -5942,8 +7690,10 @@ AstroColorMixerPOC8Dialog.prototype.refreshSelectedBandControls = function() {
    if (this.maskSoftenLabel)
       this.maskSoftenLabel.enabled = this.editorState.imageType === "starless" && !neutralActive;
    if (this.maskSoftenStatusLabel)
-      acmSetThemeLabel(this.maskSoftenStatusLabel, acmMaskSoftenLabelForRadius(selectedBand.maskSoftenRadius, this.editorState.imageType), ACM_GRAY_UI_THEME.muted, false);
+      acmSetThemeLabel(this.maskSoftenStatusLabel, acmSummarizeBandMaskStatus(selectedBand, this.editorState.imageType, this.maskBoostEnabled), ACM_GRAY_UI_THEME.muted, this.maskBoostEnabled === true);
    this.refreshSelectedBandReadoutAndVisualization();
+   if (this.refreshPolarInfoReadout)
+      this.refreshPolarInfoReadout();
 };
 
 AstroColorMixerPOC8Dialog.prototype.applyRangeMaskPreset = function(presetName) {
@@ -5985,6 +7735,8 @@ AstroColorMixerPOC8Dialog.prototype.refreshRangeMaskControls = function() {
    if (rangeMask.low > rangeMask.high)
       rangeMask.high = rangeMask.low;
    rangeMask.feather = acmClamp(rangeMask.feather, 0, 0.5);
+   rangeMask.maskSoftenRadius = acmGetMaskSoftenRadius({ radius: rangeMask.maskSoftenRadius });
+   rangeMask.boostEnabled = acmRangeMaskBoostEnabled(rangeMask);
 
    this.rangeMaskEnabledCheck.checked = rangeMask.enabled;
    var presetIndex = 0;
@@ -5998,19 +7750,38 @@ AstroColorMixerPOC8Dialog.prototype.refreshRangeMaskControls = function() {
    this.rangeMaskLowControl.setValue(rangeMask.low);
    this.rangeMaskHighControl.setValue(rangeMask.high);
    this.rangeMaskFeatherControl.setValue(rangeMask.feather);
-   acmSetThemeLabel(this.rangeMaskStatusLabel, acmSummarizeRangeMaskStatus(rangeMask), ACM_GRAY_UI_THEME.muted, false);
+   if (this.rangeMaskSoftenCombo) {
+      this.rangeMaskSoftenCombo.currentItem = acmMaskSoftenDropdownIndexForRadius(rangeMask.maskSoftenRadius);
+      this.rangeMaskSoftenCombo.enabled = this.editorState.imageType === "starless";
+   }
+   if (this.rangeMaskSoftenLabel)
+      this.rangeMaskSoftenLabel.enabled = this.editorState.imageType === "starless";
+   if (this.rangeMaskBoostCheck)
+      this.rangeMaskBoostCheck.checked = acmRangeMaskBoostEnabled(rangeMask);
+   acmSetThemeLabel(this.rangeMaskStatusLabel, acmSummarizeRangeMaskStatus(rangeMask), ACM_GRAY_UI_THEME.muted, rangeMask.enabled === true || acmRangeMaskBoostEnabled(rangeMask));
+   if (this.rangeMaskSoftenStatusLabel)
+      this.rangeMaskSoftenStatusLabel.text = "";
+   if (this.refreshPolarInfoReadout)
+      this.refreshPolarInfoReadout();
 };
 
 AstroColorMixerPOC8Dialog.prototype.refreshPreviewModeButtons = function() {
+   var rangeMaskEnabled = this.getActivePassState().rangeMask.enabled;
+   var starMaskAvailable = this.editorState.imageType !== "starless";
    var items = [
       { id: "adjusted", label: "Adjusted" },
       { id: "original", label: "Original" },
-      { id: "bandMask", label: "Current Band Mask" },
-      { id: "combinedMask", label: "Combined Mask" }
+      { id: "bandMask", label: "Current Band Mask" }
    ];
-   if (this.getActivePassState().rangeMask.enabled)
-      items.splice(3, 0, { id: "rangeMask", label: "Range Mask" });
-   if (this.previewMode === "rangeMask" && !this.getActivePassState().rangeMask.enabled)
+   if (rangeMaskEnabled)
+      items.push({ id: "rangeMask", label: "Range Mask" });
+   if (starMaskAvailable)
+      items.push({ id: "starMask", label: "Star Protection Mask" });
+   items.push({ id: "combinedMask", label: "Combined Mask" });
+   items.push({ id: "difference", label: "Difference" });
+   if (this.previewMode === "rangeMask" && !rangeMaskEnabled)
+      this.previewMode = "adjusted";
+   if (this.previewMode === "starMask" && !starMaskAvailable)
       this.previewMode = "adjusted";
    while (this.previewModeCombo.numberOfItems > 0)
       this.previewModeCombo.removeItem(0);
@@ -6114,6 +7885,7 @@ AstroColorMixerPOC8Dialog.prototype.buildLastPassPreviewReference = function() {
       imageType: this.editorState.imageType,
       sensitivity: this.editorState.sensitivity,
       globalStrength: this.editorState.globalStrength,
+      protectionControls: this.editorState.protectionControls,
       activePassId: this.editorState.passes[previousIndex].id,
       passes: this.editorState.passes.slice(0, previousIndex + 1)
    };
@@ -6140,6 +7912,19 @@ AstroColorMixerPOC8Dialog.prototype.getHoldCompareReference = function() {
          rgb: this.previewLastPassRgb,
          bitmap: this.previewBitmapLastPass
       };
+   if (this.compareMode === "lastPass") {
+      var forcedLastPass = this.buildLastPassPreviewReference();
+      if (forcedLastPass) {
+         this.previewLastPassRgb = forcedLastPass.rgb;
+         this.previewBitmapLastPass = forcedLastPass.bitmap;
+         return this.buildDetailCompareReference("lastPass") || {
+            mode: "lastPass",
+            label: "Last Pass",
+            rgb: this.previewLastPassRgb,
+            bitmap: this.previewBitmapLastPass
+         };
+      }
+   }
    if (this.previewBitmapLastPass && this.previewLastPassRgb)
       return this.buildDetailCompareReference("lastPass") || {
          mode: "lastPass",
@@ -6147,6 +7932,19 @@ AstroColorMixerPOC8Dialog.prototype.getHoldCompareReference = function() {
          rgb: this.previewLastPassRgb,
          bitmap: this.previewBitmapLastPass
       };
+   if (this.compareMode === "auto") {
+      var autoLastPass = this.buildLastPassPreviewReference();
+      if (autoLastPass) {
+         this.previewLastPassRgb = autoLastPass.rgb;
+         this.previewBitmapLastPass = autoLastPass.bitmap;
+         return this.buildDetailCompareReference("lastPass") || {
+            mode: "lastPass",
+            label: "Last Pass",
+            rgb: this.previewLastPassRgb,
+            bitmap: this.previewBitmapLastPass
+         };
+      }
+   }
    return this.buildDetailCompareReference("original") || {
       mode: "original",
       label: "Original",
@@ -6158,15 +7956,25 @@ AstroColorMixerPOC8Dialog.prototype.getHoldCompareReference = function() {
 AstroColorMixerPOC8Dialog.prototype.refreshOutputButtons = function() {
    if (this.currentPreviewModeIsMask()) {
       if (this.previewMode === "rangeMask")
-         this.applyButton.text = "Create Range Mask";
+         this.applyButton.text = "Save Range Mask";
       else if (this.previewMode === "combinedMask")
-         this.applyButton.text = "Create Combined Mask";
+         this.applyButton.text = "Save Combined";
+      else if (this.previewMode === "starMask")
+         this.applyButton.text = "Save Star Mask";
       else
-         this.applyButton.text = "Create Band Mask";
+         this.applyButton.text = "Save Band Mask";
+      this.maskBoostSyncing = true;
+      if (this.bandMaskBoostCheck)
+         this.bandMaskBoostCheck.checked = this.maskBoostEnabled;
+      this.maskBoostSyncing = false;
       if (this.applyToTargetButton)
          this.applyToTargetButton.enabled = false;
    } else {
-      this.applyButton.text = "Create New Image";
+      this.applyButton.text = "Create Image";
+      this.maskBoostSyncing = true;
+      if (this.bandMaskBoostCheck)
+         this.bandMaskBoostCheck.checked = this.maskBoostEnabled;
+      this.maskBoostSyncing = false;
       if (this.applyToTargetButton)
          this.applyToTargetButton.enabled = !!(this.activeStatus && this.activeStatus.ok);
    }
@@ -6180,20 +7988,62 @@ AstroColorMixerPOC8Dialog.prototype.handlePrimaryOutputAction = function() {
 };
 
 AstroColorMixerPOC8Dialog.prototype.currentPreviewModeIsMask = function() {
-   return this.previewMode === "bandMask" || this.previewMode === "rangeMask" || this.previewMode === "combinedMask";
+   return this.previewMode === "bandMask" || this.previewMode === "rangeMask" || this.previewMode === "combinedMask" || this.previewMode === "starMask";
+};
+
+AstroColorMixerPOC8Dialog.prototype.invalidateMaskPreviewCaches = function() {
+   this.previewBandMaskRgb = null;
+   this.previewRangeMaskRgb = null;
+   this.previewCombinedMaskRgb = null;
+   this.previewStarMaskRgb = null;
+   this.previewBitmapBandMask = null;
+   this.previewBitmapRangeMask = null;
+   this.previewBitmapCombinedMask = null;
+   this.previewBitmapStarMask = null;
+   if (this.previewDetailCache) {
+      this.previewDetailCache.bandMaskRgb = null;
+      this.previewDetailCache.rangeMaskRgb = null;
+      this.previewDetailCache.combinedMaskRgb = null;
+      this.previewDetailCache.starMaskRgb = null;
+      this.previewDetailCache.bandMaskBitmap = null;
+      this.previewDetailCache.rangeMaskBitmap = null;
+      this.previewDetailCache.combinedMaskBitmap = null;
+      this.previewDetailCache.starMaskBitmap = null;
+   }
+   if (this.previewHost)
+      this.previewHost.update();
 };
 
 AstroColorMixerPOC8Dialog.prototype.markPreviewStale = function() {
    this.previewIsStale = true;
    this.previewDetailCache = null;
    ++this.previewDetailStamp;
+   this.invalidatePreviewChangeStats();
    this.syncPendingChangesIndicator();
    this.refreshPassSummary();
-   this.refreshPassViewer();
+   this.updatePassViewerSummaries();
    this.previewStatusLabel.text = this.previewMode === "original" ? "Preview: Original · Adjusted stale" : "Preview stale — click Update Preview";
-   this.refreshDiagnosticsData();
+   this.refreshPolarInfoReadout();
    if (this.autoPreviewCheck.checked)
       this.requestPreviewUpdate();
+};
+
+AstroColorMixerPOC8Dialog.prototype.markPreviewStaleWithoutAutoPreview = function(statusText) {
+   this.previewIsStale = true;
+   this.invalidatePreviewChangeStats();
+   this.syncPendingChangesIndicator();
+   this.refreshPassSummary();
+   this.updatePassViewerSummaries();
+   this.previewStatusLabel.text = statusText || "Adjusted preview stale";
+   this.refreshPolarInfoReadout();
+};
+
+AstroColorMixerPOC8Dialog.prototype.markPreviewStaleForMaskControl = function(maskLabel) {
+   if (this.currentPreviewModeIsMask()) {
+      this.markPreviewStaleWithoutAutoPreview("Preview: " + (maskLabel || "Mask") + " current · Adjusted stale");
+      return;
+   }
+   this.markPreviewStale();
 };
 
 AstroColorMixerPOC8Dialog.prototype.requestPreviewUpdate = function(immediate) {
@@ -6223,10 +8073,14 @@ AstroColorMixerPOC8Dialog.prototype.refreshPreviewDisplay = function() {
          this.previewStatusLabel.text = "Preview: Fast fallback — detail region too large";
       else if (this.previewIsStale)
          this.previewStatusLabel.text = "Preview: Detail Crop pending";
+      else if (this.previewMode === "difference")
+         this.previewStatusLabel.text = "Preview: Difference · 5x display gain · Detail Crop";
       else
          this.previewStatusLabel.text = this.previewMode === "original" ? "Preview: Original · Detail Crop" : "Preview: Detail Crop";
    } else if (this.previewMode === "original")
       this.previewStatusLabel.text = this.previewIsStale ? "Preview: Original · Adjusted stale" : "Preview: Original · Fast";
+   else if (this.previewMode === "difference")
+      this.previewStatusLabel.text = this.previewIsStale ? "Preview stale — click Update Preview" : "Preview: Difference · 5x display gain";
    else
       this.previewStatusLabel.text = this.previewIsStale ? "Preview stale — click Update Preview" : "Preview: Fast";
    this.refreshDiagnosticsData();
@@ -6240,33 +8094,253 @@ AstroColorMixerPOC8Dialog.prototype.getDiagnosticsRgb = function() {
          return this.previewDetailCache.originalRgb;
       if (this.previewMode === "adjusted" && this.previewDetailCache.adjustedRgb)
          return this.previewDetailCache.adjustedRgb;
+      if (this.previewMode === "difference" && this.previewDetailCache.adjustedRgb)
+         return this.previewDetailCache.adjustedRgb;
       if (this.previewMode === "original" && this.previewDetailCache.originalRgb)
          return this.previewDetailCache.originalRgb;
+      if (this.previewMode === "bandMask")
+         this.ensureDetailPreviewMaskCache();
       if (this.previewMode === "bandMask" && this.previewDetailCache.bandMaskRgb)
          return this.previewDetailCache.bandMaskRgb;
+      if (this.previewMode === "rangeMask")
+         this.ensureDetailPreviewMaskCache();
       if (this.previewMode === "rangeMask" && this.previewDetailCache.rangeMaskRgb)
          return this.previewDetailCache.rangeMaskRgb;
+      if (this.previewMode === "combinedMask")
+         this.ensureDetailPreviewMaskCache();
       if (this.previewMode === "combinedMask" && this.previewDetailCache.combinedMaskRgb)
          return this.previewDetailCache.combinedMaskRgb;
+      if (this.previewMode === "starMask")
+         this.ensureDetailPreviewMaskCache();
+      if (this.previewMode === "starMask" && this.previewDetailCache.starMaskRgb)
+         return this.previewDetailCache.starMaskRgb;
    }
    if (this.previewMode === "adjusted" && this.previewAdjustedRgb)
       return this.previewAdjustedRgb;
+   if (this.previewMode === "difference" && this.previewAdjustedRgb)
+      return this.previewAdjustedRgb;
+   if (this.previewMode === "bandMask")
+      this.ensurePreviewMaskCache();
    if (this.previewMode === "bandMask" && this.previewBandMaskRgb)
       return this.previewBandMaskRgb;
+   if (this.previewMode === "rangeMask")
+      this.ensurePreviewMaskCache();
    if (this.previewMode === "rangeMask" && this.previewRangeMaskRgb)
       return this.previewRangeMaskRgb;
+   if (this.previewMode === "combinedMask")
+      this.ensurePreviewMaskCache();
    if (this.previewMode === "combinedMask" && this.previewCombinedMaskRgb)
       return this.previewCombinedMaskRgb;
+   if (this.previewMode === "starMask")
+      this.ensurePreviewMaskCache();
+   if (this.previewMode === "starMask" && this.previewStarMaskRgb)
+      return this.previewStarMaskRgb;
    return this.previewOriginalRgb;
+};
+
+AstroColorMixerPOC8Dialog.prototype.invalidatePreviewChangeStats = function() {
+   ++this.previewChangeStatsStamp;
+   this.previewChangeStats = null;
+   if (this.previewChangeStatsTimer)
+      this.previewChangeStatsTimer.stop();
+};
+
+AstroColorMixerPOC8Dialog.prototype.schedulePreviewChangeStats = function() {
+   if (!this.previewChangeStatsTimer || !this.previewOriginalRgb || !this.previewAdjustedRgb)
+      return;
+   ++this.previewChangeStatsStamp;
+   this.previewChangeStatsPendingStamp = this.previewChangeStatsStamp;
+   this.previewChangeStats = { state: "pending" };
+   this.refreshPolarInfoReadout();
+   this.previewChangeStatsTimer.stop();
+   this.previewChangeStatsTimer.start();
+};
+
+AstroColorMixerPOC8Dialog.prototype.computeDeferredPreviewChangeStats = function() {
+   if (this.previewIsStale || this.previewRenderInProgress)
+      return;
+   if (this.previewChangeStatsPendingStamp !== this.previewChangeStatsStamp)
+      return;
+   var stamp = this.previewChangeStatsPendingStamp;
+   var stats = acmComputePreviewChangeStats(this.previewOriginalRgb, this.previewAdjustedRgb, this.previewWidth, this.previewHeight);
+   if (stamp !== this.previewChangeStatsStamp)
+      return;
+   this.previewChangeStats = stats;
+   this.refreshPolarInfoReadout();
+};
+
+AstroColorMixerPOC8Dialog.prototype.refreshPolarInfoReadout = function() {
+   if (!this.polarInfoLabel || !this.editorState)
+      return;
+   var band = this.getSelectedBand ? this.getSelectedBand() : null;
+   var neutralActive = this.activeTab === ACM_TAB_LUM && this.getHighlightedRowId && this.getHighlightedRowId() === "neutral";
+   var activePass = this.getActivePassState ? this.getActivePassState() : null;
+   var rangeMask = activePass ? activePass.rangeMask : null;
+   this.polarInfoLabel.useRichText = true;
+   this.polarInfoLabel.text = acmFormatPolarInfoHtml(this.probeData, band, rangeMask, neutralActive, this.previewChangeStats);
+   this.polarInfoLabel.update();
+};
+
+AstroColorMixerPOC8Dialog.prototype.refreshHistogramRangeMaskOverlay = function() {
+   var rangeMaskState = this.getActivePassState ? this.getActivePassState().rangeMask : null;
+   if (this.histogramData)
+      this.histogramData.rangeMaskState = rangeMaskState || null;
+   acmSetThemeLabel(
+      this.histogramSubtitleLabel,
+      acmHistogramSubtitleText(!!(rangeMaskState && rangeMaskState.enabled)),
+      ACM_GRAY_UI_THEME.muted,
+      false
+   );
+   acmSetThemeLabel(
+      this.histogramRampLabel,
+      rangeMaskState && rangeMaskState.enabled ? "Gray level ramp · Range Mask markers" : "Gray level ramp 0.0–1.0",
+      ACM_GRAY_UI_THEME.muted,
+      false
+   );
+   if (this.probeData)
+      this.probeReadoutLabel.text = acmFormatProbeDiagnostics(this.probeData, rangeMaskState);
+   else
+      this.probeReadoutLabel.text = acmFormatProbeDiagnostics(null, rangeMaskState);
+   this.refreshPolarInfoReadout();
+   if (this.histogramControl)
+      this.histogramControl.update();
+   if (this.histogramRampControl)
+      this.histogramRampControl.update();
+};
+
+AstroColorMixerPOC8Dialog.prototype.ensurePreviewSourceHsl = function() {
+   if (!this.previewSource || !this.previewSource.rgb)
+      return null;
+   var expectedLength = this.previewSource.width * this.previewSource.height;
+   if (!this.previewSourceHsl || !this.previewSourceHsl.h || this.previewSourceHsl.h.length !== expectedLength)
+      this.previewSourceHsl = acmApplySourceHsl(this.previewSource.rgb, this.previewSource.width, this.previewSource.height);
+   return this.previewSourceHsl;
+};
+
+AstroColorMixerPOC8Dialog.prototype.refreshSelectedBandMaskPreviewIfActive = function() {
+   if (this.previewMode !== "bandMask" && this.previewMode !== "combinedMask")
+      return;
+   var activePass = this.getActivePassState ? this.getActivePassState() : null;
+   if (!activePass)
+      return;
+
+   if (this.previewMode === "combinedMask") {
+      this.invalidateMaskPreviewCaches();
+      this.getCurrentPreviewBitmap();
+      if (this.previewHost)
+         this.previewHost.update();
+      return;
+   }
+
+   if (this.shouldUseDetailCropPreview() && this.previewDetailCache && this.previewDetailCache.originalRgb && !this.previewDetailCache.fallbackToFast) {
+      var detailMask = acmComputeSelectedBandMaskData(
+         this.previewDetailCache.originalRgb,
+         this.previewDetailCache.width,
+         this.previewDetailCache.height,
+         activePass,
+         this.editorState.imageType,
+         "bandMask",
+         this.editorState.protectionControls
+      );
+      if (this.maskBoostEnabled)
+         detailMask = acmBoostMaskValues(detailMask);
+      var detailRgb = new Float32Array(this.previewDetailCache.width * this.previewDetailCache.height * 3);
+      for (var d = 0; d < detailMask.length; ++d) {
+         var detailBase = d * 3;
+         var detailValue = detailMask[d];
+         detailRgb[detailBase] = detailRgb[detailBase + 1] = detailRgb[detailBase + 2] = detailValue;
+      }
+      this.previewDetailCache.bandMaskRgb = detailRgb;
+      this.previewDetailCache.bandMaskBitmap = acmRenderGrayBitmapFromMask(this.previewDetailCache.width, this.previewDetailCache.height, detailMask);
+   } else if (this.previewSource && this.previewSource.rgb) {
+      var sourceHsl = this.ensurePreviewSourceHsl();
+      var bandMask = acmComputeSelectedBandMaskData(
+         this.previewSource.rgb,
+         this.previewSource.width,
+         this.previewSource.height,
+         activePass,
+         this.editorState.imageType,
+         "bandMask",
+         this.editorState.protectionControls,
+         sourceHsl
+      );
+      if (this.maskBoostEnabled)
+         bandMask = acmBoostMaskValues(bandMask);
+      this.previewBandMaskRgb = new Float32Array(this.previewSource.width * this.previewSource.height * 3);
+      for (var i = 0; i < bandMask.length; ++i) {
+         var base = i * 3;
+         var v = bandMask[i];
+         this.previewBandMaskRgb[base] = this.previewBandMaskRgb[base + 1] = this.previewBandMaskRgb[base + 2] = v;
+      }
+      this.previewBitmapBandMask = acmRenderGrayBitmapFromMask(this.previewSource.width, this.previewSource.height, bandMask);
+   }
+
+   if (this.previewHost)
+      this.previewHost.update();
+};
+
+AstroColorMixerPOC8Dialog.prototype.refreshRangeMaskPreviewIfActive = function() {
+   if (this.previewMode !== "rangeMask" && this.previewMode !== "combinedMask")
+      return;
+   var rangeMaskState = this.getActivePassState ? this.getActivePassState().rangeMask : null;
+   if (!rangeMaskState)
+      return;
+
+   if (this.previewMode === "combinedMask") {
+      this.invalidateMaskPreviewCaches();
+      this.getCurrentPreviewBitmap();
+      if (this.previewHost)
+         this.previewHost.update();
+      return;
+   }
+
+   if (this.shouldUseDetailCropPreview() && this.previewDetailCache && this.previewDetailCache.originalRgb && !this.previewDetailCache.fallbackToFast) {
+      var detailLum = acmComputeLuminanceValues(this.previewDetailCache.originalRgb, this.previewDetailCache.width, this.previewDetailCache.height);
+      var detailMask = acmBuildRangeMaskValues(
+         detailLum,
+         this.previewDetailCache.width,
+         this.previewDetailCache.height,
+         rangeMaskState,
+         this.editorState.imageType === "starless" ? { radius: rangeMaskState.maskSoftenRadius } : null
+      );
+      var detailRgb = new Float32Array(this.previewDetailCache.width * this.previewDetailCache.height * 3);
+      for (var d = 0; d < detailMask.length; ++d) {
+         var detailBase = d * 3;
+         var detailValue = detailMask[d];
+         detailRgb[detailBase] = detailRgb[detailBase + 1] = detailRgb[detailBase + 2] = detailValue;
+      }
+      this.previewDetailCache.rangeMaskRgb = detailRgb;
+      this.previewDetailCache.rangeMaskBitmap = acmRenderGrayBitmapFromMask(this.previewDetailCache.width, this.previewDetailCache.height, detailMask);
+   } else if (this.previewSource && this.previewLuminanceValues) {
+      var maskValues = acmBuildRangeMaskValues(
+         this.previewLuminanceValues,
+         this.previewSource.width,
+         this.previewSource.height,
+         rangeMaskState,
+         this.editorState.imageType === "starless" ? { radius: rangeMaskState.maskSoftenRadius } : null
+      );
+      this.previewRangeMaskRgb = new Float32Array(this.previewSource.width * this.previewSource.height * 3);
+      for (var i = 0; i < maskValues.length; ++i) {
+         var base = i * 3;
+         var v = maskValues[i];
+         this.previewRangeMaskRgb[base] = this.previewRangeMaskRgb[base + 1] = this.previewRangeMaskRgb[base + 2] = v;
+      }
+      this.previewBitmapRangeMask = acmRenderGrayBitmapFromMask(this.previewSource.width, this.previewSource.height, maskValues);
+   }
+
+   if (this.previewHost)
+      this.previewHost.update();
 };
 
 AstroColorMixerPOC8Dialog.prototype.refreshDiagnosticsData = function() {
    var rgb = this.getDiagnosticsRgb();
    var metrics = this.getCurrentPreviewMetrics();
    if (!rgb || !metrics.width || !metrics.height) {
+      var emptyRangeMaskState = this.getActivePassState().rangeMask;
       this.histogramData = null;
       this.polarSamples = [];
-      this.probeReadoutLabel.text = "Preview-resolution diagnostics · Probe: none";
+      this.probeReadoutLabel.text = acmFormatProbeDiagnostics(null, emptyRangeMaskState);
+      this.refreshPolarInfoReadout();
       this.histogramControl.update();
       this.polarControl.update();
       if (this.selectedBandViz)
@@ -6275,7 +8349,19 @@ AstroColorMixerPOC8Dialog.prototype.refreshDiagnosticsData = function() {
    }
 
    var rangeMaskState = this.getActivePassState().rangeMask;
-   var histogramRangeMaskState = this.previewMode === "rangeMask" ? rangeMaskState : { enabled: false, low: rangeMaskState.low, high: rangeMaskState.high, feather: rangeMaskState.feather };
+   acmSetThemeLabel(
+      this.histogramSubtitleLabel,
+      acmHistogramSubtitleText(!!(rangeMaskState && rangeMaskState.enabled)),
+      ACM_GRAY_UI_THEME.muted,
+      false
+   );
+   acmSetThemeLabel(
+      this.histogramRampLabel,
+      rangeMaskState && rangeMaskState.enabled ? "Gray level ramp · Range Mask markers" : "Gray level ramp 0.0–1.0",
+      ACM_GRAY_UI_THEME.muted,
+      false
+   );
+   var histogramRangeMaskState = rangeMaskState;
    var probeY = this.probeData ? this.probeData.y709 : null;
    this.histogramData = acmComputeHistogramData(rgb, metrics.width, metrics.height, 256, histogramRangeMaskState, probeY);
    this.polarSamples = acmComputePolarSamplesData(rgb, metrics.width, metrics.height, 1800);
@@ -6290,12 +8376,11 @@ AstroColorMixerPOC8Dialog.prototype.refreshDiagnosticsData = function() {
       this.probeData = acmComputeProbeData(rgb, metrics.width, metrics.height, localX, localY, rangeMaskState);
       this.probeData.sourceX = metrics.sourceX0 + (this.probeData.x / Math.max(1, metrics.width - 1)) * Math.max(1, metrics.sourceWidth - 1);
       this.probeData.sourceY = metrics.sourceY0 + (this.probeData.y / Math.max(1, metrics.height - 1)) * Math.max(1, metrics.sourceHeight - 1);
-      this.probeReadoutLabel.text = this.probeData.suggestedNeutral
-         ? "Preview diagnostics · Px " + Math.round(this.probeData.sourceX) + "," + Math.round(this.probeData.sourceY) + " · L " + this.probeData.y709.toFixed(2) + " · Sat " + this.probeData.s.toFixed(2) + " · Hue unreliable"
-         : "Preview diagnostics · Px " + Math.round(this.probeData.sourceX) + "," + Math.round(this.probeData.sourceY) + " · L " + this.probeData.y709.toFixed(2) + " · Hue " + this.probeData.h.toFixed(0) + "° · Sat " + this.probeData.s.toFixed(2);
+      this.probeReadoutLabel.text = acmFormatProbeDiagnostics(this.probeData, rangeMaskState);
    } else {
-      this.probeReadoutLabel.text = "Preview diagnostics · Probe: none";
+      this.probeReadoutLabel.text = acmFormatProbeDiagnostics(null, rangeMaskState);
    }
+   this.refreshPolarInfoReadout();
 
    if (this.selectedBandViz)
       this.selectedBandViz.update();
@@ -6321,6 +8406,7 @@ AstroColorMixerPOC8Dialog.prototype.setProbeFromPreviewClick = function(x, y) {
       this.getActivePassState().selectedBandId = this.probeData.nearestBand.id;
       this.setHighlightedRowId(this.probeData.nearestBand.id);
       this.refreshSelectedBandControls();
+      this.refreshSelectedBandMaskPreviewIfActive();
    }
    this.refreshDiagnosticsData();
    this.previewHost.update();
@@ -6363,19 +8449,6 @@ AstroColorMixerPOC8Dialog.prototype.renderDetailPreviewForCurrentViewport = func
    var crop = acmReadRgbCropFromView(targetInfo.view, cropRequest);
    var recipe = acmBuildRecipeFromEditorState(this.editorState);
    var result = applyAstroColorMixerPasses(crop.rgb, crop.width, crop.height, recipe);
-   var activePass = this.getActivePassState();
-   var bandMaskValues = acmComputeSelectedBandMaskData(crop.rgb, crop.width, crop.height, activePass, this.editorState.imageType, "bandMask");
-   var rangeMaskValues = acmComputeSelectedBandMaskData(crop.rgb, crop.width, crop.height, activePass, this.editorState.imageType, "rangeMask");
-   var combinedMaskValues = acmComputeSelectedBandMaskData(crop.rgb, crop.width, crop.height, activePass, this.editorState.imageType, "combinedMask");
-   var bandMaskRgb = new Float32Array(crop.width * crop.height * 3);
-   var rangeMaskRgb = new Float32Array(crop.width * crop.height * 3);
-   var combinedMaskRgb = new Float32Array(crop.width * crop.height * 3);
-   for (var i = 0; i < bandMaskValues.length; ++i) {
-      var base = i * 3;
-      bandMaskRgb[base] = bandMaskRgb[base + 1] = bandMaskRgb[base + 2] = bandMaskValues[i];
-      rangeMaskRgb[base] = rangeMaskRgb[base + 1] = rangeMaskRgb[base + 2] = rangeMaskValues[i];
-      combinedMaskRgb[base] = combinedMaskRgb[base + 1] = combinedMaskRgb[base + 2] = combinedMaskValues[i];
-   }
 
    this.previewDetailCache = {
       key: cropRequest.key,
@@ -6389,14 +8462,17 @@ AstroColorMixerPOC8Dialog.prototype.renderDetailPreviewForCurrentViewport = func
       fullHeight: this.sourceView.height,
       originalRgb: crop.rgb,
       adjustedRgb: result.rgb,
-      bandMaskRgb: bandMaskRgb,
-      rangeMaskRgb: rangeMaskRgb,
-      combinedMaskRgb: combinedMaskRgb,
+      bandMaskRgb: null,
+      rangeMaskRgb: null,
+      combinedMaskRgb: null,
+      starMaskRgb: null,
       originalBitmap: acmRenderBitmapFromRgb(crop.width, crop.height, crop.rgb),
       adjustedBitmap: acmRenderBitmapFromRgb(crop.width, crop.height, result.rgb),
-      bandMaskBitmap: acmRenderGrayBitmapFromMask(crop.width, crop.height, bandMaskValues),
-      rangeMaskBitmap: acmRenderGrayBitmapFromMask(crop.width, crop.height, rangeMaskValues),
-      combinedMaskBitmap: acmRenderGrayBitmapFromMask(crop.width, crop.height, combinedMaskValues)
+      differenceBitmap: null,
+      bandMaskBitmap: null,
+      rangeMaskBitmap: null,
+      combinedMaskBitmap: null,
+      starMaskBitmap: null
    };
    this.refreshPreviewDisplay();
 };
@@ -6422,30 +8498,23 @@ AstroColorMixerPOC8Dialog.prototype.renderPreview = function() {
       this.previewStatusLabel.text = "Rendering preview...";
       var recipe = acmBuildRecipeFromEditorState(this.editorState);
       var result = applyAstroColorMixerPasses(this.previewSource.rgb, this.previewSource.width, this.previewSource.height, recipe);
-      var lastPassPreview = this.buildLastPassPreviewReference();
-      var activePass = this.getActivePassState();
-      var bandMaskValues = acmComputeSelectedBandMaskData(this.previewSource.rgb, this.previewSource.width, this.previewSource.height, activePass, this.editorState.imageType, "bandMask");
-      var rangeMaskValues = acmComputeSelectedBandMaskData(this.previewSource.rgb, this.previewSource.width, this.previewSource.height, activePass, this.editorState.imageType, "rangeMask");
-      var combinedMaskValues = acmComputeSelectedBandMaskData(this.previewSource.rgb, this.previewSource.width, this.previewSource.height, activePass, this.editorState.imageType, "combinedMask");
+      var lastPassPreview = this.compareMode === "lastPass" ? this.buildLastPassPreviewReference() : null;
       this.previewOriginalRgb = this.previewSource.rgb;
       this.previewAdjustedRgb = result.rgb;
-      this.previewBandMaskRgb = new Float32Array(this.previewSource.width * this.previewSource.height * 3);
-      this.previewRangeMaskRgb = new Float32Array(this.previewSource.width * this.previewSource.height * 3);
-      this.previewCombinedMaskRgb = new Float32Array(this.previewSource.width * this.previewSource.height * 3);
-      for (var i = 0; i < bandMaskValues.length; ++i) {
-         var base = i * 3;
-         var bv = bandMaskValues[i], rv = rangeMaskValues[i], cv = combinedMaskValues[i];
-         this.previewBandMaskRgb[base] = this.previewBandMaskRgb[base + 1] = this.previewBandMaskRgb[base + 2] = bv;
-         this.previewRangeMaskRgb[base] = this.previewRangeMaskRgb[base + 1] = this.previewRangeMaskRgb[base + 2] = rv;
-         this.previewCombinedMaskRgb[base] = this.previewCombinedMaskRgb[base + 1] = this.previewCombinedMaskRgb[base + 2] = cv;
-      }
+      this.previewInfluenceStats = null;
+      this.previewBandMaskRgb = null;
+      this.previewRangeMaskRgb = null;
+      this.previewCombinedMaskRgb = null;
+      this.previewStarMaskRgb = null;
       this.previewBitmapOriginal = this.previewBitmapOriginal || acmRenderBitmapFromRgb(this.previewSource.width, this.previewSource.height, this.previewSource.rgb);
       this.previewBitmapAdjusted = acmRenderBitmapFromRgb(this.previewSource.width, this.previewSource.height, result.rgb);
+      this.previewBitmapDifference = null;
       this.previewLastPassRgb = lastPassPreview ? lastPassPreview.rgb : null;
       this.previewBitmapLastPass = lastPassPreview ? lastPassPreview.bitmap : null;
-      this.previewBitmapBandMask = acmRenderGrayBitmapFromMask(this.previewSource.width, this.previewSource.height, bandMaskValues);
-      this.previewBitmapRangeMask = acmRenderGrayBitmapFromMask(this.previewSource.width, this.previewSource.height, rangeMaskValues);
-      this.previewBitmapCombinedMask = acmRenderGrayBitmapFromMask(this.previewSource.width, this.previewSource.height, combinedMaskValues);
+      this.previewBitmapBandMask = null;
+      this.previewBitmapRangeMask = null;
+      this.previewBitmapCombinedMask = null;
+      this.previewBitmapStarMask = null;
       this.previewWidth = this.previewSource.width;
       this.previewHeight = this.previewSource.height;
       this.previewDetailCache = null;
@@ -6454,6 +8523,7 @@ AstroColorMixerPOC8Dialog.prototype.renderPreview = function() {
          this.renderDetailPreviewForCurrentViewport();
       this.refreshPreviewModeButtons();
       this.refreshPreviewDisplay();
+      this.schedulePreviewChangeStats();
    } catch (error) {
       var message = "Preview failed: " + (error && error.message ? error.message : String(error));
       console.criticalln(message);
@@ -6471,17 +8541,75 @@ AstroColorMixerPOC8Dialog.prototype.renderPreview = function() {
 };
 
 AstroColorMixerPOC8Dialog.prototype.exportCurrentMask = function() {
-   if (!this.currentPreviewModeIsMask()) {
-      showMessage("Switch Preview Mode to Current Band Mask, Range Mask, or Combined Mask first.", this.windowTitle, StdIcon_Warning);
-      return;
+   try {
+      if (!this.currentPreviewModeIsMask()) {
+         var maskModeHint = this.editorState.imageType === "starless"
+            ? "Switch Preview Mode to Current Band Mask, Range Mask, or Combined Mask first."
+            : "Switch Preview Mode to Current Band Mask, Range Mask, Star Protection Mask, or Combined Mask first.";
+         showMessage(maskModeHint, this.windowTitle, StdIcon_Warning);
+         return;
+      }
+
+      var suffix = this.previewMode === "bandMask"
+         ? "BandMask"
+         : (this.previewMode === "rangeMask"
+            ? "RangeMask"
+            : (this.previewMode === "starMask" ? "StarProtectionMask" : "CombinedMask"));
+      var boostSuffix = this.maskBoostEnabled && this.previewMode === "bandMask" ? "_Boosted" : "";
+      var activePass = this.getActivePassState();
+      var bandNameSuffix = (this.previewMode === "bandMask" || this.previewMode === "combinedMask")
+         ? "_" + acmMaskExportBandName(activePass)
+         : "";
+      var maskModeText = acmFormatMaskModeForUser(suffix) + (boostSuffix ? " boosted" : "");
+      var totalStart = acmNowMs();
+
+      this.updateActiveStatus();
+      if (!(this.activeStatus && this.activeStatus.ok))
+         fail("No target RGB image is available.");
+
+      this.setOutputFeedback("Creating full-resolution " + maskModeText + " image. Please wait for the completion message; PixInsight may look busy until it finishes. See PixInsight console for timings.", "#ffb13b", true);
+      acmFlushUi();
+
+      console.noteln("Astro Color Mixer mask output started: Create " + maskModeText);
+      var readStart = acmNowMs();
+      var active = acmReadRgbImageForViewId(this.targetViewId || (this.activeStatus ? this.activeStatus.viewId : null));
+      var readEnd = acmNowMs();
+      console.writeln("Target: " + active.viewId + " (" + active.width + "x" + active.height + ")");
+      console.writeln("Mask: " + maskModeText);
+      console.writeln("Image type: " + acmFormatImageTypeForUser(this.editorState.imageType));
+      this.logOutputTiming("Read target image", readStart, readEnd);
+
+      var processStart = acmNowMs();
+      var maskValues = acmComputeMaskValuesForPreviewMode(
+         active.rgb,
+         active.width,
+         active.height,
+         activePass,
+         this.editorState.imageType,
+         this.previewMode,
+         this.editorState.protectionControls,
+         this.maskBoostEnabled
+      );
+      var processEnd = acmNowMs();
+      this.logOutputTiming("Build full-resolution mask", processStart, processEnd);
+
+      var outputId = "AstroColorMixer_" + sanitizeViewId(active.viewId) + "_" + suffix + bandNameSuffix + boostSuffix;
+      var writeStart = acmNowMs();
+      var outputWindow = writeGrayResultImage(active.width, active.height, maskValues, outputId);
+      var writeEnd = acmNowMs();
+      this.logOutputTiming("Write mask image", writeStart, writeEnd);
+      console.noteln("Created mask image: " + outputWindow.mainView.id);
+      var totalEnd = acmNowMs();
+      console.noteln("Astro Color Mixer mask output complete in " + acmFormatElapsedSeconds(totalStart, totalEnd) + ".");
+      this.setOutputFeedback("Created full-resolution " + maskModeText + ": " + outputWindow.mainView.id + " (" + acmFormatElapsedSeconds(totalStart, totalEnd) + ")", "#7fe38a", true);
+   } catch (error) {
+      if (!(error && error.__acmHandled)) {
+         var message = "Unexpected mask output failure: " + (error && error.message ? error.message : String(error));
+         console.criticalln(message);
+         this.setOutputFeedback(message);
+         showMessage(message, this.windowTitle, StdIcon_Error);
+      }
    }
-   var rgb = this.getDiagnosticsRgb();
-   if (!rgb || !this.previewWidth || !this.previewHeight) {
-      showMessage("No preview mask is currently available.", this.windowTitle, StdIcon_Warning);
-      return;
-   }
-   var suffix = this.previewMode === "bandMask" ? "BandMask" : (this.previewMode === "rangeMask" ? "RangeMask" : "CombinedMask");
-   writeResultImage(this.previewWidth, this.previewHeight, rgb, "AstroColorMixer_" + suffix);
 };
 
 AstroColorMixerPOC8Dialog.prototype.refreshBandControls = function() {
@@ -6489,9 +8617,13 @@ AstroColorMixerPOC8Dialog.prototype.refreshBandControls = function() {
    var range = acmParameterRangeForTab(this.activeTab, this.editorState.sensitivity);
    this.bandSectionLabel.text = acmThemeRichText(tabLabel + " Controls", ACM_GRAY_UI_THEME.text, true);
    var activePass = this.getActivePassState();
+   var compactLumRows = this.activeTab === ACM_TAB_LUM;
 
+   if (this.bandControlsHost && this.bandControlsHost.sizer)
+      this.bandControlsHost.sizer.spacing = compactLumRows ? 0 : 1;
    this.neutralRowHost.visible = this.activeTab === ACM_TAB_LUM;
-   this.colorMixerPanel.scaledMinHeight = this.activeTab === ACM_TAB_LUM ? 308 : 278;
+   this.colorMixerPanel.scaledMinHeight = this.activeTab === ACM_TAB_LUM ? 366 : 306;
+   acmSetMixerFieldRowDensity(this.neutralControl, compactLumRows);
    if (this.activeTab === ACM_TAB_LUM) {
       var neutralRange = acmNeutralRangeForSensitivity(this.editorState.sensitivity);
       this.neutralControl.setRange(-neutralRange, neutralRange);
@@ -6504,6 +8636,7 @@ AstroColorMixerPOC8Dialog.prototype.refreshBandControls = function() {
 
    for (var i = 0; i < this.bandControls.length; ++i) {
       var control = this.bandControls[i];
+      acmSetMixerFieldRowDensity(control.fieldRow, compactLumRows);
       var band = this.getBandById(control.bandId);
       control.numeric.setRange(-range, range);
       control.numeric.setPrecision(this.activeTab === ACM_TAB_SAT ? 0 : 1);
@@ -6514,15 +8647,28 @@ AstroColorMixerPOC8Dialog.prototype.refreshBandControls = function() {
       control.rowHost.update();
    }
 
-   this.tabHueButton.enabled = this.activeTab !== ACM_TAB_HUE;
-   this.tabSaturationButton.enabled = this.activeTab !== ACM_TAB_SAT;
-   this.tabLuminanceButton.enabled = this.activeTab !== ACM_TAB_LUM;
+   var hueActive = this.activeTab === ACM_TAB_HUE;
+   var saturationActive = this.activeTab === ACM_TAB_SAT;
+   var luminanceActive = this.activeTab === ACM_TAB_LUM;
+   this.tabHueButton.enabled = true;
+   this.tabHueButton.backgroundColor = hueActive ? 0xffffc43a : 0xffeeeeee;
+   this.tabHueButton.foregroundColor = 0xff101010;
+   this.tabHueButton.textColor = 0xff101010;
+   this.tabSaturationButton.enabled = true;
+   this.tabSaturationButton.backgroundColor = saturationActive ? 0xffffc43a : 0xffeeeeee;
+   this.tabSaturationButton.foregroundColor = 0xff101010;
+   this.tabSaturationButton.textColor = 0xff101010;
+   this.tabLuminanceButton.enabled = true;
+   this.tabLuminanceButton.backgroundColor = luminanceActive ? 0xffffc43a : 0xffeeeeee;
+   this.tabLuminanceButton.foregroundColor = 0xff101010;
+   this.tabLuminanceButton.textColor = 0xff101010;
 };
 
 AstroColorMixerPOC8Dialog.prototype.refreshFromState = function() {
    this.imageTypeCombo.currentItem = this.editorState.imageType === "starless" ? 1 : 0;
-   this.sensitivityCombo.currentItem = this.editorState.sensitivity === "Fine" ? 0 : this.editorState.sensitivity === "Advanced" ? 2 : 1;
+   this.sensitivityCombo.currentItem = this.editorState.sensitivity === "Fine" ? 0 : (this.editorState.sensitivity === "Advanced" || this.editorState.sensitivity === "Strong") ? 2 : 1;
    this.editorState.globalStrength = typeof this.editorState.globalStrength === "number" ? this.editorState.globalStrength : 1.0;
+   this.refreshProtectionControls();
    this.refreshPassControls();
    this.refreshSelectedBandControls();
    this.refreshRangeMaskControls();
@@ -6533,12 +8679,42 @@ AstroColorMixerPOC8Dialog.prototype.refreshFromState = function() {
    this.syncPendingChangesIndicator();
 };
 
+AstroColorMixerPOC8Dialog.prototype.refreshProtectionControls = function() {
+   this.editorState.protectionControls = this.editorState.protectionControls || acmCreateDefaultProtectionControls();
+   var controls = this.editorState.protectionControls;
+   controls.protectStars = controls.protectStars !== false;
+   controls.protectLowSaturation = controls.protectLowSaturation !== false;
+   controls.starMaskStrength = acmNormalizeStarMaskStrength(controls.starMaskStrength);
+   var starlessMode = this.editorState.imageType === "starless";
+   var effectiveProtectStars = !starlessMode && controls.protectStars !== false;
+
+   this.protectionControlsSyncing = true;
+   if (this.protectStarsCheck) {
+      this.protectStarsCheck.checked = effectiveProtectStars;
+      this.protectStarsCheck.enabled = !starlessMode;
+      this.protectStarsCheck.toolTip = starlessMode
+         ? "Star protection is disabled in Starless mode."
+         : "Use compact-star and highlight protection to limit strong edits in stars and many halos.";
+   }
+   if (this.protectLowSatCheck) {
+      this.protectLowSatCheck.checked = controls.protectLowSaturation;
+      this.protectLowSatCheck.enabled = true;
+   }
+   this.protectionControlsSyncing = false;
+};
+
 AstroColorMixerPOC8Dialog.prototype.resetEditorStateAfterSuccessfulOutput = function() {
    var imageType = this.editorState.imageType;
    var sensitivity = this.editorState.sensitivity;
+   var protectionControls = this.editorState.protectionControls || acmCreateDefaultProtectionControls();
    this.editorState = acmCreateBaseEditorState();
    this.editorState.imageType = imageType;
    this.editorState.sensitivity = sensitivity;
+   this.editorState.protectionControls = {
+      protectStars: protectionControls.protectStars !== false,
+      protectLowSaturation: protectionControls.protectLowSaturation !== false,
+      starMaskStrength: acmNormalizeStarMaskStrength(protectionControls.starMaskStrength)
+   };
    this.refreshFromState();
    this.previewIsStale = true;
    this.syncPendingChangesIndicator();
@@ -6555,6 +8731,7 @@ AstroColorMixerPOC8Dialog.prototype.resetSelectedBand = function() {
    this.refreshSelectedBandControls();
    this.refreshBandControls();
    this.markPreviewStale();
+   this.refreshSelectedBandMaskPreviewIfActive();
    console.noteln("Reset selected band: " + band.label);
 };
 
@@ -6565,6 +8742,8 @@ AstroColorMixerPOC8Dialog.prototype.resetRangeMask = function() {
    rangeMask.high = 1.0;
    rangeMask.feather = 0.10;
    rangeMask.preset = "All";
+   rangeMask.maskSoftenRadius = 0;
+   rangeMask.boostEnabled = false;
    this.refreshRangeMaskControls();
    this.markPreviewStale();
    console.noteln("Reset Range Mask to defaults.");
@@ -6638,11 +8817,33 @@ AstroColorMixerPOC8Dialog.prototype.loadRecipeJson = function() {
    this.loadRecipePath(selected);
 };
 
-AstroColorMixerPOC8Dialog.prototype.setOutputFeedback = function(text) {
-   if (this.outputFeedbackLabel)
-      this.outputFeedbackLabel.text = text || "";
+AstroColorMixerPOC8Dialog.prototype.setOutputFeedback = function(text, color, bold) {
+   if (this.outputFeedbackLabel) {
+      if (color) {
+         this.outputFeedbackLabel.useRichText = true;
+         this.outputFeedbackLabel.text = acmThemeRichText(text || "", color, !!bold);
+         this.outputFeedbackLabel.foregroundColor = acmThemeColorToArgb(color, 0xffffb13b);
+         this.outputFeedbackLabel.textColor = this.outputFeedbackLabel.foregroundColor;
+      } else {
+         this.outputFeedbackLabel.useRichText = false;
+         this.outputFeedbackLabel.text = text || "";
+         acmApplyLightText(this.outputFeedbackLabel);
+      }
+   }
    if (text)
       console.noteln(text);
+};
+
+AstroColorMixerPOC8Dialog.prototype.setLongOutputFeedback = function(actionName, enabledPassCount) {
+   var passText = enabledPassCount + " enabled pass" + (enabledPassCount === 1 ? "" : "es");
+   var caution = enabledPassCount >= 3 ? " This may take a while." : "";
+   var text = actionName + " full-resolution output (" + passText + ")." + caution + " Please wait for the completion message; PixInsight may show a busy cursor until processing finishes. See PixInsight console for timings.";
+   this.setOutputFeedback(text, "#ffb13b", true);
+   acmFlushUi();
+};
+
+AstroColorMixerPOC8Dialog.prototype.logOutputTiming = function(label, startMs, endMs) {
+   console.writeln(label + ": " + acmFormatElapsedSeconds(startMs, endMs));
 };
 
 AstroColorMixerPOC8Dialog.prototype.confirmApplyToTarget = function() {
@@ -6664,26 +8865,46 @@ AstroColorMixerPOC8Dialog.prototype.confirmApplyToTarget = function() {
 
 AstroColorMixerPOC8Dialog.prototype.applyRecipe = function() {
    try {
+      var totalStart = acmNowMs();
       this.updateActiveStatus();
       if (!(this.activeStatus && this.activeStatus.ok))
          fail("No target RGB image is available.");
+      var readStart = acmNowMs();
       var active = acmReadRgbImageForViewId(this.targetViewId || (this.activeStatus ? this.activeStatus.viewId : null));
+      var readEnd = acmNowMs();
       var recipe = acmBuildRecipeFromEditorState(this.editorState);
-      console.writeln("Applying Astro Color Mixer beta recipe to target image...");
-      console.writeln("Image type: " + recipe.imageType);
-      console.writeln("Sensitivity: " + recipe.sensitivity);
       var normalized = acmNormalizeRecipe(recipe);
-      console.writeln("Pass count: " + normalized.passes.length + " total / " + acmCountEnabledPasses({ passes: normalized.passes }) + " enabled");
+      var enabledPassCount = acmCountEnabledPasses({ passes: normalized.passes });
+      this.setLongOutputFeedback("Creating", enabledPassCount);
+      console.noteln("Astro Color Mixer output started: Create New Image");
+      console.writeln("Target: " + active.viewId + " (" + active.width + "x" + active.height + ")");
+      console.writeln("Image type: " + acmFormatImageTypeForUser(recipe.imageType));
+      console.writeln("Sensitivity: " + recipe.sensitivity);
+      console.writeln("Passes: " + normalized.passes.length + " total / " + enabledPassCount + " enabled");
+      if (enabledPassCount >= 3)
+         console.noteln("Note: Multiple enabled passes on a full-resolution image can take a while. PixInsight may show a busy cursor until output completes.");
+      this.logOutputTiming("Read target image", readStart, readEnd);
       for (var i = 0; i < normalized.passes.length; ++i)
          console.writeln(normalized.passes[i].label + " [" + (normalized.passes[i].enabled ? "enabled" : "disabled") + "] · " + acmSummarizePass(normalized.passes[i]) + " · " + acmSummarizePassMaskControls(normalized.passes[i]));
 
-      var result = applyAstroColorMixerPasses(active.rgb, active.width, active.height, recipe);
+      var processStart = acmNowMs();
+      var result = applyAstroColorMixerPasses(active.rgb, active.width, active.height, recipe, {
+         timingLogger: function(label, startMs, endMs) {
+            console.writeln(label + ": " + acmFormatElapsedSeconds(startMs, endMs));
+         }
+      });
+      var processEnd = acmNowMs();
+      this.logOutputTiming("Apply color adjustments", processStart, processEnd);
       var outputId = "AstroColorMixer_" + sanitizeViewId(active.viewId);
+      var writeStart = acmNowMs();
       var outputWindow = writeResultImage(active.width, active.height, result.rgb, outputId);
+      var writeEnd = acmNowMs();
+      this.logOutputTiming("Write output image", writeStart, writeEnd);
       console.noteln("Created output image: " + outputWindow.mainView.id);
-      this.setOutputFeedback("Created image: " + outputWindow.mainView.id);
+      var totalEnd = acmNowMs();
+      console.noteln("Astro Color Mixer output complete in " + acmFormatElapsedSeconds(totalStart, totalEnd) + ".");
+      this.setOutputFeedback("Created image: " + outputWindow.mainView.id + " (" + acmFormatElapsedSeconds(totalStart, totalEnd) + ")", "#7fe38a", true);
       this.resetEditorStateAfterSuccessfulOutput();
-      console.noteln("Astro Color Mixer beta apply complete.");
       return true;
    } catch (error) {
       if (!(error && error.__acmHandled)) {
@@ -6717,25 +8938,60 @@ AstroColorMixerPOC8Dialog.prototype.applyToTargetImage = function() {
          return false;
       }
 
-      var target = acmReadRgbImageFromView(targetInfo.view);
+      var totalStart = acmNowMs();
       var recipe = acmBuildRecipeFromEditorState(this.editorState);
-      var result = applyAstroColorMixerPasses(target.rgb, target.width, target.height, recipe);
+      var normalized = acmNormalizeRecipe(recipe);
+      var enabledPassCount = acmCountEnabledPasses({ passes: normalized.passes });
+      this.setLongOutputFeedback("Applying", enabledPassCount);
+      console.noteln("Astro Color Mixer output started: Apply to Target");
+      console.writeln("Target: " + targetInfo.view.id);
+      console.writeln("Image type: " + acmFormatImageTypeForUser(recipe.imageType));
+      console.writeln("Sensitivity: " + recipe.sensitivity);
+      console.writeln("Passes: " + normalized.passes.length + " total / " + enabledPassCount + " enabled");
+      if (enabledPassCount >= 3)
+         console.noteln("Note: Multiple enabled passes on a full-resolution image can take a while. PixInsight may show a busy cursor until output completes.");
+      for (var i = 0; i < normalized.passes.length; ++i)
+         console.writeln(normalized.passes[i].label + " [" + (normalized.passes[i].enabled ? "enabled" : "disabled") + "] · " + acmSummarizePass(normalized.passes[i]) + " · " + acmSummarizePassMaskControls(normalized.passes[i]));
+
+      var readStart = acmNowMs();
+      var target = acmReadRgbImageFromView(targetInfo.view);
+      var readEnd = acmNowMs();
+      this.logOutputTiming("Read target image", readStart, readEnd);
+      console.writeln("Target size: " + target.width + "x" + target.height);
+      var processStart = acmNowMs();
+      var result = applyAstroColorMixerPasses(target.rgb, target.width, target.height, recipe, {
+         timingLogger: function(label, startMs, endMs) {
+            console.writeln(label + ": " + acmFormatElapsedSeconds(startMs, endMs));
+         }
+      });
+      var processEnd = acmNowMs();
+      this.logOutputTiming("Apply color adjustments", processStart, processEnd);
+      var maskStart = acmNowMs();
       var maskInfo = acmReadMaskState(targetInfo.window, target.width, target.height);
       var outputRgb = maskInfo.respected
          ? acmBlendRgbWithMask(target.rgb, result.rgb, maskInfo.values)
          : result.rgb;
+      var maskEnd = acmNowMs();
+      this.logOutputTiming(maskInfo.respected ? "Read/blend PixInsight mask" : "Check PixInsight mask", maskStart, maskEnd);
 
+      var writeStart = acmNowMs();
       acmWriteRgbToView(targetInfo.view, target.width, target.height, outputRgb);
+      var writeEnd = acmNowMs();
+      this.logOutputTiming("Write target image", writeStart, writeEnd);
       this.targetApplyMaskStatus = maskInfo;
       if (this.targetApplyMaskStatusLabel)
          this.targetApplyMaskStatusLabel.text = maskInfo.message;
 
+      var totalEnd = acmNowMs();
       if (maskInfo.respected)
          this.setOutputFeedback(maskInfo.inverted
-            ? "Applied adjustments to target image using inverted PixInsight mask."
-            : "Applied adjustments to target image using active PixInsight mask.");
+            ? "Applied adjustments to target image using inverted PixInsight mask (" + acmFormatElapsedSeconds(totalStart, totalEnd) + ")."
+            : "Applied adjustments to target image using active PixInsight mask (" + acmFormatElapsedSeconds(totalStart, totalEnd) + ").",
+            "#7fe38a",
+            true);
       else
-         this.setOutputFeedback("Applied adjustments to target image.");
+         this.setOutputFeedback("Applied adjustments to target image (" + acmFormatElapsedSeconds(totalStart, totalEnd) + ").", "#7fe38a", true);
+      console.noteln("Astro Color Mixer output complete in " + acmFormatElapsedSeconds(totalStart, totalEnd) + ".");
       this.resetEditorStateAfterSuccessfulOutput();
 
       if (this.activeStatus && this.activeStatus.ok && this.activeStatus.viewId === target.viewId)
@@ -6761,6 +9017,6 @@ try {
    if (!(error && error.__acmHandled)) {
       var message = "Unexpected dialog failure: " + (error && error.message ? error.message : String(error));
       console.criticalln(message);
-      showMessage(message, "Astro Color Mixer v0.9.7.7-beta", StdIcon_Error);
+      showMessage(message, "Astro Color Mixer v0.9.7.8-beta", StdIcon_Error);
    }
 }

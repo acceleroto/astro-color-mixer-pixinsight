@@ -73,7 +73,7 @@ Astro Color Mixer uses `Image Type` to choose protection behavior appropriate to
 
 `Stars Present` assumes the image still contains stellar profiles, bright cores, and possible halos. The protection model is more conservative around high-luminance structures. This reduces the risk of color shifts in star cores, over-saturation around halos, or harsh luminance changes in bright stellar features.
 
-`Starless / Star-Reduced` assumes stars have been removed or substantially reduced. The protection model can allow more freedom in nebular, galactic, dust, and faint-signal regions because fewer bright stellar features are present.
+`Starless` assumes stars have been removed before color work. The protection model can allow more freedom in nebular, galactic, dust, and faint-signal regions because fewer bright stellar features are present.
 
 This setting affects mask construction and protection weighting. It does not perform star detection, star removal, or explicit star masking.
 
@@ -90,31 +90,31 @@ mask = 1 - smoothstep(innerWidth, outerWidth, distance)
 
 A higher Feather value makes the transition softer and reduces abrupt color boundaries.
 
-## 7A. Selected Band spatial softening
+## 7A. Selected Band spatial blur
 
-Selected Band Soften is an optional spatial blur applied to the active band's final mask. It is not part of hue selection itself, and it is not a luminance Range Mask control.
+Selected Band Blur is an optional spatial blur applied to the active band's final mask. It is not part of hue selection itself, and it is not a luminance Range Mask control.
 
 The distinction is important:
 
 - Feather softens selection as hue distance approaches the edge of the selected band.
 - Range Mask Feather softens luminance inclusion at the low and high range boundaries.
-- Selected Band Soften smooths the already-built band mask across neighboring image pixels.
+- Selected Band Blur smooths the already-built band mask across neighboring image pixels.
 
-The implementation uses modest whole-pixel radii only: `Off`, `1 px`, `2 px`, `3 px`, `4 px`, or `5 px`. This is intended to reduce visible mask-edge artifacts when a strong adjustment is used on starless or strongly star-reduced data.
+The implementation uses modest whole-pixel radii only: `Off`, `1 px`, `2 px`, `3 px`, `4 px`, or `5 px`. This is intended to reduce visible mask-edge artifacts when a strong adjustment is used on starless data.
 
-Selected Band Soften is gated by Image Type. It is applied only when Image Type is `Starless / Star-Reduced`. In `Stars Present` mode, saved soften values are ignored by the processing path because spatially blurring a color mask can leak adjustments into star cores, halos, and adjacent stellar structures.
+Selected Band Blur is gated by Image Type. It is applied only when Image Type is `Starless`. In `Stars Present` mode, saved blur values are ignored by the processing path because spatially blurring a color mask can leak adjustments into star cores, halos, and adjacent stellar structures.
 
 Conceptual sequence for a band adjustment:
 
 ```text
 rawBandMask = hueMask * saturationReliability * protection * rangeMask
-if imageType == starless and selectedBandSoften > 0:
-    workingBandMask = spatialBlur(rawBandMask, selectedBandSoften)
+if imageType == starless and selectedBandBlur > 0:
+    workingBandMask = spatialBlur(rawBandMask, selectedBandBlur)
 else:
     workingBandMask = rawBandMask
 ```
 
-Current Band Mask and Combined Mask preview modes show the softened mask only when the soften value is active. Range Mask preview remains a luminance-only diagnostic and is not spatially softened.
+Current Band Mask and Combined Mask preview modes show the blurred mask only when the blur value is active. Range Mask preview remains a luminance-only diagnostic and is not spatially blurred.
 
 ## 8. Saturation reliability
 
@@ -158,6 +158,14 @@ This is useful when editing sky background, gray dust, faint halos, or other str
 
 Neutral adjustment appears on the Luminance tab because it is not a hue-band chroma edit.
 
+## 11A. Low-saturation galaxy case
+
+Some broadband galaxy images have real but weak color in outer spiral arms, dust lanes, faint halos, and low-contrast tidal structure. In these areas the measured hue can be unstable because saturation is low. `Protect Low Sat` reduces the influence of hue-band sliders in this situation, which is usually helpful for preventing noisy color blotches and colored background artifacts.
+
+For a low-saturation galaxy, however, this guardrail can also suppress the very color the user is trying to recover. Turning off `Protect Low Sat` can allow stronger blue, cyan, orange, or red response in faint galaxy structure. The technical risk is that the adjustment is then acting on pixels whose hue may be weakly constrained, so hard slider moves can create blotchy color, noisy chroma patches, and colored halos around stars.
+
+The recommended workflow for this case is to work on a starless image when possible, inspect the Band Mask and Combined Mask, use moderate slider values, and build the effect with multiple smaller passes instead of one extreme pass. On a stars-present image, keep `Protect Stars` enabled and watch bright star halos carefully.
+
 ## 12. Chroma-vector adjustment model
 
 The processing model is practical rather than marketed as mathematically perfect color science. Conceptually, RGB is separated into a luminance-like neutral component and a chroma component.
@@ -185,7 +193,7 @@ finalMask =
 
 The exact implementation details follow the actual code path, but conceptually the tool combines hue selection, saturation reliability, luminance gating, and protection terms before the adjustment is applied.
 
-If Selected Band Soften is active, the band mask is spatially softened after these selection terms are combined and before the hue, saturation, or luminance adjustment is applied. This means Soften changes the edge behavior of the selection mask, not the color math itself.
+If Selected Band Blur is active, the band mask is spatially blurred after these selection terms are combined and before the hue, saturation, or luminance adjustment is applied. This means Blur changes the edge behavior of the selection mask, not the color math itself.
 
 For Neutral / Low-Saturation luminance adjustment, the neutral mask replaces hue selection as the main inclusion term. Range Mask and protection weighting can still limit where the neutral adjustment is allowed to act.
 
@@ -211,9 +219,9 @@ Preview uses a downsampled image so the tool remains responsive. Histogram calcu
 
 Diagnostics are decision aids:
 
-- Current Band Mask shows hue-band inclusion, including active selected-band Soften in Starless / Star-Reduced mode
+- Current Band Mask shows hue-band inclusion, including active selected-band Blur in Starless mode
 - Range Mask shows luminance-range inclusion
-- Combined Mask shows the active selection stack, including active selected-band Soften in Starless / Star-Reduced mode
+- Combined Mask shows the active selection stack, including active selected-band Blur in Starless mode
 - Histogram helps place luminance ranges
 - Polar Plot shows hue and saturation distribution
 - Probe reports local luminance, hue, saturation, and nearest reliable band
@@ -228,7 +236,7 @@ Adjustment sets are stored as JSON and preserve important editing state:
 - enabled/disabled pass state
 - band settings
 - Hue Radius and Feather
-- selected-band Soften values
+- selected-band Blur values
 - Range Mask configuration
 - neutral luminance terms
 

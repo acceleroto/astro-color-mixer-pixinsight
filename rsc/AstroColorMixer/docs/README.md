@@ -33,12 +33,12 @@ It is not intended for:
 - calibration work
 - broad early-stage color correction
 
-The tool supports both **Stars Present** and **Starless / Star-Reduced** workflows.
+The tool supports both **Stars Present** and **Starless** workflows.
 
 ## Basic Workflow
 
 1. Open a nonlinear RGB image.
-2. Choose **Image Type**: **Stars Present** or **Starless / Star-Reduced**.
+2. Choose **Image Type**: **Stars Present** or **Starless**.
 3. Start with **Base Pass**.
 4. Use H/S/L color sliders for broad adjustments.
 5. Use the probe, histogram, and polar plot to understand the image.
@@ -83,13 +83,13 @@ The histogram summarizes preview luminance and helps with Range Mask placement. 
 
 Adjustment Sets store the working JSON state of the tool, including passes, sliders, Selected Band settings, Range Mask configuration, and related controls.
 
-## Stars Present vs Starless / Star-Reduced
+## Stars Present vs Starless
 
 Astro Color Mixer includes an **Image Type** setting because stars and starless images respond differently to color refinement.
 
 Use **Stars Present** when the image still contains normal stars, bright stellar cores, or visible halos. This mode is more conservative around bright star-like structures so strong color and luminance moves are less likely to create damaged cores, aggressive halo coloration, or harsh highlight artifacts.
 
-Use **Starless / Star-Reduced** when stars have been removed or strongly reduced before color work. This mode allows the tool to act more freely on nebulae, galaxies, dust, and faint structures because fewer bright stellar features need protection.
+Use **Starless** when stars have been removed before color work. This mode allows the tool to act more freely on nebulae, galaxies, dust, and faint structures because fewer bright stellar features need protection.
 
 This setting does **not** remove stars and does **not** create a star mask. It changes protection behavior during color-band and luminance adjustments.
 

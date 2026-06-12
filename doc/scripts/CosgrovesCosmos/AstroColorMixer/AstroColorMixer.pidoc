@@ -18,7 +18,7 @@ Astro Color Mixer is a PixInsight script for nonlinear RGB color and luminance r
 \section Basic Workflow
 
 1. Open a nonlinear RGB image.
-2. Choose Image Type: Stars Present or Starless / Star-Reduced.
+2. Choose Image Type: Stars Present or Starless.
 3. Start with Base Pass.
 4. Make broad H/S/L adjustments.
 5. Use Width and Feather to refine color selection.

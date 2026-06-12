@@ -9,7 +9,7 @@ Includes:
 - H/S/L Color Mixer
 - Neutral / Low-Saturation luminance
 - Selected Band width/feather
-- Stars Present and Starless / Star-Reduced image modes
+- Stars Present and Starless image modes
 - Range Mask
 - Refinement Passes
 - preview viewport

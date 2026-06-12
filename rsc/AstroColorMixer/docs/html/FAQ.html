@@ -30,12 +30,12 @@
 
     <section>
       <h2>What kind of image should I use?</h2>
-      <p>Use nonlinear RGB images. Both stars-present and starless or star-reduced workflows are supported.</p>
+      <p>Use nonlinear RGB images. Both stars-present and starless workflows are supported.</p>
     </section>
 
     <section>
-      <h2>What is Stars Present vs Starless / Star-Reduced?</h2>
-      <p><strong>Stars Present</strong> uses more conservative protection around bright stellar structures. <strong>Starless / Star-Reduced</strong> allows more freedom when stars have already been removed or reduced. It does not remove stars.</p>
+      <h2>What is Stars Present vs Starless?</h2>
+      <p><strong>Stars Present</strong> uses more conservative protection around bright stellar structures. <strong>Starless</strong> allows more freedom when stars have already been removed. It does not remove stars.</p>
     </section>
 
     <section>
@@ -79,9 +79,9 @@
     </section>
 
     <section>
-      <h2>What is Selected Band Soften?</h2>
-      <p>Soften is a spatial softening control for the active selected-band mask. It is different from Feather: Feather softens hue-distance falloff, while Soften blurs the final mask across neighboring image pixels.</p>
-      <p>Soften is only active in Starless / Star-Reduced mode. It is disabled in Stars Present mode because spatial mask blur can bleed adjustments into star cores, halos, and nearby structures. Use it for starless color-mask edge cleanup, starting with 1 px and increasing only as needed up to 5 px.</p>
+      <h2>What is Selected Band Blur?</h2>
+      <p>Blur is a spatial blur control for the active selected-band mask. It is different from Feather: Feather softens hue-distance falloff, while Blur spatially smooths the final mask across neighboring image pixels.</p>
+      <p>Blur is only active in Starless mode. It is disabled in Stars Present mode because spatial mask blur can bleed adjustments into star cores, halos, and nearby structures. Use it for starless color-mask edge cleanup, starting with 1 px and increasing only as needed up to 5 px.</p>
     </section>
 
     <section>
@@ -92,6 +92,12 @@
     <section>
       <h2>What is Neutral / Low-Saturation?</h2>
       <p>It is the luminance adjustment path for weak-color pixels where hue is unreliable, such as sky background, gray dust, and low-color halos.</p>
+    </section>
+
+    <section>
+      <h2>Why might a low-saturation galaxy not respond strongly?</h2>
+      <p>Some broadband galaxies have real but weak color in outer arms, dust, and faint halos. Protect Low Sat may reduce slider response in these pixels because low saturation makes hue less reliable.</p>
+      <p>Turning off Protect Low Sat can reveal faint galaxy color, but it can also create blotchy color, noisy hue patches, and colored star halos. The safest workflow is starless data, mask inspection, and multiple smaller passes rather than one extreme pass.</p>
     </section>
 
     <section>
@@ -111,7 +117,7 @@
 
     <section>
       <h2>What are mask views?</h2>
-      <p>Mask views show selected band, Range Mask, or combined influence. White means included more strongly; black means excluded more strongly. In Starless / Star-Reduced mode, Current Band Mask and Combined Mask reflect active Selected Band Soften.</p>
+      <p>Mask views show selected band, Range Mask, or combined influence. White means included more strongly; black means excluded more strongly. In Starless mode, Current Band Mask and Combined Mask reflect active Selected Band Blur.</p>
     </section>
 
     <section>
@@ -121,7 +127,7 @@
 
     <section>
       <h2>What are Adjustment Sets?</h2>
-      <p>Adjustment Sets are JSON files that store passes, sliders, Selected Band settings, selected-band Soften values, Range Mask settings, and related working state.</p>
+      <p>Adjustment Sets are JSON files that store passes, sliders, Selected Band settings, selected-band Blur values, Range Mask settings, and related working state.</p>
     </section>
   </main>
 </body>

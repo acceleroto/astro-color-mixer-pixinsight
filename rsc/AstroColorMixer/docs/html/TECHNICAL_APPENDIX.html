@@ -50,7 +50,7 @@
 
     <section>
       <h2>Image Type</h2>
-      <p><strong>Stars Present</strong> is more conservative around bright stellar structures. <strong>Starless / Star-Reduced</strong> allows more freedom in nebulae, galaxies, dust, and faint structures. This setting does not detect, remove, or mask stars.</p>
+      <p><strong>Stars Present</strong> is more conservative around bright stellar structures. <strong>Starless</strong> allows more freedom in nebulae, galaxies, dust, and faint structures after stars have been removed. This setting does not detect, remove, or mask stars.</p>
     </section>
 
     <section>
@@ -83,13 +83,13 @@ mask = 1 - smoothstep(innerWidth, outerWidth, distance)</pre>
     </section>
 
     <section>
-      <h2>Selected Band Spatial Soften</h2>
-      <p>Selected Band Soften is an optional spatial blur applied to the active band's final mask. It is not part of hue selection and is not a luminance Range Mask control.</p>
-      <p>Feather softens hue-distance falloff. Range Mask Feather softens luminance-range boundaries. Selected Band Soften smooths the already-built band mask across neighboring image pixels.</p>
-      <p>The implementation uses modest whole-pixel radii only: Off, 1 px, 2 px, 3 px, 4 px, or 5 px. It is applied only when Image Type is Starless / Star-Reduced.</p>
+      <h2>Selected Band Spatial Blur</h2>
+      <p>Selected Band Blur is an optional spatial blur applied to the active band's final mask. It is not part of hue selection and is not a luminance Range Mask control.</p>
+      <p>Feather softens hue-distance falloff. Range Mask Feather softens luminance-range boundaries. Selected Band Blur smooths the already-built band mask across neighboring image pixels.</p>
+      <p>The implementation uses modest whole-pixel radii only: Off, 1 px, 2 px, 3 px, 4 px, or 5 px. It is applied only when Image Type is Starless.</p>
       <pre>rawBandMask = hueMask * saturationReliability * protection * rangeMask
-if imageType == starless and selectedBandSoften &gt; 0:
-    workingBandMask = spatialBlur(rawBandMask, selectedBandSoften)
+if imageType == starless and selectedBandBlur &gt; 0:
+    workingBandMask = spatialBlur(rawBandMask, selectedBandBlur)
 else:
     workingBandMask = rawBandMask</pre>
     </section>
@@ -121,7 +121,10 @@ rangeMask = clamp01(leftRamp * rightRamp)</pre>
   darkProtection *
   highlightProtection *
   rangeMask</pre>
-      <p>If Selected Band Soften is active, the band mask is spatially softened after these terms are combined and before the color adjustment is applied.</p>
+      <h2>Low-Saturation Galaxy Case</h2>
+      <p>Some broadband galaxies have real but weak color in outer arms, dust, and faint halos. Protect Low Sat reduces hue-band slider response when saturation is low because hue is less reliable there.</p>
+      <p>Turning off Protect Low Sat can help extract faint galaxy color, but it increases the risk of blotchy color, noisy hue patches, and colored star halos. Use starless data when possible, inspect masks, and prefer multiple smaller passes over one extreme pass.</p>
+      <p>If Selected Band Blur is active, the band mask is spatially blurred after these terms are combined and before the color adjustment is applied.</p>
     </section>
 
     <section>

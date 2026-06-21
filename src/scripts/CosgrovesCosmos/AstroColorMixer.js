@@ -1,13 +1,24 @@
+#iflt __PI_VERSION__ 01.09.04
+
+#feature-id    Cosgrove's Cosmos > Astro Color Mixer
+#feature-info  Astro Color Mixer requires PixInsight 1.9.4 or newer.
+
+console.criticalln("Astro Color Mixer requires PixInsight 1.9.4 or newer. This installed PixInsight version is too old to run the V8 JavaScript engine required by this script. Please update PixInsight and try again.");
+throw new Error("Astro Color Mixer requires PixInsight 1.9.4 or newer.");
+
+#else
+
 #engine v8
 
 #feature-id    Cosgrove's Cosmos > Astro Color Mixer
-#feature-info  Astro Color Mixer v0.9.7.8-beta. Nonlinear RGB color and luminance refinement for astrophotography.
+#feature-icon  @script_icons_dir/AstroColorMixer.svg
+#feature-info  Astro Color Mixer v0.9.7.9-beta. Nonlinear RGB color and luminance refinement for astrophotography.
 
 /*
  * Astro Color Mixer for PixInsight
  *
  * Beta build:
- * Astro Color Mixer v0.9.7.8-beta
+ * Astro Color Mixer v0.9.7.9-beta
  */
 
 #include <pjsr/UndoFlag.jsh>
@@ -22,7 +33,7 @@
 CoreApplication.ensureMinimumVersion( 1, 9, 4 );
 
 function showMessage(text, title, icon) {
-   (new MessageBox(text, title || "Astro Color Mixer v0.9.7.8-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
+   (new MessageBox(text, title || "Astro Color Mixer v0.9.7.9-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
 }
 
 var acmHelpHostDialog = null;
@@ -37,7 +48,7 @@ function showHelpTopic(title, text) {
 
 function fail(text) {
    console.criticalln(text);
-   showMessage(text, "Astro Color Mixer v0.9.7.8-beta", StdIcon_Error);
+   showMessage(text, "Astro Color Mixer v0.9.7.9-beta", StdIcon_Error);
    var error = new Error(text);
    error.__acmHandled = true;
    throw error;
@@ -45,7 +56,7 @@ function fail(text) {
 
 var ACM_GRAY_UI_THEME = {
    window: 0xff353535,
-   header: 0xff3f3f3f,
+   header: 0xff2f2f2f,
    panel: 0xff404040,
    panelInset: 0xff303030,
    passViewer: 0xffd8d8d8,
@@ -179,8 +190,8 @@ function acmFlushUi() {
 
 function acmHistogramSubtitleText(rangeMaskEnabled) {
    if (ACM_HOST_IS_WINDOWS)
-      return rangeMaskEnabled ? "\u00b7 Luminance \u00b7 RM gold" : "\u00b7 Luminance";
-   return rangeMaskEnabled ? "\u00b7 Preview luminance \u00b7 Range Mask shown in gold" : "\u00b7 Preview luminance";
+      return "\u00b7 Luminance";
+   return "\u00b7 Preview luminance";
 }
 
 function acmPlainDarkLabel(label, text) {
@@ -347,7 +358,7 @@ function acmConfigureResponsiveDialogBounds(dialog) {
    var targetMinWidth = isWindows ? 1680 : 1240;
    var targetMinHeight = isWindows ? 820 : 900;
    var defaultWidth = isWindows ? 2220 : 2000;
-   var defaultHeight = isWindows ? 1040 : 940;
+   var defaultHeight = isWindows ? 1180 : 940;
    var screenSize = acmGetDialogAvailableScreenSize(dialog);
    var minWidth = targetMinWidth;
    var minHeight = targetMinHeight;
@@ -370,6 +381,142 @@ function acmConfigureResponsiveDialogBounds(dialog) {
    dialog.acmMinDialogHeight = minHeight;
    dialog.acmDefaultDialogWidth = width;
    dialog.acmDefaultDialogHeight = height;
+}
+
+var ACM_WINDOW_SIZE_SETTINGS_PREFIX = "AstroColorMixer/windowSize/v99_release_0979/";
+var ACM_LEGACY_WINDOW_SIZE_SETTINGS_PREFIX = "AstroColorMixer/windowSize/v10/";
+var ACM_OLDER_WINDOW_SIZE_SETTINGS_PREFIX = "AstroColorMixer/windowSize/v9/";
+var ACM_OLDEST_WINDOW_SIZE_SETTINGS_PREFIX = "AstroColorMixer/windowSize/v7/";
+var ACM_ANCIENT_WINDOW_SIZE_SETTINGS_PREFIX = "AstroColorMixer/windowSize/v6/";
+var ACM_PREHISTORIC_WINDOW_SIZE_SETTINGS_PREFIX = "AstroColorMixer/windowSize/v5/";
+var ACM_PRIMORDIAL_WINDOW_SIZE_SETTINGS_PREFIX = "AstroColorMixer/windowSize/v4/";
+var ACM_FIRST_WINDOW_SIZE_SETTINGS_PREFIX = "AstroColorMixer/windowSize/v3/";
+var ACM_ORIGINAL_WINDOW_SIZE_SETTINGS_PREFIX = "AstroColorMixer/windowSize/v2/";
+var ACM_INITIAL_WINDOW_SIZE_SETTINGS_PREFIX = "AstroColorMixer/windowSize/v1/";
+
+function acmSavedSizeKeyForPrefix(prefix, mode, suffix) {
+   return prefix + (mode === "compact" ? "compact" : "standard") + suffix;
+}
+
+function acmSavedSizeKey(mode, suffix) {
+   return acmSavedSizeKeyForPrefix(ACM_WINDOW_SIZE_SETTINGS_PREFIX, mode, suffix);
+}
+
+function acmReadSavedWindowSize(mode) {
+   try {
+      var w = Settings.read(acmSavedSizeKey(mode, "Width"), DataType_Int32);
+      var h = Settings.read(acmSavedSizeKey(mode, "Height"), DataType_Int32);
+      if (typeof w === "number" && typeof h === "number" && w > 0 && h > 0)
+         return { width: w, height: h };
+   } catch (ex) {
+   }
+   return null;
+}
+
+function acmWriteSavedWindowSize(mode, width, height) {
+   try {
+      Settings.write(acmSavedSizeKey(mode, "Width"), DataType_Int32, Math.round(width));
+      Settings.write(acmSavedSizeKey(mode, "Height"), DataType_Int32, Math.round(height));
+      return true;
+   } catch (ex) {
+   }
+   return false;
+}
+
+function acmResetSavedWindowSizes() {
+   try {
+      Settings.remove(ACM_WINDOW_SIZE_SETTINGS_PREFIX);
+      Settings.remove(ACM_LEGACY_WINDOW_SIZE_SETTINGS_PREFIX);
+      Settings.remove(ACM_OLDER_WINDOW_SIZE_SETTINGS_PREFIX);
+      Settings.remove(ACM_OLDEST_WINDOW_SIZE_SETTINGS_PREFIX);
+      Settings.remove(ACM_ANCIENT_WINDOW_SIZE_SETTINGS_PREFIX);
+      Settings.remove(ACM_PREHISTORIC_WINDOW_SIZE_SETTINGS_PREFIX);
+      Settings.remove(ACM_PRIMORDIAL_WINDOW_SIZE_SETTINGS_PREFIX);
+      Settings.remove(ACM_FIRST_WINDOW_SIZE_SETTINGS_PREFIX);
+      Settings.remove(ACM_ORIGINAL_WINDOW_SIZE_SETTINGS_PREFIX);
+      Settings.remove(ACM_INITIAL_WINDOW_SIZE_SETTINGS_PREFIX);
+      return true;
+   } catch (ex) {
+   }
+   try {
+      Settings.remove(acmSavedSizeKey("standard", "Width"));
+      Settings.remove(acmSavedSizeKey("standard", "Height"));
+      Settings.remove(acmSavedSizeKey("compact", "Width"));
+      Settings.remove(acmSavedSizeKey("compact", "Height"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_LEGACY_WINDOW_SIZE_SETTINGS_PREFIX, "standard", "Width"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_LEGACY_WINDOW_SIZE_SETTINGS_PREFIX, "standard", "Height"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_LEGACY_WINDOW_SIZE_SETTINGS_PREFIX, "compact", "Width"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_LEGACY_WINDOW_SIZE_SETTINGS_PREFIX, "compact", "Height"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_OLDER_WINDOW_SIZE_SETTINGS_PREFIX, "standard", "Width"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_OLDER_WINDOW_SIZE_SETTINGS_PREFIX, "standard", "Height"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_OLDER_WINDOW_SIZE_SETTINGS_PREFIX, "compact", "Width"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_OLDER_WINDOW_SIZE_SETTINGS_PREFIX, "compact", "Height"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_OLDEST_WINDOW_SIZE_SETTINGS_PREFIX, "standard", "Width"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_OLDEST_WINDOW_SIZE_SETTINGS_PREFIX, "standard", "Height"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_OLDEST_WINDOW_SIZE_SETTINGS_PREFIX, "compact", "Width"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_OLDEST_WINDOW_SIZE_SETTINGS_PREFIX, "compact", "Height"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_ANCIENT_WINDOW_SIZE_SETTINGS_PREFIX, "standard", "Width"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_ANCIENT_WINDOW_SIZE_SETTINGS_PREFIX, "standard", "Height"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_ANCIENT_WINDOW_SIZE_SETTINGS_PREFIX, "compact", "Width"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_ANCIENT_WINDOW_SIZE_SETTINGS_PREFIX, "compact", "Height"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_PREHISTORIC_WINDOW_SIZE_SETTINGS_PREFIX, "standard", "Width"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_PREHISTORIC_WINDOW_SIZE_SETTINGS_PREFIX, "standard", "Height"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_PREHISTORIC_WINDOW_SIZE_SETTINGS_PREFIX, "compact", "Width"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_PREHISTORIC_WINDOW_SIZE_SETTINGS_PREFIX, "compact", "Height"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_PRIMORDIAL_WINDOW_SIZE_SETTINGS_PREFIX, "standard", "Width"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_PRIMORDIAL_WINDOW_SIZE_SETTINGS_PREFIX, "standard", "Height"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_PRIMORDIAL_WINDOW_SIZE_SETTINGS_PREFIX, "compact", "Width"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_PRIMORDIAL_WINDOW_SIZE_SETTINGS_PREFIX, "compact", "Height"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_FIRST_WINDOW_SIZE_SETTINGS_PREFIX, "standard", "Width"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_FIRST_WINDOW_SIZE_SETTINGS_PREFIX, "standard", "Height"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_FIRST_WINDOW_SIZE_SETTINGS_PREFIX, "compact", "Width"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_FIRST_WINDOW_SIZE_SETTINGS_PREFIX, "compact", "Height"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_ORIGINAL_WINDOW_SIZE_SETTINGS_PREFIX, "standard", "Width"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_ORIGINAL_WINDOW_SIZE_SETTINGS_PREFIX, "standard", "Height"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_ORIGINAL_WINDOW_SIZE_SETTINGS_PREFIX, "compact", "Width"));
+      Settings.remove(acmSavedSizeKeyForPrefix(ACM_ORIGINAL_WINDOW_SIZE_SETTINGS_PREFIX, "compact", "Height"));
+      return true;
+   } catch (ex2) {
+   }
+   return false;
+}
+
+function acmClampWindowSize(dialog, width, height, minWidth, minHeight) {
+   var w = Math.max(minWidth, Math.round(width));
+   var h = Math.max(minHeight, Math.round(height));
+   var screenSize = acmGetDialogAvailableScreenSize(dialog);
+   if (screenSize) {
+      if (screenSize.width > w + 48)
+         w = Math.min(w, Math.max(minWidth, screenSize.width - 48));
+      if (screenSize.height > h + 72)
+         h = Math.min(h, Math.max(minHeight, screenSize.height - 72));
+   }
+   return { width: w, height: h };
+}
+
+function acmDefaultWindowSizeForMode(dialog, mode) {
+   var compact = mode === "compact";
+   if (compact) {
+      return {
+         width: ACM_HOST_IS_WINDOWS ? 1700 : 1360,
+         height: ACM_HOST_IS_WINDOWS ? 980 : 780
+      };
+   }
+   return {
+      width: dialog.acmDefaultDialogWidth || (ACM_HOST_IS_WINDOWS ? 2220 : 2000),
+      height: dialog.acmDefaultDialogHeight || (ACM_HOST_IS_WINDOWS ? 1040 : 940)
+   };
+}
+
+function acmSavedWindowSizeIsSaneForMode(mode, size) {
+   if (!size)
+      return false;
+   if (mode === "compact") {
+      if (ACM_HOST_IS_WINDOWS)
+         return size.width >= 1700 && size.width <= 2400 && size.height >= 980 && size.height <= 1260;
+      return size.width >= 1360 && size.width <= 2400 && size.height >= 780 && size.height <= 1200;
+   }
+   return size.width >= 1200 && size.height >= 820;
 }
 
 function acmCreateInfoBox(parent) {
@@ -414,7 +561,7 @@ function acmCreateInfoBox(parent) {
    return box;
 }
 
-console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.7.8-beta</b>");
+console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.7.9-beta</b>");
 
 // -------------------------------------------------------------------------
 // Minimal copied core logic
@@ -1808,11 +1955,375 @@ function acmFormatPassViewerRowText(pass) {
    return (pass.enabled !== false ? "✓ " : "□ ") + pass.name + " · " + acmSummarizePass(pass) + " · " + acmSummarizePassMaskControls(pass);
 }
 
+function acmDialogIsCompactMode(dialog) {
+   return !!(dialog && (
+      dialog.layoutMode === "compact" ||
+      (dialog.layoutModeCombo && dialog.layoutModeCombo.currentItem === 1)
+   ));
+}
+
+function acmCompactPassViewerBandLabel(label) {
+   var base = String(label || "").split(" / ")[0];
+   if (base === "Red")
+      return "R";
+   if (base === "Orange")
+      return "O";
+   if (base === "Yellow")
+      return "Y";
+   if (base === "Green")
+      return "G";
+   if (base === "Cyan")
+      return "C";
+   if (base === "Blue")
+      return "B";
+   if (base === "Purple")
+      return "P";
+   if (base === "Magenta")
+      return "M";
+   if (base === "Neutral")
+      return "N";
+   return base;
+}
+
+function acmPassViewerShouldAbbreviate(dialog) {
+   return !!(dialog && (ACM_HOST_IS_WINDOWS || acmDialogIsCompactMode(dialog)));
+}
+
+function acmCompactPassViewerPassName(pass, dialog) {
+   if (!dialog || !acmDialogIsCompactMode(dialog) || ACM_HOST_IS_WINDOWS)
+      return pass.name;
+   if (pass.id === "pass-1")
+      return "Base";
+   var match = String(pass.name || "").match(/(\d+)/);
+   return match ? ("Pass " + match[1]) : pass.name;
+}
+
+function acmSummarizePassForViewerFull(pass, dialog) {
+   var abbreviate = acmPassViewerShouldAbbreviate(dialog);
+   var parts = [];
+   for (var i = 0; i < pass.bands.length; ++i) {
+      var band = pass.bands[i];
+      var bandName = abbreviate ? acmCompactPassViewerBandLabel(band.label) : band.label.split(" / ")[0];
+      var sat = acmRoundedValue(band.saturation, 0);
+      var lum = acmRoundedValue(band.luminance, 1);
+      var hue = acmRoundedValue(band.hueShift, 1);
+      if (Math.abs(sat) > ACM_EPSILON)
+         parts.push(bandName + " S " + (sat > 0 ? "+" : "") + acmFormatMixerValue(sat, 0));
+      if (Math.abs(lum) > ACM_EPSILON)
+         parts.push(bandName + " L " + (lum > 0 ? "+" : "") + acmFormatMixerValue(lum, 1));
+      if (Math.abs(hue) > ACM_EPSILON)
+         parts.push(bandName + " H " + (hue > 0 ? "+" : "") + acmFormatMixerValue(hue, 1));
+   }
+   var neutralLum = acmRoundedValue(pass.neutralLuminance.luminance, 1);
+   if (Math.abs(neutralLum) > ACM_EPSILON)
+      parts.push((abbreviate ? "N" : "Neutral") + " L " + (neutralLum > 0 ? "+" : "") + acmFormatMixerValue(neutralLum, 1));
+   if (parts.length === 0)
+      return abbreviate ? "No adj" : "No active adjustments";
+   return parts.join(" - ");
+}
+
+function acmSummarizePassForViewer(pass, dialog) {
+   return acmSummarizePassForViewerFull(pass, dialog);
+}
+
+function acmSummarizeRangeMaskForViewer(rangeMask, dialog) {
+   if (!rangeMask || !rangeMask.enabled)
+      return dialog && (ACM_HOST_IS_WINDOWS || acmDialogIsCompactMode(dialog)) ? "RM Off" : "Range Off";
+   var soften = acmGetMaskSoftenRadius({ radius: rangeMask.maskSoftenRadius });
+   var softenText = soften > 0 ? " - Blur " + soften.toFixed(0) : "";
+   if (rangeMask.preset && rangeMask.preset !== "Custom" && rangeMask.preset !== "All")
+      return (dialog && (ACM_HOST_IS_WINDOWS || acmDialogIsCompactMode(dialog)) ? "RM " : "Range ") + rangeMask.preset + softenText;
+   if (dialog && (ACM_HOST_IS_WINDOWS || acmDialogIsCompactMode(dialog)))
+      return "RM " + rangeMask.low.toFixed(2) + "-" + rangeMask.high.toFixed(2) + softenText;
+   return acmSummarizeRangeMask(rangeMask);
+}
+
+function acmSummarizePassMaskControlsForViewer(pass, dialog) {
+   if (dialog && (ACM_HOST_IS_WINDOWS || acmDialogIsCompactMode(dialog)))
+      return acmSummarizeRangeMaskForViewer(pass.rangeMask, dialog);
+   return acmSummarizePassMaskControls(pass);
+}
+
+function acmFormatPassViewerWrappedRowText(pass, dialog, hasDeleteButton) {
+   var rawText = acmCompactPassViewerPassName(pass, dialog) + " - " + acmSummarizePassForViewerFull(pass, dialog) + " - " + acmSummarizePassMaskControlsForViewer(pass, dialog);
+   var displayText = acmCompactPassViewerPassName(pass, dialog) + " - " + acmSummarizePassForViewer(pass, dialog) + " - " + acmSummarizePassMaskControlsForViewer(pass, dialog);
+   if (dialog && (ACM_HOST_IS_WINDOWS || acmDialogIsCompactMode(dialog)))
+      return { raw: rawText, wrapped: displayText };
+   var textWidth = acmPassViewerTextWidth(dialog, hasDeleteButton);
+   var compactPassViewer = acmDialogIsCompactMode(dialog);
+   var compactWindowsPassViewer = !!(ACM_HOST_IS_WINDOWS && compactPassViewer);
+   var wrapChars = compactWindowsPassViewer
+      ? Math.max(32, Math.floor(textWidth / 6.2))
+      : Math.max(68, Math.floor(textWidth / (ACM_HOST_IS_WINDOWS ? 4.7 : 4.9)));
+   var parts = displayText.split(" - ");
+   var lines = [];
+   var current = "";
+   for (var i = 0; i < parts.length; ++i) {
+      var piece = parts[i];
+      var next = current.length > 0 ? current + " - " + piece : piece;
+      if (current.length > 0 && next.length > wrapChars) {
+         lines.push(current);
+         current = piece;
+      } else {
+         current = next;
+      }
+   }
+   if (current.length > 0)
+      lines.push(current);
+   return { raw: rawText, wrapped: lines.join("\n") };
+}
+
+function acmPassComboDisplayName(pass, dialog) {
+   if (!pass)
+      return "";
+   if (ACM_HOST_IS_WINDOWS && dialog && dialog.layoutMode === "compact") {
+      if (pass.id === "pass-1")
+         return "Base";
+      var match = String(pass.name || "").match(/(\d+)/);
+      if (match)
+         return "Pass " + match[1];
+      return "Pass";
+   }
+   return pass.name;
+}
+
+function acmPassViewerTextWidth(dialog, hasDeleteButton) {
+   var viewportWidth = dialog && dialog.passViewerHost && dialog.passViewerHost.viewport ? dialog.passViewerHost.viewport.width : 0;
+   var hostWidth = dialog && dialog.passViewerHost ? dialog.passViewerHost.width : 0;
+   var panelWidth = dialog && dialog.passViewerPanel ? dialog.passViewerPanel.width : 0;
+   var width = Math.max(viewportWidth, hostWidth, panelWidth);
+   if (ACM_HOST_IS_WINDOWS && dialog && dialog.layoutMode === "compact")
+      width = Math.min(width || 0, 330);
+   if (width < 360)
+      width = acmDialogIsCompactMode(dialog) ? (ACM_HOST_IS_WINDOWS ? 330 : 760) : (ACM_HOST_IS_WINDOWS ? 640 : 820);
+   var deleteAllowance = hasDeleteButton ? 30 : 0;
+   return Math.max(180, width - deleteAllowance - (ACM_HOST_IS_WINDOWS && dialog && dialog.layoutMode === "compact" ? 58 : 42));
+}
+
+function acmConfigurePassViewerLabel(label, text, dialog, hasDeleteButton) {
+   if (!label)
+      return 24;
+   var textWidth = acmPassViewerTextWidth(dialog, hasDeleteButton);
+   var fontSize = label.font && label.font.pixelSize ? label.font.pixelSize : 10;
+   var lineHeight = Math.max(13, fontSize + (ACM_HOST_IS_WINDOWS ? 4 : 3));
+   var rowHeight = acmEstimateWrappedTextHeight(text, textWidth, lineHeight, lineHeight + 6);
+   rowHeight = Math.min(ACM_HOST_IS_WINDOWS ? 58 : 50, Math.max(ACM_HOST_IS_WINDOWS ? 22 : 20, rowHeight));
+   label.setFixedWidth(textWidth);
+   label.setMinHeight(rowHeight);
+   label.scaledMinHeight = rowHeight;
+   return rowHeight;
+}
+
+function acmClipTextToWidth(text, font, maxWidth) {
+   var value = String(text || "");
+   if (!font || maxWidth <= 0)
+      return "";
+   if (font.width(value) <= maxWidth)
+      return value;
+   var suffix = "...";
+   var suffixWidth = font.width(suffix);
+   if (suffixWidth >= maxWidth)
+      return "";
+   var lo = 0;
+   var hi = value.length;
+   while (lo < hi) {
+      var mid = Math.ceil((lo + hi) / 2);
+      if (font.width(value.substring(0, mid)) + suffixWidth <= maxWidth)
+         lo = mid;
+      else
+         hi = mid - 1;
+   }
+   return value.substring(0, lo) + suffix;
+}
+
+function acmConfigurePassViewerRowControl(rowControl, textInfo, dialog, hasDeleteButton, checked, passId) {
+   if (!rowControl)
+      return 24;
+   var textWidth = acmPassViewerTextWidth(dialog, hasDeleteButton);
+   var compactPassViewer = acmDialogIsCompactMode(dialog);
+   var compactWindowsPassViewer = !!(ACM_HOST_IS_WINDOWS && compactPassViewer);
+   var fontSize = ACM_HOST_IS_WINDOWS ? 12 : (compactPassViewer ? 9 : 10);
+   var lineHeight = Math.max(compactWindowsPassViewer ? 14 : 13, fontSize + (ACM_HOST_IS_WINDOWS ? 4 : 3));
+   var rowHeight = acmEstimateWrappedTextHeight(textInfo.wrapped, textWidth, lineHeight, lineHeight + 6);
+   if (ACM_HOST_IS_WINDOWS)
+      rowHeight = 24;
+   else if (compactPassViewer)
+      rowHeight = 24;
+   else
+      rowHeight = Math.min(58, Math.max(22, rowHeight));
+   rowControl.acmTextLines = (ACM_HOST_IS_WINDOWS || compactPassViewer) ? [String(textInfo.wrapped || "").replace(/\n/g, " ")] : String(textInfo.wrapped || "").split("\n");
+   rowControl.acmRawText = textInfo.raw;
+   rowControl.acmChecked = !!checked;
+   rowControl.acmPassId = passId;
+   rowControl.acmFontSize = fontSize;
+   rowControl.acmLineHeight = lineHeight;
+   rowControl.acmCompactPassViewer = compactPassViewer;
+   rowControl.toolTip = textInfo.raw;
+   rowControl.setMinWidth(compactPassViewer ? 220 : Math.max(220, textWidth + 34));
+   rowControl.setFixedHeight(rowHeight);
+   rowControl.scaledMinHeight = rowHeight;
+   rowControl.maxHeight = rowHeight;
+   rowControl.onPaint = function() {
+      var g = new Graphics(this);
+      g.brush = new Brush(ACM_GRAY_UI_THEME.passViewer);
+      g.fillRect(0, 0, this.width, this.height, g.brush);
+      var font = new Font;
+      font.pixelSize = this.acmFontSize || 10;
+      if (this.acmCompactPassViewer)
+         font.bold = true;
+      g.font = font;
+      var radioX = 12;
+      var radioY = Math.round(this.height * 0.5);
+      g.brush = new Brush(0xffffffff);
+      g.pen = new Pen(0xff777777, 1);
+      g.drawEllipse(radioX - 6, radioY - 6, radioX + 6, radioY + 6);
+      if (this.acmChecked) {
+         g.brush = new Brush(0xff111111);
+         g.pen = new Pen(0xff111111, 2);
+         g.drawEllipse(radioX - 2, radioY - 2, radioX + 2, radioY + 2);
+      }
+      g.pen = new Pen(this.acmCompactPassViewer ? 0xff000000 : 0xff161616, 1);
+      var lines = this.acmTextLines || [];
+      var x = 34;
+      var y = (ACM_HOST_IS_WINDOWS || this.acmCompactPassViewer)
+         ? Math.round((this.height + g.font.ascent - g.font.descent) * 0.5)
+         : 5 + g.font.ascent;
+      var step = this.acmLineHeight || 14;
+      var maxTextWidth = Math.max(0, this.width - x - 8);
+      for (var i = 0; i < lines.length; ++i) {
+         var line = (ACM_HOST_IS_WINDOWS || this.acmCompactPassViewer) ? acmClipTextToWidth(lines[i], g.font, maxTextWidth) : lines[i];
+         g.drawText(x, y + i * step, line);
+      }
+      g.end();
+   };
+   return rowHeight;
+}
+
+function acmWindowsPassViewerRowHeight() {
+   return 24;
+}
+
+function acmWindowsPassViewerBodyHeight(dialog) {
+   return acmWindowsPassViewerRowHeight() * ACM_MAX_REFINEMENT_PASSES;
+}
+
+function acmWindowsPassViewerTooltip(dialog) {
+   if (!dialog || !dialog.editorState || !(dialog.editorState.passes instanceof Array))
+      return "";
+   var lines = [];
+   for (var i = 0; i < dialog.editorState.passes.length; ++i) {
+      var pass = dialog.editorState.passes[i];
+      lines.push(acmFormatPassViewerWrappedRowText(pass, dialog, pass.id !== "pass-1").raw);
+   }
+   return lines.join("\n");
+}
+
+function acmConfigureWindowsPassViewerCanvas(body, dialog) {
+   if (!body || !dialog)
+      return;
+   var bodyHeight = acmWindowsPassViewerBodyHeight(dialog);
+   body.acmDialogRef = dialog;
+   body.acmRowHeight = acmWindowsPassViewerRowHeight();
+   body.toolTip = acmWindowsPassViewerTooltip(dialog);
+   body.setMinWidth(260);
+   body.setFixedHeight(bodyHeight);
+   body.scaledMinHeight = bodyHeight;
+   body.maxHeight = bodyHeight;
+   body.onMouseMove = function(x, y) {
+      var dialog = this.acmDialogRef;
+      if (!dialog || !dialog.editorState || !(dialog.editorState.passes instanceof Array))
+         return;
+      var rowIndex = Math.floor(y / Math.max(1, this.acmRowHeight || 24));
+      if (rowIndex >= 0 && rowIndex < dialog.editorState.passes.length) {
+         var pass = dialog.editorState.passes[rowIndex];
+         this.toolTip = acmFormatPassViewerWrappedRowText(pass, dialog, pass.id !== "pass-1").raw;
+      } else {
+         this.toolTip = acmWindowsPassViewerTooltip(dialog);
+      }
+   };
+   body.onMousePress = function(x, y) {
+      var dialog = this.acmDialogRef;
+      if (!dialog || !dialog.editorState || !(dialog.editorState.passes instanceof Array))
+         return;
+      var rowIndex = Math.floor(y / Math.max(1, this.acmRowHeight || 24));
+      if (rowIndex < 0 || rowIndex >= dialog.editorState.passes.length)
+         return;
+      var pass = dialog.editorState.passes[rowIndex];
+      var deleteLeft = this.width - 19;
+      if (pass.id !== "pass-1" && x >= deleteLeft) {
+         dialog.editorState.activePassId = pass.id;
+         dialog.deleteActivePass();
+         return;
+      }
+      dialog.editorState.activePassId = pass.id;
+      dialog.refreshFromState();
+      dialog.markPreviewStale();
+   };
+   body.onPaint = function() {
+      var dialog = this.acmDialogRef;
+      var g = new Graphics(this);
+      g.brush = new Brush(ACM_GRAY_UI_THEME.passViewer);
+      g.fillRect(0, 0, this.width, this.height, g.brush);
+      if (!dialog || !dialog.editorState || !(dialog.editorState.passes instanceof Array)) {
+         g.end();
+         return;
+      }
+
+      var font = new Font;
+      font.pixelSize = 12;
+      font.bold = true;
+      g.font = font;
+      var rowHeight = Math.max(1, this.acmRowHeight || 24);
+      var radioX = 14;
+      var textX = 34;
+      var deleteX = this.width - 14;
+      var maxTextWidth = Math.max(0, this.width - textX - 26);
+      for (var i = 0; i < dialog.editorState.passes.length; ++i) {
+         var pass = dialog.editorState.passes[i];
+         var yTop = i * rowHeight;
+         var yMid = yTop + Math.round(rowHeight * 0.5);
+         var baseline = yTop + Math.round((rowHeight + g.font.ascent - g.font.descent) * 0.5);
+         if (pass.id === dialog.editorState.activePassId) {
+            g.brush = new Brush(0xffeeeeee);
+            g.fillRect(0, yTop, this.width, yTop + rowHeight, g.brush);
+         }
+         g.brush = new Brush(0xffffffff);
+         g.pen = new Pen(0xff777777, 1);
+         g.drawEllipse(radioX - 6, yMid - 6, radioX + 6, yMid + 6);
+         if (pass.id === dialog.editorState.activePassId) {
+            g.brush = new Brush(0xff111111);
+            g.pen = new Pen(0xff111111, 2);
+            g.drawEllipse(radioX - 2, yMid - 2, radioX + 2, yMid + 2);
+         }
+         var textInfo = acmFormatPassViewerWrappedRowText(pass, dialog, pass.id !== "pass-1");
+         var displayText = String(textInfo.wrapped || "").replace(/\n/g, " ");
+         if (pass.id !== "pass-1")
+            maxTextWidth = Math.max(0, this.width - textX - 32);
+         else
+            maxTextWidth = Math.max(0, this.width - textX - 8);
+         g.pen = new Pen(0xff111111, 1);
+         g.drawText(textX, baseline, acmClipTextToWidth(displayText, g.font, maxTextWidth));
+         if (pass.id !== "pass-1") {
+            g.pen = new Pen(0xff5f5f5f, 1);
+            g.drawRect(new Rect(deleteX - 5, yMid - 5, deleteX + 5, yMid + 5));
+            g.drawLine(deleteX - 3, yMid - 3, deleteX + 3, yMid + 3);
+            g.drawLine(deleteX + 3, yMid - 3, deleteX - 3, yMid + 3);
+         }
+      }
+      g.end();
+   };
+}
+
+function acmPassViewerBodyHeight(dialog, contentHeight) {
+   return Math.max(1, contentHeight);
+}
+
 var ACM_LAST_RECIPE_PATH = "";
 var ACM_LAST_SAVE_PATH = "";
 var ACM_TAB_HUE = "hueShift";
 var ACM_TAB_SAT = "saturation";
 var ACM_TAB_LUM = "luminance";
+var ACM_MAX_REFINEMENT_PASSES = 4;
 var __acmPoc8Dialog = null;
 
 function chooseRecipeFile() {
@@ -2092,6 +2603,14 @@ var ACM_FAQ_TEXT = [
    "For normal refinements on stars-present images, leave both protections enabled. For aggressive faint-color extraction from galaxies or dust, a starless workflow is strongly recommended: remove or separate the stars, work the starless image, then recombine the stars later.",
    "",
    "If you do turn Protect Low Sat off on a stars-present image, use restraint. Several modest passes are usually safer than one huge pass with multiple sliders pushed to extremes. Extreme single-pass moves can create blotchy red/orange color, noisy neutral regions, or colored halos around stars.",
+   "",
+   "3C. WHAT DOES COMPACT MODE CHANGE?",
+   "",
+   "Compact mode is a space-saving layout for smaller or crowded PixInsight workspaces. It keeps the same processing model, adjustment controls, preview behavior, passes, masks, probe math, histogram, polar plot, and output behavior as Standard mode.",
+   "",
+   "The difference is presentation. Compact mode compresses the header and control areas, keeps diagnostics and passes available, and uses tighter Windows compact control spacing where needed. Standard mode remains the more spacious layout for detailed review.",
+   "",
+   "Standard and Compact remember their window sizes separately so changing modes should not require recovering an old stale window size.",
    "",
    "4. BASIC WORKFLOW",
    "",
@@ -2454,6 +2973,14 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
    "",
    "Changed / Strong is also diagnostic only. It is computed after preview rendering from sampled preview pixels so it does not delay the visible preview update. Changed counts pixels with a nontrivial preview RGB difference; Strong counts pixels with a larger difference.",
    "",
+   "14A. STANDARD AND COMPACT LAYOUT MODES",
+   "",
+   "Standard and Compact are UI layout modes only. They do not change the adjustment math, pass execution order, preview sampling, probe calculations, histogram logic, polar plot logic, mask generation, recipe schema, or output path.",
+   "",
+   "Compact mode uses alternate layout constants for constrained dialogs: shorter control labels where necessary, compressed header controls, a compact refresh control in Windows compact, smaller pass-viewer controls, and separate saved window-size keys. Diagnostics remain available in compact mode so Histogram, Polar Plot, Plot Info, and Pass Viewer information are still visible during review.",
+   "",
+   "Layout version prefixes are intentionally bumped when compact geometry changes so stale saved window sizes do not keep older layouts alive.",
+   "",
    "15. ADJUSTMENT SET MODEL",
    "",
    "Adjustment sets are stored as JSON and preserve the important editing state, including image type, sensitivity, pass order, band settings, Width, Feather, selected-band Blur values, Range Mask configuration, and neutral luminance terms. Diagnostic readouts are interactive session tools and are not the main purpose of the saved adjustment-set file.",
@@ -2489,9 +3016,11 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
 
 var ACM_ABOUT_TEXT =
       "About Astro Color Mixer\n\n" +
-      "Astro Color Mixer v0.9.7.8-beta\n\n" +
+"Astro Color Mixer v0.9.7.9-beta\n\n" +
 "A Cosgrove's Cosmos tool for nonlinear RGB chroma-vector color control in astrophotography.\n\n" +
 "Version 2 feature highlights since v0.9.7.7-beta:\n\n" +
+"Latest Feature\n" +
+"- Added Compact mode as a space-saving layout for smaller or crowded PixInsight workspaces while preserving the same processing, preview, masks, passes, diagnostics, and output behavior as Standard mode.\n\n" +
 "Preview / Diagnostics\n" +
 "- Added Difference preview mode to show where the current adjustment changes the image.\n" +
 "- Added Plot Info beside the polar plot with probe, selected band, Range Mask, and delayed Changed / Strong readouts.\n" +
@@ -2524,6 +3053,8 @@ var ACM_ABOUT_TEXT =
 "- Selected Band mask preview updates faster while changing band/radius/feather/blur/boost.\n" +
 "- Mask preview caches are now lazy/targeted instead of rebuilt on every full preview.\n\n" +
 "UI / Layout\n" +
+"- Added Standard / Compact layout mode support with separate saved window sizes.\n" +
+"- Improved Windows compact header, target selector, Pass Viewer, selected-band readout, and diagnostics layout.\n" +
 "- Larger header logo and app title.\n" +
 "- Active tabs now use gold highlighting.\n" +
 "- Fixed clipped slider rows, especially on Saturation and Luminance tabs.\n" +
@@ -2534,9 +3065,9 @@ var ACM_ABOUT_TEXT =
 "- Added likely-linear image warning.\n" +
 "- Sensitivity option Advanced was renamed to Strong while preserving the same behavior.\n" +
 "- Added Sensitivity tooltip/help text.\n" +
-"- Improved FAQ, About, and Technical Appendix content to cover new protections, Difference preview, mask shaping, diagnostics, and recommended starless workflows.\n\n" +
+"- Improved FAQ, About, and Technical Appendix content to cover Compact mode, new protections, Difference preview, mask shaping, diagnostics, and recommended starless workflows.\n\n" +
 "Release-note summary:\n" +
-"Since v0.9.7.7-beta, Astro Color Mixer has gained Difference preview, stronger diagnostics, Plot Info, visible star/low-saturation protection controls, improved star protection behavior, selected-band and range-mask Blur/Boost shaping, smoother full-resolution mask output, faster multi-pass output, a Star Protection Mask view, better mask-preview responsiveness, linear-image warnings, clearer documentation, gold active tabs, fixed slider clipping, and improved Windows startup layout.\n\n" +
+"Since v0.9.7.7-beta, Astro Color Mixer has gained Compact mode, Difference preview, stronger diagnostics, Plot Info, visible star/low-saturation protection controls, improved star protection behavior, selected-band and range-mask Blur/Boost shaping, smoother full-resolution mask output, faster multi-pass output, a Star Protection Mask view, better mask-preview responsiveness, linear-image warnings, clearer documentation, gold active tabs, fixed slider clipping, and improved Windows startup/compact layout.\n\n" +
 "Developed by Patrick A. Cosgrove for Cosgrove's Cosmos.\n" +
 "Copyright © 2026 Patrick A. Cosgrove. All rights reserved.\n\n" +
 "Website:\n" +
@@ -3021,6 +3552,8 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
    if (row.isNeutral) {
       row.swatch = new Control(row.host);
       row.swatch.setFixedWidth(ACM_SWATCH_WIDTH);
+      row.swatch.scaledMinWidth = ACM_SWATCH_WIDTH;
+      row.swatch.maxWidth = ACM_SWATCH_WIDTH;
    } else {
       row.swatch = acmCreateColorSwatch(row.host, row.bandDef.color);
    }
@@ -3033,14 +3566,19 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
    row.labelHost.text = acmThemeRichText(row.primaryLabelText, ACM_GRAY_UI_THEME.text, false);
    acmApplyLightText(row.labelHost);
    row.labelHost.textAlignment = TextAlign_Right | TextAlign_VertCenter;
-   row.labelHost.minWidth = ACM_MIXER_LABEL_WIDTH;
+   row.labelHost.minWidth = ACM_HOST_IS_WINDOWS ? 96 : ACM_MIXER_LABEL_WIDTH;
    row.labelHost.scaledMinHeight = 16;
    row.labelHost.toolTip = acmMixerLabelTooltip(row.bandDef, row.isNeutral);
 
    row.edit = new Edit(row.host);
-   row.edit.setFixedWidth(ACM_ROW_EDIT_WIDTH);
-   row.edit.setFixedHeight(18);
-   row.edit.text = acmFormatMixerDisplayValue(row.value, row.precision);
+   row.edit.setFixedWidth(ACM_HOST_IS_WINDOWS ? 58 : ACM_ROW_EDIT_WIDTH);
+   row.edit.setFixedHeight(ACM_HOST_IS_WINDOWS ? 22 : 18);
+   row.edit.textAlignment = TextAlign_Center|TextAlign_VertCenter;
+   row.formatEditText = function(value) {
+      var text = acmFormatMixerDisplayValue(value, row.precision);
+      return ACM_HOST_IS_WINDOWS && row.dialog && row.dialog.layoutMode === "compact" ? ("  " + text) : text;
+   };
+   row.edit.text = row.formatEditText(row.value);
 
    row.field = new Control(row.host);
    row.field.rowRef = row;
@@ -3050,8 +3588,10 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
       var g = new Graphics(this);
       var r = this.rowRef;
       var compactRow = !!this.acmCompactRow;
-      var fieldTop = compactRow ? 1 : 2;
-      var fieldBottom = this.height - (compactRow ? 1 : 2);
+      var windowsStandardRow = ACM_HOST_IS_WINDOWS && r.dialog && r.dialog.layoutMode !== "compact";
+      var compactWindowsRow = ACM_HOST_IS_WINDOWS && compactRow;
+      var fieldTop = windowsStandardRow ? 0 : (compactWindowsRow ? 2 : (ACM_HOST_IS_WINDOWS ? 3 : 2));
+      var fieldBottom = this.height - (windowsStandardRow ? 1 : (compactWindowsRow ? 2 : (ACM_HOST_IS_WINDOWS ? 4 : 2)));
       var fieldHeight = Math.max(compactRow ? 7 : 9, fieldBottom - fieldTop);
       var fieldRect = new Rect(0, fieldTop, this.width - 1, fieldTop + fieldHeight);
       var key = r.dialog.activeTab + ":" + (r.dialog.editorState ? r.dialog.editorState.sensitivity : "Normal") + ":" + this.width + ":" + fieldHeight + ":" + (r.isNeutral ? "neutral" : r.bandDef.id);
@@ -3066,33 +3606,65 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
          g.drawScaledBitmap(new Rect(fieldRect.left + 1, fieldRect.top + 1, fieldRect.right - 1, fieldRect.bottom - 1), r.cachedBitmap);
       var cy = Math.round((fieldRect.top + fieldRect.bottom) * 0.5);
       g.pen = new Pen(0x90f2f4f8, 2);
-      g.drawLine(fieldRect.left + 10, cy, fieldRect.right - 10, cy);
+      var trackInset = compactWindowsRow ? 4 : 10;
+      g.drawLine(fieldRect.left + trackInset, cy, fieldRect.right - trackInset, cy);
       var centerX = Math.round((fieldRect.left + fieldRect.right) * 0.5);
       g.pen = new Pen(0x50ffffff, 1);
       g.drawLine(centerX, fieldRect.top + 1, centerX, fieldRect.bottom - 1);
       var t = (r.value - r.minValue) / Math.max(ACM_EPSILON, r.maxValue - r.minValue);
       t = acmClamp01(t);
-      var knobX = fieldRect.left + 10 + Math.round(t * Math.max(1, (fieldRect.right - fieldRect.left - 20)));
-      g.pen = new Pen(0xff5f646d, 1);
-      g.brush = new Brush(0xfff1f2f4);
-      g.drawCircle(knobX, cy, compactRow ? 4 : 5);
+      var knobInset = compactWindowsRow ? 3 : 10;
+      var knobX = fieldRect.left + knobInset + Math.round(t * Math.max(1, (fieldRect.right - fieldRect.left - 2 * knobInset)));
       var selectedRowId = r.dialog && r.dialog.getHighlightedRowId ? r.dialog.getHighlightedRowId() : "";
       if ((r.isNeutral && selectedRowId === "neutral") || (!r.isNeutral && r.bandId === selectedRowId)) {
-         g.pen = new Pen(0xff000000, 2);
-         g.brush = new Brush(0x00000000);
-         g.drawRect(new Rect(0, 0, this.width - 1, this.height - 1));
-         g.pen = new Pen(0xffd02020, 4);
-         g.drawRect(new Rect(3, 3, this.width - 4, this.height - 4));
+         if (ACM_HOST_IS_WINDOWS) {
+            var ox0 = fieldRect.left + (windowsStandardRow ? 1 : 2);
+            var oy0 = fieldRect.top + (windowsStandardRow ? 1 : 2);
+            var ox1 = fieldRect.right - (windowsStandardRow ? 2 : 3);
+            var oy1 = fieldRect.bottom - (windowsStandardRow ? 2 : 3);
+            g.brush = new Brush(windowsStandardRow ? 0x36ff2020 : 0x18ff2020);
+            g.fillRect(ox0, oy0, ox1, oy1, g.brush);
+            g.pen = new Pen(0xff101010, 1);
+            g.drawLine(ox0, oy0, ox1, oy0);
+            g.drawLine(ox0, oy1, ox1, oy1);
+            g.drawLine(ox0, oy0, ox0, oy1);
+            g.drawLine(ox1, oy0, ox1, oy1);
+            g.pen = new Pen(0xffff2020, windowsStandardRow ? 3 : 2);
+            g.drawLine(ox0, oy0, ox1, oy0);
+            g.drawLine(ox0, oy1, ox1, oy1);
+            g.drawLine(ox0, oy0, ox0, oy1);
+            g.drawLine(ox1, oy0, ox1, oy1);
+         } else {
+            g.pen = new Pen(0xff000000, 2);
+            g.brush = new Brush(0x00000000);
+            g.drawRect(new Rect(0, 0, this.width - 1, this.height - 1));
+            g.pen = new Pen(0xffff2020, compactRow ? 3 : 3);
+            g.drawRect(new Rect(2, 2, this.width - 4, this.height - 4));
+         }
+      }
+      if (compactWindowsRow) {
+         g.pen = new Pen(0xff20242c, 2);
+         g.brush = new Brush(0xffffffff);
+         g.drawCircle(knobX, cy, 5);
+         g.pen = new Pen(0xfff8fafc, 1);
+         g.drawCircle(knobX, cy, 3);
+      } else {
+         g.pen = new Pen(0xff5f646d, 1);
+         g.brush = new Brush(0xfff1f2f4);
+         g.drawCircle(knobX, cy, compactRow ? 4 : 5);
       }
       g.end();
    };
 
    row.resetButton = acmCreateMiniResetButton(row.host);
 
-   row.host.sizer.addSpacing(5);
+   row.host.sizer.addSpacing(0);
    row.host.sizer.add(row.swatch);
+   row.host.sizer.addSpacing(ACM_HOST_IS_WINDOWS ? 4 : 2);
    row.host.sizer.add(row.labelHost);
+   row.host.sizer.addSpacing(ACM_HOST_IS_WINDOWS ? 4 : 2);
    row.host.sizer.add(row.edit);
+   row.host.sizer.addSpacing(ACM_HOST_IS_WINDOWS ? 2 : 2);
    row.host.sizer.add(row.field, 100);
    row.host.sizer.add(row.resetButton);
 
@@ -3111,16 +3683,16 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
       row.minValue = minValue;
       row.maxValue = maxValue;
       row.value = acmClamp(row.value, row.minValue, row.maxValue);
-      row.edit.text = acmFormatMixerDisplayValue(row.value, row.precision);
+      row.edit.text = row.formatEditText(row.value);
       row.field.update();
    };
    row.setPrecision = function(precision) {
       row.precision = precision;
-      row.edit.text = acmFormatMixerDisplayValue(row.value, row.precision);
+      row.edit.text = row.formatEditText(row.value);
    };
    row.setValue = function(value) {
       row.value = acmClamp(value, row.minValue, row.maxValue);
-      row.edit.text = acmFormatMixerDisplayValue(row.value, row.precision);
+      row.edit.text = row.formatEditText(row.value);
       row.field.update();
    };
    row.activateSelection = function() {
@@ -3140,7 +3712,7 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
    row.commitValue = function(value) {
       row.activateSelection();
       row.value = acmClamp(value, row.minValue, row.maxValue);
-      row.edit.text = acmFormatMixerDisplayValue(row.value, row.precision);
+      row.edit.text = row.formatEditText(row.value);
       row.field.update();
       row.onValueUpdated(row.value);
    };
@@ -3184,22 +3756,38 @@ function acmCreateMixerFieldRow(parent, dialog, options) {
 function acmSetMixerFieldRowDensity(row, compact) {
    if (!row)
       return;
-   var hostH = compact ? 28 : 30;
-   var innerH = compact ? 11 : 13;
-   var editH = compact ? 14 : 16;
+   var ultraCompact = !!(row.dialog && row.dialog.layoutMode === "compact");
+   var windowsStandard = ACM_HOST_IS_WINDOWS && !ultraCompact;
+   var hostH = ultraCompact ? (ACM_HOST_IS_WINDOWS ? 22 : 18) : (windowsStandard ? (compact ? 24 : 24) : (compact ? 28 : 30));
+   var innerH = ultraCompact ? (ACM_HOST_IS_WINDOWS ? 16 : 8) : (windowsStandard ? 16 : (compact ? 11 : 13));
+   var editH = ultraCompact ? (ACM_HOST_IS_WINDOWS ? 20 : 13) : (windowsStandard ? 20 : (compact ? 14 : 16));
+   if (row.host && row.host.sizer)
+      row.host.sizer.spacing = ACM_HOST_IS_WINDOWS && ultraCompact ? 0 : ACM_ROW_SPACING;
    if (row.host) {
       row.host.setFixedHeight(hostH);
       row.host.scaledMinHeight = hostH;
+      if (typeof row.host.setMinHeight === "function")
+         row.host.setMinHeight(hostH);
    }
-   if (row.labelHost)
+   if (row.labelHost) {
+      var labelW = windowsStandard ? 96 : ACM_MIXER_LABEL_WIDTH;
+      row.labelHost.minWidth = labelW;
+      if (typeof row.labelHost.setFixedWidth === "function")
+         row.labelHost.setFixedWidth(labelW);
       row.labelHost.scaledMinHeight = innerH;
-   if (row.edit)
+   }
+   if (row.edit) {
+      if (typeof row.edit.setFixedWidth === "function")
+         row.edit.setFixedWidth(ACM_HOST_IS_WINDOWS && ultraCompact ? 76 : (ACM_HOST_IS_WINDOWS ? 58 : ACM_ROW_EDIT_WIDTH));
       row.edit.setFixedHeight(editH);
+   }
    if (row.field) {
       row.field.scaledMinHeight = innerH;
-      row.field.acmCompactRow = !!compact;
+      row.field.acmCompactRow = !!compact || ultraCompact;
       row.field.update();
    }
+   if (row.resetButton && typeof row.resetButton.setFixedSize === "function")
+      row.resetButton.setFixedSize(ACM_ROW_RESET_WIDTH, ultraCompact ? (ACM_HOST_IS_WINDOWS ? 20 : 18) : 24);
    if (row.host)
       row.host.update();
 }
@@ -3327,15 +3915,17 @@ function acmPaintRangeMaskOverlay(g, rangeMask, left, top, plotW, plotH, enabled
 }
 
 function acmConfigureNumericRowControl(numeric) {
-   numeric.scaledMinHeight = 9;
+   numeric.scaledMinHeight = 28;
    if (numeric.label) {
-      numeric.label.minWidth = ACM_ROW_LABEL_WIDTH;
+      numeric.label.minWidth = ACM_HOST_IS_WINDOWS ? 72 : 58;
+      if (ACM_HOST_IS_WINDOWS && typeof numeric.label.setFixedWidth === "function")
+         numeric.label.setFixedWidth(72);
       numeric.label.textAlignment = TextAlign_Left|TextAlign_VertCenter;
    }
    if (numeric.edit && typeof numeric.edit.setFixedWidth === "function")
-      numeric.edit.setFixedWidth(ACM_ROW_EDIT_WIDTH);
+      numeric.edit.setFixedWidth(ACM_HOST_IS_WINDOWS ? 74 : 66);
    if (numeric.slider)
-      numeric.slider.minWidth = 252;
+      numeric.slider.minWidth = ACM_HOST_IS_WINDOWS ? 300 : 252;
 }
 
 function writeResultImage(width, height, rgb, outputId) {
@@ -4385,7 +4975,7 @@ constructor() {
    acmHelpHostDialog = this;
 
    var self = this;
-   this.windowTitle = "Astro Color Mixer v0.9.7.8-beta";
+   this.windowTitle = "Astro Color Mixer v0.9.7.9-beta";
    this.recipeFilePath = "";
    this.activeTab = ACM_TAB_SAT;
    this.activeToolPanel = "selectedBand";
@@ -4424,6 +5014,11 @@ constructor() {
    this.linearWarningViewIds = {};
    this.protectionControlsSyncing = false;
    this.compareMode = "auto";
+   this.layoutMode = "standard";
+   this.compactDiagnosticsDialog = null;
+   this.compactDiagnosticsExpanded = false;
+   this.standardDialogWidth = 0;
+   this.standardDialogHeight = 0;
    this.previewDisplayOriginal = null;
    this.previewDisplayAdjusted = null;
    this.previewWidth = 0;
@@ -4574,14 +5169,16 @@ constructor() {
       g.brush = new Brush(ACM_GRAY_UI_THEME.header);
       g.fillRect(0, 0, this.width, this.height, g.brush);
       var mainTitle = "Astro Color Mixer";
-      var versionText = "v0.9.7.8-beta";
+      var versionText = "v0.9.7.9-beta";
+      var compactHeader = dialog.layoutMode === "compact" || this.height < 60;
       var titleFont = new Font;
       titleFont.bold = true;
-      titleFont.pixelSize = 36;
+      titleFont.pixelSize = compactHeader ? 24 : 36;
       var versionFont = new Font;
       versionFont.bold = false;
-      versionFont.pixelSize = 15;
-      while (titleFont.pixelSize > 20) {
+      versionFont.pixelSize = compactHeader ? 12 : 15;
+      var minTitleSize = compactHeader ? 16 : 20;
+      while (titleFont.pixelSize > minTitleSize) {
          g.font = titleFont;
          var totalWidth = g.font.width(mainTitle) + 8;
          g.font = versionFont;
@@ -4592,11 +5189,36 @@ constructor() {
          if (versionFont.pixelSize > 11)
             --versionFont.pixelSize;
       }
-      g.pen = new Pen(0xfff2f2f2);
       var baselineY = Math.round(this.height * 0.5 + titleFont.pixelSize * 0.25);
       g.font = titleFont;
-      g.drawText(0, baselineY, mainTitle);
-      var titleWidth = g.font.width(mainTitle);
+      var astroText = "Astro ";
+      var colorText = "Color Mixer";
+      g.pen = new Pen(0xfff2f2f2);
+      g.drawText(0, baselineY, astroText);
+      var drawX = g.font.width(astroText);
+      var rainbow = [0xffff1f2d, 0xffff6a00, 0xffffe600, 0xff39ff4f, 0xff14f5ff, 0xff1684ff, 0xff7a3cff, 0xffff3fd4];
+      var visibleColorLetters = 0;
+      for (var countIndex = 0; countIndex < colorText.length; ++countIndex)
+         if (colorText.charAt(countIndex) !== " ")
+            ++visibleColorLetters;
+      var visibleColorIndex = 0;
+      for (var ci = 0; ci < colorText.length; ++ci) {
+         var ch = colorText.charAt(ci);
+         if (ch === " ") {
+            drawX += Math.round(g.font.width(" ") * 0.72);
+            continue;
+         }
+         var colorT = visibleColorLetters <= 1 ? 0 : visibleColorIndex / (visibleColorLetters - 1);
+         var colorPos = colorT * (rainbow.length - 1);
+         var colorIndex = Math.min(rainbow.length - 1, Math.floor(colorPos));
+         var nextColorIndex = Math.min(rainbow.length - 1, colorIndex + 1);
+         var mixedColor = acmLerpColorArgb(rainbow[colorIndex], rainbow[nextColorIndex], colorPos - colorIndex);
+         g.pen = new Pen(mixedColor);
+         g.drawText(drawX, baselineY, ch);
+         drawX += g.font.width(ch);
+         ++visibleColorIndex;
+      }
+      var titleWidth = drawX;
       g.font = versionFont;
       g.pen = new Pen(0xffd8dcff);
       g.drawText(titleWidth + 6, baselineY, versionText);
@@ -4606,19 +5228,60 @@ constructor() {
    this.floatingHelpBox = null;
    this.floatingHelpBoxParent = null;
 
-   this.refreshButton = new PushButton(this);
+   this.refreshButton = new Control(this);
    this.refreshButton.text = "Refresh";
+   this.refreshButton.acmIconOnly = false;
+   this.refreshButton.setFixedWidth(ACM_HOST_IS_WINDOWS ? 124 : 128);
    this.refreshButton.toolTip = "Refreshes the list of open PixInsight images and updates target/mask status.";
    this.refreshButton.onClick = function() { self.refreshAvailableTargets(true); };
+   this.refreshButton.onMousePress = function() {
+      if (typeof this.onClick === "function")
+         this.onClick();
+   };
+   this.refreshButton.onPaint = function() {
+      var g = new Graphics(this);
+      g.pen = new Pen(0xff8e92a0);
+      g.brush = new Brush(this.acmIconOnly ? 0xff55575d : 0xffeeeeee);
+      g.drawRect(this.boundsRect);
+      if (!this.acmIconOnly) {
+         g.pen = new Pen(0xfff8fafc, 1);
+         g.drawLine(1, 1, this.width - 2, 1);
+         g.pen = new Pen(0xff4a4f58, 1);
+         g.drawLine(1, this.height - 2, this.width - 2, this.height - 2);
+      }
+      if (this.acmIconOnly) {
+         var iconFont = new Font;
+         iconFont.pixelSize = 14;
+         iconFont.bold = true;
+         g.font = iconFont;
+         var glyph = "\u21ba";
+         var glyphW = g.font.width(glyph);
+         var glyphX = Math.round((this.width - glyphW) * 0.5);
+         var glyphY = Math.round((this.height + g.font.ascent - g.font.descent) * 0.5);
+         g.pen = new Pen(0xfff2f2f2);
+         g.drawText(glyphX, glyphY, glyph);
+      } else {
+         var f = new Font;
+         f.pixelSize = ACM_HOST_IS_WINDOWS ? 15 : 14;
+         g.font = f;
+         var label = "Refresh";
+         var tw = g.font.width(label);
+         var x = Math.round((this.width - tw) * 0.5);
+         var y = Math.round((this.height + g.font.ascent - g.font.descent) * 0.5);
+         g.pen = new Pen(0xff202020);
+         g.drawText(x, y, label);
+      }
+      g.end();
+   };
 
    this.targetImageLabel = new Label(this);
    this.targetImageLabel.text = "Target Image:";
-   this.targetImageLabel.minWidth = ACM_HOST_IS_WINDOWS ? 112 : 96;
+   this.targetImageLabel.minWidth = ACM_HOST_IS_WINDOWS ? 126 : 96;
    this.targetImageLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
 
    this.targetImageCombo = new ComboBox(this);
-   this.targetImageCombo.minWidth = 420;
-   this.targetImageCombo.setFixedWidth(420);
+   this.targetImageCombo.minWidth = ACM_HOST_IS_WINDOWS ? 420 : 344;
+   this.targetImageCombo.setFixedWidth(ACM_HOST_IS_WINDOWS ? 420 : 344);
    this.targetImageCombo.toolTip = "Selects the PixInsight image/view Astro Color Mixer will process. Switching targets will prompt if there are unapplied adjustments.";
    this.targetImageCombo.onItemSelected = function(index) {
       if (self.targetComboSyncing)
@@ -4633,7 +5296,7 @@ constructor() {
 
    this.imageTypeLabel = new Label(this);
    this.imageTypeLabel.text = "Image Type";
-   this.imageTypeLabel.minWidth = 72;
+   this.imageTypeLabel.minWidth = ACM_HOST_IS_WINDOWS ? 96 : 72;
    this.imageTypeLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
    this.imageTypeHelpButton = acmCreateHelpButton(
       this,
@@ -4658,7 +5321,7 @@ constructor() {
 
    this.protectionPolicyLabel = new Label(this);
    this.protectionPolicyLabel.text = "Protections";
-   this.protectionPolicyLabel.minWidth = 72;
+   this.protectionPolicyLabel.minWidth = ACM_HOST_IS_WINDOWS ? 96 : 72;
    this.protectionPolicyLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
    this.protectionPolicyHelpButton = acmCreateHelpButton(
       this,
@@ -4698,6 +5361,42 @@ constructor() {
       self.refreshSelectedBandMaskPreviewIfActive();
    };
 
+   this.layoutModeLabel = new Label(this);
+   this.layoutModeLabel.text = "Window";
+   this.layoutModeLabel.setFixedWidth(ACM_HOST_IS_WINDOWS ? 82 : 56);
+   this.layoutModeLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
+   this.layoutModeCombo = new ComboBox(this);
+   this.layoutModeCombo.addItem("Standard");
+   this.layoutModeCombo.addItem("Compact");
+   this.layoutModeCombo.currentItem = 0;
+   this.layoutModeCombo.setFixedWidth(ACM_HOST_IS_WINDOWS ? 154 : 112);
+   this.layoutModeCombo.toolTip = "Standard shows the full embedded Diagnostics & Passes area. Compact reduces the header/preview footprint and moves diagnostics into a separate dialog.";
+   this.layoutModeCombo.onItemSelected = function(index) {
+      self.setLayoutMode(index === 1 ? "compact" : "standard");
+   };
+   this.windowSizeLabel = new Label(this);
+   this.windowSizeLabel.text = "-- x --";
+   this.windowSizeLabel.setFixedWidth(ACM_HOST_IS_WINDOWS ? 128 : 112);
+   this.windowSizeLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
+   this.windowSizeStatusLabel = new Label(this);
+   this.windowSizeStatusLabel.text = "";
+   this.windowSizeStatusLabel.minWidth = ACM_HOST_IS_WINDOWS ? 94 : 78;
+   this.windowSizeStatusLabel.textAlignment = TextAlign_Left|TextAlign_VertCenter;
+   this.saveWindowSizeButton = new PushButton(this);
+   this.saveWindowSizeButton.text = "Save";
+   this.saveWindowSizeButton.setFixedWidth(ACM_HOST_IS_WINDOWS ? 154 : 112);
+   this.saveWindowSizeButton.backgroundColor = 0xffffc43a;
+   this.saveWindowSizeButton.foregroundColor = 0xff101010;
+   this.saveWindowSizeButton.toolTip = "Saves the current window size for the current Layout mode.";
+   this.saveWindowSizeButton.onClick = function() { self.saveCurrentWindowSizePreference(); };
+   this.resetWindowSizeButton = new PushButton(this);
+   this.resetWindowSizeButton.text = "Reset";
+   this.resetWindowSizeButton.setFixedWidth(ACM_HOST_IS_WINDOWS ? 150 : 112);
+   this.resetWindowSizeButton.backgroundColor = 0xffeeeeee;
+   this.resetWindowSizeButton.foregroundColor = 0xff101010;
+   this.resetWindowSizeButton.toolTip = "Clears saved window sizes for both Standard and Compact, then returns the current layout to its default size.";
+   this.resetWindowSizeButton.onClick = function() { self.resetWindowSizePreferences(); };
+
    this.sensitivityLabel = new Label(this);
    this.sensitivityLabel.text = "Sensitivity";
    this.sensitivityLabel.toolTip = "Controls slider response: Fine for subtle changes, Normal for general work, Strong for larger visible changes.";
@@ -4710,7 +5409,7 @@ constructor() {
    this.sensitivityCombo.toolTip = "Controls slider response: Fine for subtle changes, Normal for general work, Strong for larger visible changes.";
    this.sensitivityCombo.currentItem = 1;
    this.sensitivityCombo.setFixedHeight(24);
-   this.sensitivityCombo.setFixedWidth(ACM_HOST_IS_WINDOWS ? 128 : 116);
+   this.sensitivityCombo.setFixedWidth(ACM_HOST_IS_WINDOWS ? 128 : 112);
    this.sensitivityCombo.onItemSelected = function(index) {
       var sensitivity = self.sensitivityCombo.itemText(index);
       self.editorState.sensitivity = sensitivity === "Strong" ? "Advanced" : sensitivity;
@@ -4786,20 +5485,20 @@ constructor() {
 
    this.tabHueButton = new PushButton(this);
    this.tabHueButton.text = "Hue";
-   this.tabHueButton.setFixedWidth(36);
-   this.tabHueButton.setFixedHeight(24);
+   this.tabHueButton.setFixedWidth(ACM_HOST_IS_WINDOWS ? 72 : 36);
+   this.tabHueButton.setFixedHeight(ACM_HOST_IS_WINDOWS ? 28 : 24);
    this.tabHueButton.onClick = function() { self.setActiveTab(ACM_TAB_HUE); };
 
    this.tabSaturationButton = new PushButton(this);
    this.tabSaturationButton.text = "Saturation";
-   this.tabSaturationButton.setFixedWidth(48);
-   this.tabSaturationButton.setFixedHeight(24);
+   this.tabSaturationButton.setFixedWidth(ACM_HOST_IS_WINDOWS ? 112 : 48);
+   this.tabSaturationButton.setFixedHeight(ACM_HOST_IS_WINDOWS ? 28 : 24);
    this.tabSaturationButton.onClick = function() { self.setActiveTab(ACM_TAB_SAT); };
 
    this.tabLuminanceButton = new PushButton(this);
    this.tabLuminanceButton.text = "Luminance";
-   this.tabLuminanceButton.setFixedWidth(50);
-   this.tabLuminanceButton.setFixedHeight(24);
+   this.tabLuminanceButton.setFixedWidth(ACM_HOST_IS_WINDOWS ? 112 : 50);
+   this.tabLuminanceButton.setFixedHeight(ACM_HOST_IS_WINDOWS ? 28 : 24);
    this.tabLuminanceButton.onClick = function() { self.setActiveTab(ACM_TAB_LUM); };
 
    this.toolSelectedBandButton = new PushButton(this);
@@ -4828,7 +5527,7 @@ constructor() {
    this.colorMixerHelpButton = acmCreateHelpButton(
       this,
       "Color Mixer",
-      "The Color Mixer adjusts nonlinear RGB color by band. Hue changes color direction, Saturation changes color intensity, and Luminance changes brightness for the selected color regions. The sliders affect the active Refinement Pass.",
+      "The Color Mixer adjusts nonlinear RGB color by band. Hue changes color direction, Saturation changes color intensity, and Luminance changes brightness for the selected color regions. The sliders affect the active Refinement Pass.\n\nSensitivity controls slider response. Fine gives smaller, more precise slider movement. Normal is the default general-purpose setting. Strong gives larger visible changes for the same slider movement.",
       "colorMixer"
    );
    this.colorMixerHelpBox = acmCreateHelpBox(this);
@@ -4856,13 +5555,13 @@ constructor() {
 
    this.selectedBandReadoutPrimary = new Label(this);
    this.selectedBandReadoutPrimary.useRichText = false;
-   this.selectedBandReadoutPrimary.text = "Hue center: 0°  Hue Radius: ±45°  Strong core: ±11.25°";
+   this.selectedBandReadoutPrimary.text = ACM_HOST_IS_WINDOWS ? "Hue 0°  R ±45°  Core ±11.25°" : "Hue center: 0°  Hue Radius: ±45°  Strong core: ±11.25°";
    this.selectedBandReadoutPrimary.scaledMinWidth = ACM_HOST_IS_WINDOWS ? 390 : 360;
    acmApplyLightText(this.selectedBandReadoutPrimary);
 
    this.selectedBandReadoutSecondary = new Label(this);
    this.selectedBandReadoutSecondary.useRichText = false;
-   this.selectedBandReadoutSecondary.text = "Falloff: 11.25°–45°  Affected range: 315°–45°  Feather: 0.75";
+   this.selectedBandReadoutSecondary.text = ACM_HOST_IS_WINDOWS ? "Fall 11.25–45°  Range 315–45°  F 0.75" : "Falloff: 11.25°–45°  Affected range: 315°–45°  Feather: 0.75";
    this.selectedBandReadoutSecondary.scaledMinWidth = ACM_HOST_IS_WINDOWS ? 390 : 360;
    acmApplyLightText(this.selectedBandReadoutSecondary);
 
@@ -4876,8 +5575,8 @@ constructor() {
       g.pen = new Pen(0xff404854);
       g.brush = new Brush(0xff161a22);
       g.drawRect(this.boundsRect);
-      var left = 6;
-      var right = this.width - 6;
+      var left = Math.min(6, Math.max(1, Math.floor(this.width * 0.08)));
+      var right = Math.max(left + 1, this.width - left - 1);
       var top = 7;
       var bottom = this.height - 9;
       var w = Math.max(1, right - left);
@@ -4916,14 +5615,18 @@ constructor() {
          var innerDx = Math.round(innerFrac * (w * 0.5));
          var outerDx = Math.round(outerFrac * (w * 0.5));
          var centerX = Math.round((left + right) * 0.5);
+         var innerLeft = acmClamp(centerX - innerDx, left, right);
+         var innerRight = acmClamp(centerX + innerDx, left, right);
+         var outerLeft = acmClamp(centerX - outerDx, left, right);
+         var outerRight = acmClamp(centerX + outerDx, left, right);
          g.pen = new Pen(0xfff5f5f5, 1);
          g.drawLine(centerX, top - 1, centerX, bottom + 1);
          g.pen = new Pen(0xffd9dce2, 1);
-         g.drawLine(centerX - innerDx, top - 1, centerX - innerDx, bottom + 1);
-         g.drawLine(centerX + innerDx, top - 1, centerX + innerDx, bottom + 1);
+         g.drawLine(innerLeft, top - 1, innerLeft, bottom + 1);
+         g.drawLine(innerRight, top - 1, innerRight, bottom + 1);
          g.pen = new Pen(0xff8f97a3, 1);
-         g.drawLine(centerX - outerDx, top - 1, centerX - outerDx, bottom + 1);
-         g.drawLine(centerX + outerDx, top - 1, centerX + outerDx, bottom + 1);
+         g.drawLine(outerLeft, top - 1, outerLeft, bottom + 1);
+         g.drawLine(outerRight, top - 1, outerRight, bottom + 1);
       }
       g.end();
    };
@@ -5209,6 +5912,7 @@ constructor() {
       self.markPreviewStaleForMaskControl("Range Mask");
    };
    acmAttachPreviewSliderHooks(this, this.rangeMaskLowControl);
+   acmConfigureNumericRowControl(this.rangeMaskLowControl);
 
    this.rangeMaskHighControl = new NumericControl(this);
    this.rangeMaskHighControl.label.text = "High";
@@ -5228,6 +5932,7 @@ constructor() {
       self.markPreviewStaleForMaskControl("Range Mask");
    };
    acmAttachPreviewSliderHooks(this, this.rangeMaskHighControl);
+   acmConfigureNumericRowControl(this.rangeMaskHighControl);
 
    this.rangeMaskFeatherControl = new NumericControl(this);
    this.rangeMaskFeatherControl.label.text = "Feather";
@@ -5244,6 +5949,7 @@ constructor() {
       self.markPreviewStaleForMaskControl("Range Mask");
    };
    acmAttachPreviewSliderHooks(this, this.rangeMaskFeatherControl);
+   acmConfigureNumericRowControl(this.rangeMaskFeatherControl);
 
    this.rangeMaskSoftenLabel = new Label(this);
    this.rangeMaskSoftenLabel.text = "Blur";
@@ -5427,7 +6133,7 @@ constructor() {
    this.previewInteractionHintLabel.text =
       "Click: probe · Hold: compare · Drag: pan";
    this.previewInteractionHintLabel.textAlignment = TextAlign_Right|TextAlign_VertCenter;
-   this.previewInteractionHintLabel.setFixedWidth(ACM_HOST_IS_WINDOWS ? 290 : 230);
+   this.previewInteractionHintLabel.setFixedWidth(ACM_HOST_IS_WINDOWS ? 286 : 236);
    this.previewInteractionHintLabel.toolTip =
       "Click a preview pixel to probe it. Click and hold in the preview to temporarily show the selected Compare reference. Drag to pan when zoomed.";
 
@@ -5530,6 +6236,25 @@ constructor() {
 
    this.previewStatusLabel = this.previewSamplingStatusLabel;
 
+   this.compactDiagnosticsLabel = new Label(this);
+   this.compactDiagnosticsLabel.useRichText = true;
+   this.compactDiagnosticsLabel.wordWrapping = true;
+   this.compactDiagnosticsLabel.text = "";
+   this.compactDiagnosticsLabel.toolTip = "Compact diagnostic summary. Open Diagnostics & Passes for the full pass summary.";
+   this.compactDiagnosticsLabel.visible = false;
+   this.compactDiagnosticsLabel.hide();
+   this.compactDiagnosticsButton = new PushButton(this);
+   this.compactDiagnosticsButton.text = "Show Diagnostics / Passes";
+   this.compactDiagnosticsButton.toolTip = "Expands or collapses compact diagnostics and pass details at the bottom of the preview area.";
+   this.compactDiagnosticsButton.onClick = function() { self.toggleCompactDiagnosticsPanel(); };
+   this.compactDiagnosticsBodyLabel = new Label(this);
+   this.compactDiagnosticsBodyLabel.useRichText = false;
+   this.compactDiagnosticsBodyLabel.wordWrapping = true;
+   this.compactDiagnosticsBodyLabel.textAlignment = TextAlign_Left|TextAlign_Top;
+   this.compactDiagnosticsBodyLabel.text = "";
+   this.compactDiagnosticsBodyLabel.visible = false;
+   this.compactDiagnosticsBodyLabel.hide();
+
    this.diagnosticsSectionLabel = new Label(this);
    this.diagnosticsSectionLabel.useRichText = true;
    this.diagnosticsSectionLabel.text = "<b>Diagnostics &amp; Passes</b>";
@@ -5629,6 +6354,7 @@ constructor() {
 
    this.plotInfoLabel = new Label(this);
    this.plotInfoLabel.useRichText = true;
+   this.plotInfoLabel.textAlignment = TextAlign_Left|TextAlign_Top;
    this.plotInfoLabel.text = "<b>Plot Info</b>";
 
    this.polarSubtitleLabel = new Label(this);
@@ -5752,7 +6478,7 @@ constructor() {
    this.refinementPassHelpButton = acmCreateHelpButton(
       this,
       "Refinement Pass",
-      "A Refinement Pass is an editable set of adjustments. Use the Base Pass for broad/global color work, then add new passes for targeted refinements such as Range Mask background changes or halo cleanup. Enabled passes are applied sequentially.",
+      "A Refinement Pass is an editable set of adjustments. Use the Base Pass for broad/global color work, then add new passes for targeted refinements such as Range Mask background changes or halo cleanup. Enabled passes are applied sequentially. Astro Color Mixer allows up to four passes for layout stability and preview performance.",
       "refinementPass"
    );
    this.refinementPassHelpBox = acmCreateHelpBox(this);
@@ -5762,7 +6488,7 @@ constructor() {
    this.passViewerHost = new ScrollBox(this);
    this.passViewerHost.autoScroll = false;
    this.passViewerHost.tracking = true;
-   this.passViewerHost.setFixedHeight(104);
+   this.passViewerHost.setFixedHeight(118);
    this.passViewerHost.viewport.acmDialogRef = this;
    this.passViewerHost.viewport.sizer = new VerticalSizer;
    this.passViewerHost.viewport.sizer.margin = 0;
@@ -6014,14 +6740,17 @@ constructor() {
    acmSetThemeLabel(this.targetImageLabel, "Target Image:", ACM_GRAY_UI_THEME.text, true);
    acmSetThemeLabel(this.imageTypeLabel, "Image Type", ACM_GRAY_UI_THEME.text, true);
    acmSetThemeLabel(this.protectionPolicyLabel, "Protections", ACM_GRAY_UI_THEME.text, true);
+   acmSetThemeLabel(this.layoutModeLabel, "Window", "#ffc43a", true);
+   acmSetThemeLabel(this.windowSizeLabel, "-- x --", ACM_GRAY_UI_THEME.muted, false);
+   acmSetThemeLabel(this.windowSizeStatusLabel, "", "#7fe38a", true);
    acmApplyLightText(this.protectStarsCheck);
    acmApplyLightText(this.protectLowSatCheck);
    acmSetThemeLabel(this.sensitivityLabel, "Sensitivity", ACM_GRAY_UI_THEME.text, true);
    acmSetThemeLabel(this.selectedBandSectionLabel, "Selected Band", ACM_GRAY_UI_THEME.text, true);
    acmSetThemeLabel(this.selectedBandHelpLabel, "Hue Radius sets the outer limit on each side of the hue center. Feather controls how quickly the selection falls from the strong core to that outer limit.", ACM_GRAY_UI_THEME.muted, false);
    acmSetThemeLabel(this.selectedBandReadoutTitle, "Selection", ACM_GRAY_UI_THEME.text, true);
-   acmPlainLightLabel(this.selectedBandReadoutPrimary, "Hue center: 0°  Hue Radius: ±45°  Strong core: ±11.25°");
-   acmPlainLightLabel(this.selectedBandReadoutSecondary, "Falloff: 11.25°–45°  Affected range: 315°–45°  Feather: 0.75");
+   acmPlainLightLabel(this.selectedBandReadoutPrimary, ACM_HOST_IS_WINDOWS ? "Hue 0°  R ±45°  Core ±11.25°" : "Hue center: 0°  Hue Radius: ±45°  Strong core: ±11.25°");
+   acmPlainLightLabel(this.selectedBandReadoutSecondary, ACM_HOST_IS_WINDOWS ? "Fall 11.25–45°  Range 315–45°  F 0.75" : "Falloff: 11.25°–45°  Affected range: 315°–45°  Feather: 0.75");
    acmSetThemeLabel(this.selectedBandLabel, "Band:", ACM_GRAY_UI_THEME.text, true);
    acmSetThemeLabel(this.rangeMaskSectionLabel, "Range Mask", ACM_GRAY_UI_THEME.text, true);
    acmSetThemeLabel(this.rangeMaskPresetLabel, "Preset", ACM_GRAY_UI_THEME.text, true);
@@ -6044,6 +6773,8 @@ constructor() {
    acmSetThemeLabel(this.previewInteractionHintLabel, "Click: probe • Hold: compare • Drag: pan", ACM_GRAY_UI_THEME.text, true);
    acmSetThemeLabel(this.previewSamplingStatusLabel, "Preview: Fast", ACM_GRAY_UI_THEME.text, true);
    acmSetThemeLabel(this.probeReadoutLabel, "Preview diagnostics · Probe: none · Range Mask: Off", ACM_GRAY_UI_THEME.muted, false);
+   acmSetThemeLabel(this.compactDiagnosticsLabel, "", ACM_GRAY_UI_THEME.text, false);
+   acmSetThemeLabel(this.compactDiagnosticsBodyLabel, "", ACM_GRAY_UI_THEME.text, false);
    acmSetThemeLabel(this.targetApplyMaskStatusLabel, "Target Mask: none", ACM_GRAY_UI_THEME.text, true);
    acmApplyLightText(this.activeStatusLabel);
    acmApplyLightText(this.pendingChangesLabel);
@@ -6094,12 +6825,13 @@ constructor() {
    targetTopRow.spacing = 4;
    targetTopRow.add(this.targetImageLabel);
    targetTopRow.add(this.targetImageCombo);
+   targetTopRow.addSpacing(ACM_HOST_IS_WINDOWS ? 4 : 14);
    targetTopRow.add(this.refreshButton);
    targetTopRow.addStretch();
 
    var targetBottomRow = new HorizontalSizer;
    targetBottomRow.spacing = 4;
-   targetBottomRow.addSpacing(100);
+   targetBottomRow.addSpacing(ACM_HOST_IS_WINDOWS ? 94 : 100);
    targetBottomRow.add(this.activeStatusLabel);
    targetBottomRow.addSpacing(6);
    targetBottomRow.add(this.pendingChangesLabel);
@@ -6107,15 +6839,57 @@ constructor() {
 
    var targetModeRow = new HorizontalSizer;
    targetModeRow.spacing = 4;
-   targetModeRow.addSpacing(100);
    targetModeRow.add(this.imageTypeLabel);
    targetModeRow.add(this.imageTypeHelpButton);
    targetModeRow.add(this.imageTypeCombo);
    targetModeRow.addStretch();
 
+   var windowModeRow = new HorizontalSizer;
+   windowModeRow.spacing = 6;
+   windowModeRow.add(this.layoutModeLabel);
+   windowModeRow.add(this.layoutModeCombo);
+   windowModeRow.addSpacing(6);
+   windowModeRow.add(this.windowSizeLabel);
+   windowModeRow.addStretch();
+
+   var windowSizeButtonRow = new HorizontalSizer;
+   windowSizeButtonRow.spacing = 6;
+   var windowButtonIndent = new Control(this);
+   windowButtonIndent.setFixedWidth(ACM_HOST_IS_WINDOWS ? 82 : 56);
+   windowSizeButtonRow.add(windowButtonIndent);
+   windowSizeButtonRow.add(this.saveWindowSizeButton);
+   windowSizeButtonRow.add(this.resetWindowSizeButton);
+   windowSizeButtonRow.addSpacing(6);
+   windowSizeButtonRow.add(this.windowSizeStatusLabel);
+   windowSizeButtonRow.addStretch();
+
+   var windowControlsHost = new Control(this);
+   windowControlsHost.onPaint = function() {
+      var g = new Graphics(this);
+      g.brush = new Brush(ACM_GRAY_UI_THEME.header);
+      g.pen = new Pen(0xff8a8a8a, 1);
+      g.fillRect(0, 0, this.width, this.height, g.brush);
+      g.drawRect(new Rect(0, 0, this.width - 1, this.height - 1));
+      g.pen = new Pen(0xff555555, 1);
+      g.drawLine(4, this.height - 2, this.width - 5, this.height - 2);
+      g.end();
+   };
+   var windowControlsStack = new Control(this);
+   windowControlsStack.sizer = new VerticalSizer;
+   windowControlsStack.sizer.margin = 0;
+   windowControlsStack.sizer.spacing = 2;
+   windowControlsStack.sizer.add(windowModeRow);
+   windowControlsStack.sizer.add(windowSizeButtonRow);
+
+   windowControlsHost.sizer = new VerticalSizer;
+   windowControlsHost.sizer.margin = 4;
+   windowControlsHost.sizer.spacing = 0;
+   windowControlsHost.sizer.addStretch();
+   windowControlsHost.sizer.add(windowControlsStack);
+   windowControlsHost.sizer.addStretch();
+
    var protectionPolicyRow = new HorizontalSizer;
    protectionPolicyRow.spacing = 8;
-   protectionPolicyRow.addSpacing(100);
    protectionPolicyRow.add(this.protectionPolicyLabel);
    protectionPolicyRow.add(this.protectionPolicyHelpButton);
    protectionPolicyRow.add(this.protectStarsCheck);
@@ -6154,19 +6928,39 @@ constructor() {
    workflowRow.add(this.headerLogoControl);
    workflowRow.addSpacing(2);
    workflowRow.add(this.headerBrandControl);
-   workflowRow.addStretch();
+   if (ACM_HOST_IS_WINDOWS)
+      workflowRow.addSpacing(0);
+   else
+      workflowRow.addStretch();
    workflowRow.add(targetColumn, 100);
+   workflowRow.addSpacing(8);
+   workflowRow.add(windowControlsHost);
    workflowRow.addStretch();
    workflowRow.addSpacing(8);
    workflowRow.add(rightMetaRow);
 
    var passControlsRow = new HorizontalSizer;
    passControlsRow.spacing = ACM_HOST_IS_WINDOWS ? 4 : 6;
-   passControlsRow.add(this.passActiveCombo, 100);
+   if (ACM_HOST_IS_WINDOWS)
+      passControlsRow.add(this.passActiveCombo);
+   else
+      passControlsRow.add(this.passActiveCombo, 100);
    passControlsRow.add(this.passEnabledCheck);
-   passControlsRow.add(this.newPassButton);
-   passControlsRow.add(this.duplicatePassButton);
-   passControlsRow.add(this.deletePassButton);
+   if (ACM_HOST_IS_WINDOWS)
+      passControlsRow.addStretch();
+   var passButtonsRow = null;
+   if (ACM_HOST_IS_WINDOWS) {
+      passButtonsRow = new HorizontalSizer;
+      passButtonsRow.spacing = 6;
+      passButtonsRow.add(this.newPassButton);
+      passButtonsRow.add(this.duplicatePassButton);
+      passButtonsRow.add(this.deletePassButton);
+      passButtonsRow.addStretch();
+   } else {
+      passControlsRow.add(this.newPassButton);
+      passControlsRow.add(this.duplicatePassButton);
+      passControlsRow.add(this.deletePassButton);
+   }
 
    var selectedBandRow = new HorizontalSizer;
    selectedBandRow.spacing = 8;
@@ -6201,10 +6995,13 @@ constructor() {
    tabsRow.add(this.tabSaturationButton);
    tabsRow.add(this.tabLuminanceButton);
    var colorMixerSensitivityRow = new HorizontalSizer;
-   colorMixerSensitivityRow.spacing = 1;
+   colorMixerSensitivityRow.spacing = 4;
    colorMixerSensitivityRow.add(this.sensitivityLabel);
    colorMixerSensitivityRow.add(this.sensitivityCombo);
-   colorMixerSensitivityRow.add(this.sensitivityHelpButton);
+   if (ACM_HOST_IS_WINDOWS) {
+      colorMixerSensitivityRow.addSpacing(6);
+      colorMixerSensitivityRow.add(this.sensitivityHelpButton);
+   }
    tabsRow.addSpacing(2);
    tabsRow.add(colorMixerSensitivityRow);
    tabsRow.addStretch();
@@ -6224,6 +7021,7 @@ constructor() {
    previewButtonsTopRow.add(this.autoPreviewCheck);
    previewButtonsTopRow.addStretch();
    previewButtonsTopRow.add(this.previewSamplingStatusLabel);
+   previewButtonsTopRow.addSpacing(8);
 
    var previewButtonsBottomRow = new HorizontalSizer;
    previewButtonsBottomRow.spacing = 6;
@@ -6236,6 +7034,7 @@ constructor() {
    previewButtonsBottomRow.add(this.compareModeCombo);
    previewButtonsBottomRow.addStretch();
    previewButtonsBottomRow.add(this.previewInteractionHintLabel);
+   previewButtonsBottomRow.addSpacing(8);
 
    var previewToolbarColumn = new VerticalSizer;
    previewToolbarColumn.margin = 0;
@@ -6285,9 +7084,11 @@ constructor() {
    passViewerHeaderRow.add(this.passViewerLabel);
    passViewerHeaderRow.add(this.refinementPassHelpButton);
    passViewerHeaderRow.addStretch();
-   passViewerHeaderRow.add(this.autoSelectProbeBandCheck);
+   if (!ACM_HOST_IS_WINDOWS)
+      passViewerHeaderRow.add(this.autoSelectProbeBandCheck);
 
    var previewOutputHeaderRow = new HorizontalSizer;
+   this.previewOutputHeaderRow = previewOutputHeaderRow;
    previewOutputHeaderRow.spacing = 4;
    previewOutputHeaderRow.add(this.previewOutputSectionLabel);
    previewOutputHeaderRow.addStretch();
@@ -6306,7 +7107,7 @@ constructor() {
    bandSectionRow.addStretch();
    this.colorMixerPanel.sizer.add(bandSectionRow);
    this.colorMixerPanel.sizer.add(this.bandControlsHost);
-   this.colorMixerPanel.sizer.addStretch();
+   this.colorMixerPanel.sizer.addSpacing(ACM_HOST_IS_WINDOWS ? 10 : 4);
    this.colorMixerPanel.visible = true;
 
    this.selectedBandPanel = new Control(this);
@@ -6341,6 +7142,7 @@ constructor() {
    diagnosticsMetaRow.addStretch();
 
    var histogramPanel = new Control(this);
+   this.histogramPanel = histogramPanel;
    acmSetThemePanel(histogramPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.panel);
    histogramPanel.sizer = new VerticalSizer;
    histogramPanel.sizer.margin = 0;
@@ -6355,6 +7157,7 @@ constructor() {
    histogramPanel.sizer.add(this.histogramRampControl);
 
    var polarPanel = new Control(this);
+   this.polarPanel = polarPanel;
    acmSetThemePanel(polarPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.panel);
    polarPanel.sizer = new VerticalSizer;
    polarPanel.sizer.margin = 0;
@@ -6367,35 +7170,51 @@ constructor() {
    polarTitleRow.spacing = 4;
    polarTitleRow.add(this.polarLabel);
    polarTitleRow.addStretch();
-   polarTitleRow.add(this.plotInfoLabel);
    polarPanel.sizer.add(polarTitleRow);
    var polarBodyRow = new HorizontalSizer;
    polarBodyRow.spacing = 4;
    polarBodyRow.add(this.polarControl, 100);
+   polarPanel.sizer.add(polarBodyRow, 100);
+
+   var plotInfoPanel = new Control(this);
+   this.plotInfoPanel = plotInfoPanel;
+   acmSetThemePanel(plotInfoPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.panel);
+   plotInfoPanel.setFixedWidth(plotInfoWidth);
+   plotInfoPanel.sizer = new VerticalSizer;
+   plotInfoPanel.sizer.margin = 0;
+   plotInfoPanel.sizer.spacing = 0;
+   var plotInfoTitleRow = new HorizontalSizer;
+   plotInfoTitleRow.spacing = 4;
+   plotInfoTitleRow.add(this.plotInfoLabel);
+   plotInfoTitleRow.addStretch();
+   plotInfoPanel.sizer.add(plotInfoTitleRow);
    var plotInfoBodySizer = new VerticalSizer;
    plotInfoBodySizer.margin = 0;
    plotInfoBodySizer.spacing = 0;
-   plotInfoBodySizer.addSpacing(4);
+   plotInfoBodySizer.addSpacing(0);
    plotInfoBodySizer.add(this.polarInfoLabel, 100);
-   polarBodyRow.add(plotInfoBodySizer);
-   polarPanel.sizer.add(polarBodyRow, 100);
+   plotInfoPanel.sizer.add(plotInfoBodySizer, 100);
 
    var passViewerPanel = new Control(this);
    acmSetThemePanel(passViewerPanel, ACM_GRAY_UI_THEME.panel, 0xffe6e6e6);
    this.passViewerPanel = passViewerPanel;
    passViewerPanel.sizer = new VerticalSizer;
-   passViewerPanel.sizer.margin = 4;
+   passViewerPanel.sizer.margin = ACM_HOST_IS_WINDOWS ? 6 : 4;
    passViewerPanel.sizer.spacing = 2;
    passViewerPanel.sizer.add(passViewerHeaderRow);
    passViewerPanel.sizer.add(this.refinementPassHelpBox);
    passViewerPanel.sizer.add(passControlsRow);
-   passViewerPanel.sizer.add(this.passViewerHost, 100);
+   if (passButtonsRow)
+      passViewerPanel.sizer.add(passButtonsRow);
+   passViewerPanel.sizer.add(this.passViewerHost);
 
    var diagnosticsPlotsRow = new HorizontalSizer;
+   this.diagnosticsPlotsRow = diagnosticsPlotsRow;
    diagnosticsPlotsRow.spacing = 8;
-   diagnosticsPlotsRow.add(histogramPanel, ACM_HOST_IS_WINDOWS ? 34 : 36);
-   diagnosticsPlotsRow.add(polarPanel, ACM_HOST_IS_WINDOWS ? 52 : 36);
-   diagnosticsPlotsRow.add(passViewerPanel, ACM_HOST_IS_WINDOWS ? 14 : 28);
+   diagnosticsPlotsRow.add(histogramPanel, ACM_HOST_IS_WINDOWS ? 34 : 32);
+   diagnosticsPlotsRow.add(polarPanel, ACM_HOST_IS_WINDOWS ? 26 : 28);
+   diagnosticsPlotsRow.add(plotInfoPanel, ACM_HOST_IS_WINDOWS ? 18 : 0);
+   diagnosticsPlotsRow.add(passViewerPanel, ACM_HOST_IS_WINDOWS ? 40 : 30);
 
    this.diagnosticsPanel = new Control(this);
    acmSetThemePanel(this.diagnosticsPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.panel);
@@ -6406,12 +7225,29 @@ constructor() {
    this.diagnosticsPanel.visible = true;
    this.refinementPassHelpButton.acmDialogRef = this;
    this.refinementPassHelpButton.onMousePress = function() {
-      if (this.acmDialogRef)
-         this.acmDialogRef.togglePassViewerInlineHelp();
+      if (this.acmDialogRef && typeof this.acmDialogRef.showInlineHelp === "function")
+         this.acmDialogRef.showInlineHelp(this.acmHelpKey, this.acmHelpTitle, this.acmHelpText, this);
    };
-   this.refinementPassHelpButton.onMouseRelease = function() {};
+   this.refinementPassHelpButton.onMouseRelease = function() {
+      if (this.acmDialogRef && typeof this.acmDialogRef.hideInlineHelp === "function")
+         this.acmDialogRef.hideInlineHelp();
+   };
+
+   this.compactDiagnosticsPanel = new Control(this);
+   acmSetThemePanel(this.compactDiagnosticsPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.line);
+   this.compactDiagnosticsPanel.sizer = new VerticalSizer;
+   this.compactDiagnosticsPanel.sizer.margin = 4;
+   this.compactDiagnosticsPanel.sizer.spacing = 4;
+   var compactDiagnosticsHeaderRow = new HorizontalSizer;
+   compactDiagnosticsHeaderRow.spacing = 8;
+   compactDiagnosticsHeaderRow.addStretch();
+   compactDiagnosticsHeaderRow.add(this.compactDiagnosticsButton);
+   this.compactDiagnosticsPanel.sizer.add(compactDiagnosticsHeaderRow);
+   this.compactDiagnosticsPanel.visible = false;
+   this.compactDiagnosticsPanel.hide();
 
    var previewOutputButtonsRow = new HorizontalSizer;
+   this.previewOutputButtonsRow = previewOutputButtonsRow;
    previewOutputButtonsRow.spacing = 6;
    previewOutputButtonsRow.add(this.applyButton);
    previewOutputButtonsRow.add(this.applyToTargetButton);
@@ -6453,6 +7289,7 @@ constructor() {
    helpButtonsRow.addStretch();
 
    var bottomActionsRow = new HorizontalSizer;
+   this.bottomActionsRow = bottomActionsRow;
    bottomActionsRow.spacing = 8;
    bottomActionsRow.add(recipeButtonGroup);
    bottomActionsRow.addStretch();
@@ -6467,7 +7304,7 @@ constructor() {
    this.previewOutputPanel.sizer.add(this.previewOutputHelpLabel);
    this.previewOutputPanel.sizer.add(previewOutputButtonsRow);
    this.previewOutputPanel.sizer.add(this.outputFeedbackLabel);
-   this.previewOutputPanel.sizer.addStretch();
+   this.previewOutputPanel.sizer.addSpacing(6);
    this.previewOutputPanel.sizer.add(bottomActionsRow);
    this.previewOutputPanel.sizer.addSpacing(2);
    this.previewOutputPanel.sizer.add(this.footerNoticeLabel);
@@ -6480,9 +7317,12 @@ constructor() {
    this.recipeHelpButton.acmDialogRef = this;
    this.recipeHelpButton.onMousePress = function() {
       if (this.acmDialogRef)
-         this.acmDialogRef.toggleRecipeInlineHelp();
+         this.acmDialogRef.showRecipeInlineHelp();
    };
-   this.recipeHelpButton.onMouseRelease = function() {};
+   this.recipeHelpButton.onMouseRelease = function() {
+      if (this.acmDialogRef)
+         this.acmDialogRef.hideRecipeInlineHelp();
+   };
 
    this.leftPanel = new Control(this);
    acmSetThemePanel(this.leftPanel, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.panel);
@@ -6492,6 +7332,7 @@ constructor() {
    this.leftPanel.sizer.margin = 0;
    this.leftPanel.sizer.spacing = 3;
    var colorMixerGroup = new GroupBox(this.leftPanel);
+   this.colorMixerGroup = colorMixerGroup;
    acmSetThemePanel(colorMixerGroup, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.line);
    colorMixerGroup.title = "";
    colorMixerGroup.sizer = new VerticalSizer;
@@ -6507,8 +7348,9 @@ constructor() {
    colorMixerTitleHelpRow.add(this.colorMixerHelpButton);
    colorMixerTitleHelpRow.addStretch();
    colorMixerGroup.sizer.add(colorMixerTitleHelpRow);
-   colorMixerGroup.sizer.add(this.colorMixerPanel, 100);
+   colorMixerGroup.sizer.add(this.colorMixerPanel, ACM_HOST_IS_WINDOWS ? 100 : 0);
    var workflowToolsGroup = new GroupBox(this.leftPanel);
+   this.workflowToolsGroup = workflowToolsGroup;
    acmSetThemePanel(workflowToolsGroup, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.line);
    workflowToolsGroup.title = "";
    workflowToolsGroup.sizer = new VerticalSizer;
@@ -6522,16 +7364,18 @@ constructor() {
    workflowToolsGroup.sizer.add(this.rangeMaskPanel);
 
    var previewOutputGroup = new GroupBox(this.leftPanel);
+   this.previewOutputGroup = previewOutputGroup;
    acmSetThemePanel(previewOutputGroup, ACM_GRAY_UI_THEME.panel, ACM_GRAY_UI_THEME.line);
    previewOutputGroup.title = "";
    previewOutputGroup.sizer = new VerticalSizer;
    previewOutputGroup.sizer.margin = 4;
    previewOutputGroup.sizer.spacing = 2;
    var previewOutputTitleLabel = new Label(this.leftPanel);
+   this.previewOutputTitleLabel = previewOutputTitleLabel;
    acmSetThemeLabel(previewOutputTitleLabel, "Output", ACM_GRAY_UI_THEME.text, true);
    previewOutputGroup.sizer.add(previewOutputTitleLabel);
    previewOutputGroup.sizer.add(this.previewOutputPanel);
-   this.leftPanel.sizer.add(colorMixerGroup, 100);
+   this.leftPanel.sizer.add(colorMixerGroup, ACM_HOST_IS_WINDOWS ? 100 : 100);
    this.leftPanel.sizer.add(workflowToolsGroup);
    this.leftPanel.sizer.add(previewOutputGroup);
 
@@ -6542,6 +7386,7 @@ constructor() {
    this.rightPanel.sizer.spacing = 3;
    this.rightPanel.sizer.add(previewToolbarColumn);
    this.rightPanel.sizer.add(this.previewHost, 100);
+   this.rightPanel.sizer.add(this.compactDiagnosticsPanel);
    this.rightPanel.sizer.add(this.diagnosticsPanel);
 
    var mainContentRow = new HorizontalSizer;
@@ -6556,14 +7401,27 @@ constructor() {
    globalSettingsGroup.sizer.spacing = 0;
    globalSettingsGroup.sizer.add(workflowRow);
 
+   var headerDivider = new Control(this);
+   headerDivider.setFixedHeight(4);
+   headerDivider.onPaint = function() {
+      var g = new Graphics(this);
+      g.pen = new Pen(0x00000000, 0);
+      g.brush = new Brush(0xff090909);
+      g.fillRect(0, 0, this.width, this.height, g.brush);
+      g.end();
+   };
+
    this.sizer = new VerticalSizer;
    this.sizer.margin = 8;
-   this.sizer.spacing = 3;
+   this.sizer.spacing = 0;
    this.sizer.add(globalSettingsGroup);
+   this.sizer.add(headerDivider);
    this.sizer.add(mainContentRow, 100);
+   this.globalSettingsGroup = globalSettingsGroup;
 
    this.updateActiveStatus();
    this.refreshFromState();
+   this.applyLayoutMode(false);
    if (ACM_LAST_RECIPE_PATH)
       this.loadRecipePath(ACM_LAST_RECIPE_PATH);
 
@@ -6596,6 +7454,11 @@ constructor() {
 
    this.adjustToContents();
    acmConfigureResponsiveDialogBounds(this);
+   this.standardDialogWidth = this.width;
+   this.standardDialogHeight = this.height;
+   if (acmReadSavedWindowSize("standard"))
+      this.applyLayoutMode(true);
+   this.updateWindowSizeLabel();
    this.refreshActiveSource();
    this.refreshBandControls();
    this.bandControlsHost.update();
@@ -6606,15 +7469,21 @@ constructor() {
    this.onResize = function() {
       if (self.acmResizeGuard)
          return;
-      if (self.acmMinDialogHeight && self.height < self.acmMinDialogHeight) {
+      var minW = self.acmMinDialogWidth || 0;
+      var minH = self.acmMinDialogHeight || 0;
+      if (self.layoutMode === "compact" && self.compactDiagnosticsExpanded)
+         minH = Math.max(minH, ACM_HOST_IS_WINDOWS ? 760 : 740);
+      if ((minW && self.width < minW) || (minH && self.height < minH)) {
          self.acmResizeGuard = true;
          try {
-            self.resize(self.width, self.acmMinDialogHeight);
+            self.resize(Math.max(self.width, minW), Math.max(self.height, minH));
          } finally {
             self.acmResizeGuard = false;
          }
          return;
       }
+      self.updateWindowSizeLabel();
+      self.setWindowSizeStatus("");
       var previewWidth = self.previewHost ? self.previewHost.width : 0;
       var previewHeight = self.previewHost ? self.previewHost.height : 0;
       if (previewWidth === self.lastPreviewHostWidth && previewHeight === self.lastPreviewHostHeight)
@@ -6630,6 +7499,521 @@ constructor() {
 }
 
 var AstroColorMixerPOC8Dialog = AstroColorMixerUI03Dialog;
+
+AstroColorMixerPOC8Dialog.prototype.updateWindowSizeLabel = function() {
+   if (!this.windowSizeLabel)
+      return;
+   var text = Math.round(this.width || 0) + " x " + Math.round(this.height || 0);
+   acmSetThemeLabel(this.windowSizeLabel, text, ACM_GRAY_UI_THEME.muted, false);
+};
+
+AstroColorMixerPOC8Dialog.prototype.setWindowSizeStatus = function(text, color) {
+   if (!this.windowSizeStatusLabel)
+      return;
+   acmSetThemeLabel(this.windowSizeStatusLabel, text || "", color || "#7fe38a", true);
+};
+
+AstroColorMixerPOC8Dialog.prototype.saveCurrentWindowSizePreference = function() {
+   var mode = this.layoutMode === "compact" ? "compact" : "standard";
+   var ok = acmWriteSavedWindowSize(mode, this.width, this.height);
+   this.updateWindowSizeLabel();
+   this.setWindowSizeStatus(ok ? "Saved" : "Save failed", ok ? "#7fe38a" : "#ff7070");
+};
+
+AstroColorMixerPOC8Dialog.prototype.resetWindowSizePreferences = function() {
+   acmResetSavedWindowSizes();
+   this.acmUseDefaultWindowSizeOnce = true;
+   this.applyLayoutMode(true);
+   this.updateWindowSizeLabel();
+   this.setWindowSizeStatus("Reset", "#ffc43a");
+};
+
+AstroColorMixerPOC8Dialog.prototype.setLayoutMode = function(mode) {
+   var nextMode = mode === "compact" ? "compact" : "standard";
+   if (nextMode === this.layoutMode) {
+      this.applyLayoutMode(false);
+      this.refreshBandControls();
+      this.updateWindowSizeLabel();
+      this.setWindowSizeStatus("");
+      return;
+   }
+   this.layoutMode = nextMode;
+   this.setWindowSizeStatus("");
+   if (this.layoutMode === "compact")
+      this.compactDiagnosticsExpanded = true;
+   if (this.layoutModeCombo)
+      this.layoutModeCombo.currentItem = this.layoutMode === "compact" ? 1 : 0;
+   this.applyLayoutMode(true);
+   this.refreshBandControls();
+};
+
+AstroColorMixerPOC8Dialog.prototype.scheduleWindowsCompactSettleResize = function(width, height) {
+   if (!ACM_HOST_IS_WINDOWS || this.layoutMode !== "compact" || typeof this.resize !== "function")
+      return;
+   var self = this;
+   var targetWidth = Math.max(1700, Math.round(width || 1700));
+   var targetHeight = Math.max(980, Math.round(height || 980));
+   if (this.acmCompactSettleResizeTimer && typeof this.acmCompactSettleResizeTimer.stop === "function")
+      this.acmCompactSettleResizeTimer.stop();
+   if (typeof Timer !== "undefined") {
+      this.acmCompactSettleResizeTimer = new Timer;
+      this.acmCompactSettleResizeTimer.interval = 0.20;
+      this.acmCompactSettleResizeTimer.periodic = false;
+      this.acmCompactSettleResizeTimer.onTimeout = function() {
+         if (self.layoutMode !== "compact")
+            return;
+         self.acmResizeGuard = true;
+         try {
+            self.resize(targetWidth, targetHeight);
+         } finally {
+            self.acmResizeGuard = false;
+         }
+         self.updateWindowSizeLabel();
+         self.update();
+      };
+      this.acmCompactSettleResizeTimer.start();
+      return;
+   }
+   acmFlushUi();
+   this.acmResizeGuard = true;
+   try {
+      this.resize(targetWidth, targetHeight);
+   } finally {
+      this.acmResizeGuard = false;
+   }
+};
+
+AstroColorMixerPOC8Dialog.prototype.applyLayoutMode = function(allowResize) {
+   var compact = this.layoutMode === "compact";
+   var pendingWindowSize = null;
+   if (compact && allowResize) {
+      var compactDefault = acmDefaultWindowSizeForMode(this, "compact");
+      var targetWidth = compactDefault.width;
+      var targetHeight = compactDefault.height;
+      var minWidth = ACM_HOST_IS_WINDOWS ? 1700 : 1360;
+      var minHeight = ACM_HOST_IS_WINDOWS ? 980 : 760;
+      var savedSize = this.acmUseDefaultWindowSizeOnce ? null : acmReadSavedWindowSize("compact");
+      if (acmSavedWindowSizeIsSaneForMode("compact", savedSize)) {
+         targetWidth = savedSize.width;
+         targetHeight = savedSize.height;
+      }
+      var compactSize = acmClampWindowSize(this, targetWidth, targetHeight, minWidth, minHeight);
+      this.setMinWidth(minWidth);
+      this.setMinHeight(minHeight);
+      this.acmMinDialogWidth = minWidth;
+      this.acmMinDialogHeight = minHeight;
+      pendingWindowSize = compactSize;
+   } else if (!compact) {
+      var standardMinWidth = ACM_HOST_IS_WINDOWS ? 1680 : 1240;
+      var standardMinHeight = ACM_HOST_IS_WINDOWS ? 820 : 900;
+      this.setMinWidth(standardMinWidth);
+      this.setMinHeight(standardMinHeight);
+      this.acmMinDialogWidth = standardMinWidth;
+      this.acmMinDialogHeight = standardMinHeight;
+      if (allowResize && typeof this.resize === "function") {
+         var standardDefault = acmDefaultWindowSizeForMode(this, "standard");
+         var standardTarget = this.acmUseDefaultWindowSizeOnce ? null : acmReadSavedWindowSize("standard");
+         var standardW = acmSavedWindowSizeIsSaneForMode("standard", standardTarget) ? standardTarget.width : standardDefault.width;
+         var standardH = acmSavedWindowSizeIsSaneForMode("standard", standardTarget) ? standardTarget.height : standardDefault.height;
+         var standardSize = acmClampWindowSize(this, standardW, standardH, standardMinWidth, standardMinHeight);
+         pendingWindowSize = standardSize;
+      }
+   }
+   this.acmUseDefaultWindowSizeOnce = false;
+   if (this.headerLogoControl) {
+      this.headerLogoControl.scaledMinWidth = compact ? 128 : 230;
+      this.headerLogoControl.scaledMinHeight = compact ? 52 : 96;
+      this.headerLogoControl.update();
+   }
+   if (this.headerBrandControl) {
+      this.headerBrandControl.scaledMinWidth = compact ? (ACM_HOST_IS_WINDOWS ? 220 : 330) : 370;
+      this.headerBrandControl.scaledMinHeight = compact ? 52 : 96;
+      this.headerBrandControl.update();
+   }
+   if (this.targetImageCombo) {
+      var targetComboWidth = compact
+         ? (ACM_HOST_IS_WINDOWS ? 286 : 220)
+         : (ACM_HOST_IS_WINDOWS ? 280 : 344);
+      this.targetImageCombo.minWidth = targetComboWidth;
+      this.targetImageCombo.setFixedWidth(targetComboWidth);
+   }
+   if (this.refreshButton) {
+      this.refreshButton.text = compact ? "" : "Refresh";
+      this.refreshButton.acmIconOnly = compact;
+      if (ACM_HOST_IS_WINDOWS)
+         this.refreshButton.setFixedWidth(compact ? 34 : 112);
+      else
+         this.refreshButton.setFixedWidth(compact ? 34 : 92);
+      this.refreshButton.update();
+   }
+   if (this.protectLowSatCheck && ACM_HOST_IS_WINDOWS)
+      this.protectLowSatCheck.text = compact ? "Low Sat" : "Protect Low Sat";
+   if (this.previewHost) {
+      this.previewHost.scaledMinHeight = compact ? (ACM_HOST_IS_WINDOWS ? 220 : 230) : 500;
+      this.previewHost.update();
+   }
+   if (this.histogramControl) {
+      this.histogramControl.scaledMinHeight = compact ? (ACM_HOST_IS_WINDOWS ? 108 : 128) : (ACM_HOST_IS_WINDOWS ? 154 : 122);
+      this.histogramControl.update();
+   }
+   if (this.polarControl) {
+      this.polarControl.scaledMinHeight = compact ? (ACM_HOST_IS_WINDOWS ? 126 : 150) : (ACM_HOST_IS_WINDOWS ? 166 : 134);
+      this.polarControl.scaledMinWidth = compact ? (ACM_HOST_IS_WINDOWS ? 126 : 150) : (ACM_HOST_IS_WINDOWS ? 166 : 134);
+      this.polarControl.update();
+   }
+   if (this.polarInfoLabel) {
+      var plotInfoWidth = compact ? (ACM_HOST_IS_WINDOWS ? 156 : 146) : (ACM_HOST_IS_WINDOWS ? 210 : 162);
+      this.polarInfoLabel.setFixedWidth(plotInfoWidth);
+      this.polarInfoLabel.setFixedHeight(compact ? (ACM_HOST_IS_WINDOWS ? 132 : 150) : (ACM_HOST_IS_WINDOWS ? 166 : 134));
+      if (this.plotInfoPanel) {
+         this.plotInfoPanel.setFixedWidth(plotInfoWidth);
+         if (ACM_HOST_IS_WINDOWS)
+            this.plotInfoPanel.setFixedHeight(compact ? 196 : 252);
+      }
+   }
+   if (this.plotInfoLabel) {
+      this.plotInfoLabel.setFixedWidth(compact ? (ACM_HOST_IS_WINDOWS ? 156 : 146) : (ACM_HOST_IS_WINDOWS ? 210 : 162));
+      if (ACM_HOST_IS_WINDOWS)
+         this.plotInfoLabel.setFixedHeight(20);
+   }
+   if (this.passViewerHost)
+      this.passViewerHost.setFixedHeight(compact ? (ACM_HOST_IS_WINDOWS ? 96 : 104) : (ACM_HOST_IS_WINDOWS ? 106 : 118));
+   if (this.passViewerPanel && ACM_HOST_IS_WINDOWS) {
+      if (this.passViewerPanel.sizer)
+         this.passViewerPanel.sizer.margin = 6;
+      if (compact) {
+         this.passViewerPanel.setFixedWidth(400);
+         this.passViewerPanel.scaledMinWidth = 400;
+      } else {
+         if (typeof this.passViewerPanel.setVariableWidth === "function")
+            this.passViewerPanel.setVariableWidth();
+         this.passViewerPanel.scaledMinWidth = 0;
+      }
+   }
+   if (this.sensitivityLabel && ACM_HOST_IS_WINDOWS) {
+      this.sensitivityLabel.text = compact ? "Sens." : "Sensitivity";
+      this.sensitivityLabel.setFixedWidth(compact ? 58 : 108);
+   }
+   if (this.sensitivityCombo) {
+      if (ACM_HOST_IS_WINDOWS)
+         this.sensitivityCombo.setFixedWidth(compact ? 146 : 128);
+      else
+         this.sensitivityCombo.setFixedWidth(compact ? 96 : 112);
+   }
+   if (this.sensitivityHelpButton) {
+      var showSensitivityHelp = !(compact && ACM_HOST_IS_WINDOWS) && ACM_HOST_IS_WINDOWS;
+      this.sensitivityHelpButton.visible = showSensitivityHelp;
+      if (showSensitivityHelp)
+         this.sensitivityHelpButton.show();
+      else
+         this.sensitivityHelpButton.hide();
+   }
+   if (this.passActiveCombo && ACM_HOST_IS_WINDOWS)
+      this.passActiveCombo.setFixedWidth(compact ? 190 : 180);
+   if (this.passEnabledCheck && ACM_HOST_IS_WINDOWS)
+      this.passEnabledCheck.setFixedWidth(78);
+   if (this.passEnabledCheck && ACM_HOST_IS_WINDOWS)
+      this.passEnabledCheck.text = compact ? "On" : "On";
+   if (this.autoSelectProbeBandCheck && ACM_HOST_IS_WINDOWS) {
+      this.autoSelectProbeBandCheck.visible = false;
+      this.autoSelectProbeBandCheck.hide();
+   }
+   if (this.newPassButton && ACM_HOST_IS_WINDOWS) {
+      this.newPassButton.text = "New";
+      this.newPassButton.visible = true;
+      this.newPassButton.show();
+      this.newPassButton.setFixedWidth(compact ? 82 : 76);
+   }
+   if (this.duplicatePassButton && ACM_HOST_IS_WINDOWS) {
+      this.duplicatePassButton.text = "Dup";
+      this.duplicatePassButton.visible = true;
+      this.duplicatePassButton.show();
+      this.duplicatePassButton.setFixedWidth(compact ? 82 : 76);
+   }
+   if (this.deletePassButton && ACM_HOST_IS_WINDOWS) {
+      this.deletePassButton.text = "Del";
+      this.deletePassButton.visible = true;
+      this.deletePassButton.show();
+      this.deletePassButton.setFixedWidth(compact ? 78 : 76);
+   }
+   if (this.leftPanel) {
+      if (compact && ACM_HOST_IS_WINDOWS && typeof this.leftPanel.setFixedWidth === "function") {
+         this.leftPanel.setFixedWidth(450);
+         this.leftPanel.scaledMinWidth = 450;
+      } else {
+         if (typeof this.leftPanel.setVariableWidth === "function")
+            this.leftPanel.setVariableWidth();
+         this.leftPanel.scaledMinWidth = compact ? 490 : (ACM_HOST_IS_WINDOWS ? 500 : 468);
+      }
+      this.leftPanel.maxWidth = compact ? (ACM_HOST_IS_WINDOWS ? 450 : 520) : (ACM_HOST_IS_WINDOWS ? 560 : 520);
+      this.refreshLeftPanelLayout(compact);
+   }
+   if (ACM_HOST_IS_WINDOWS) {
+      if (this.workflowToolsGroup && this.workflowToolsGroup.sizer) {
+         this.workflowToolsGroup.sizer.margin = compact ? 2 : 4;
+         this.workflowToolsGroup.sizer.spacing = compact ? 1 : 2;
+      }
+      if (this.previewOutputGroup && this.previewOutputGroup.sizer) {
+         this.previewOutputGroup.sizer.margin = compact ? 2 : 4;
+         this.previewOutputGroup.sizer.spacing = compact ? 1 : 2;
+      }
+      if (this.previewOutputPanel && this.previewOutputPanel.sizer) {
+         this.previewOutputPanel.sizer.spacing = compact ? 1 : 4;
+      }
+      if (this.recipeButtonGroup && this.recipeButtonGroup.sizer) {
+         this.recipeButtonGroup.sizer.margin = compact ? 1 : 4;
+         this.recipeButtonGroup.sizer.spacing = compact ? 0 : 2;
+      }
+   }
+   if (this.selectedBandViz) {
+      this.selectedBandViz.scaledMinWidth = compact ? (ACM_HOST_IS_WINDOWS ? 68 : 104) : 112;
+      this.selectedBandViz.scaledMinHeight = compact ? (ACM_HOST_IS_WINDOWS ? 68 : 104) : 112;
+      this.selectedBandViz.update();
+   }
+   if (this.selectedBandReadoutPanel) {
+      var selectedReadoutWidth = compact ? (ACM_HOST_IS_WINDOWS ? 470 : 320) : (ACM_HOST_IS_WINDOWS ? 470 : 380);
+      var selectedReadoutInnerWidth = compact ? (ACM_HOST_IS_WINDOWS ? 446 : 300) : (ACM_HOST_IS_WINDOWS ? 446 : 360);
+      this.selectedBandReadoutPanel.scaledMinWidth = selectedReadoutWidth;
+      if (this.selectedBandReadoutPrimary)
+         this.selectedBandReadoutPrimary.scaledMinWidth = selectedReadoutInnerWidth;
+      if (this.selectedBandReadoutSecondary)
+         this.selectedBandReadoutSecondary.scaledMinWidth = selectedReadoutInnerWidth;
+      if (this.selectedBandProfileBar) {
+         this.selectedBandProfileBar.scaledMinWidth = selectedReadoutInnerWidth;
+         if (ACM_HOST_IS_WINDOWS && typeof this.selectedBandProfileBar.setFixedWidth === "function")
+            this.selectedBandProfileBar.setFixedWidth(selectedReadoutInnerWidth);
+         if (compact && ACM_HOST_IS_WINDOWS && typeof this.selectedBandProfileBar.setFixedHeight === "function") {
+            this.selectedBandProfileBar.setFixedHeight(18);
+            this.selectedBandProfileBar.scaledMinHeight = 18;
+         } else if (typeof this.selectedBandProfileBar.setFixedHeight === "function") {
+            this.selectedBandProfileBar.setFixedHeight(26);
+            this.selectedBandProfileBar.scaledMinHeight = 26;
+         }
+      }
+      if (this.selectedBandReadoutPanel.sizer && ACM_HOST_IS_WINDOWS) {
+         this.selectedBandReadoutPanel.sizer.margin = compact ? 4 : 8;
+         this.selectedBandReadoutPanel.sizer.spacing = compact ? 3 : 6;
+      }
+      this.selectedBandReadoutPanel.visible = true;
+      this.selectedBandReadoutPanel.show();
+   }
+   var compactHiddenControls = [
+      this.previewOutputHelpLabel,
+      this.footerNoticeLabel,
+      this.rangeMaskPresetLabel,
+      this.rangeMaskPresetCombo,
+      this.resetRangeMaskButton,
+      this.activeStatusLabel,
+      this.pendingChangesLabel
+   ];
+   for (var i = 0; i < compactHiddenControls.length; ++i) {
+      var ctl = compactHiddenControls[i];
+      if (!ctl)
+         continue;
+      ctl.visible = !compact;
+      if (compact)
+         ctl.hide();
+      else
+         ctl.show();
+   }
+   var windowsCompactStripControls = [
+      this.previewOutputTitleLabel,
+      this.recipeSectionLabel,
+      this.recipeHelpButton
+   ];
+   for (var stripIndex = 0; stripIndex < windowsCompactStripControls.length; ++stripIndex) {
+      var stripCtl = windowsCompactStripControls[stripIndex];
+      if (!stripCtl)
+         continue;
+      var showStripCtl = !(compact && ACM_HOST_IS_WINDOWS);
+      stripCtl.visible = showStripCtl;
+      if (showStripCtl)
+         stripCtl.show();
+      else
+         stripCtl.hide();
+   }
+   if (this.diagnosticsPanel) {
+      var showDiagnostics = !compact || this.compactDiagnosticsExpanded;
+      this.diagnosticsPanel.visible = showDiagnostics;
+      if (showDiagnostics)
+         this.diagnosticsPanel.show();
+      else
+         this.diagnosticsPanel.hide();
+   }
+   if (this.compactDiagnosticsPanel) {
+      if (this.compactDiagnosticsPanel.sizer && ACM_HOST_IS_WINDOWS) {
+         this.compactDiagnosticsPanel.sizer.margin = compact ? 2 : 4;
+         this.compactDiagnosticsPanel.sizer.spacing = compact ? 2 : 4;
+      }
+      this.compactDiagnosticsPanel.visible = compact;
+      if (compact)
+         this.compactDiagnosticsPanel.show();
+      else
+         this.compactDiagnosticsPanel.hide();
+   }
+   if (!compact && this.compactDiagnosticsBodyLabel) {
+      this.compactDiagnosticsExpanded = false;
+      this.compactDiagnosticsBodyLabel.hide();
+      this.compactDiagnosticsBodyLabel.visible = false;
+   }
+   if (this.compactDiagnosticsButton)
+      this.compactDiagnosticsButton.text = this.compactDiagnosticsExpanded ? "Hide Diagnostics / Passes" : "Show Diagnostics / Passes";
+   this.refreshBandControls();
+   this.refreshPreviewOutputLayout(compact);
+   if (this.passViewerHost && this.passViewerHost.viewport && this.editorState && this.editorState.passes)
+      this.refreshPassViewer();
+   this.refreshCompactDiagnosticsStrip();
+   if (allowResize && pendingWindowSize && typeof this.resize === "function") {
+      this.acmResizeGuard = true;
+      try {
+         this.resize(pendingWindowSize.width, pendingWindowSize.height);
+      } finally {
+         this.acmResizeGuard = false;
+      }
+      if (compact)
+         this.scheduleWindowsCompactSettleResize(pendingWindowSize.width, pendingWindowSize.height);
+   }
+   this.updateWindowSizeLabel();
+   if (!allowResize)
+      this.update();
+   else
+      this.update();
+};
+
+AstroColorMixerPOC8Dialog.prototype.refreshLeftPanelLayout = function(compact) {
+   if (!this.leftPanel || !this.leftPanel.sizer || !this.colorMixerGroup || !this.workflowToolsGroup || !this.previewOutputGroup)
+      return;
+   try { this.leftPanel.sizer.remove(this.colorMixerGroup); } catch (error1) {}
+   try { this.leftPanel.sizer.remove(this.workflowToolsGroup); } catch (error2) {}
+   try { this.leftPanel.sizer.remove(this.previewOutputGroup); } catch (error3) {}
+   this.leftPanel.sizer.add(this.colorMixerGroup, compact ? 0 : 100);
+   this.leftPanel.sizer.add(this.workflowToolsGroup, compact ? 0 : 0);
+   this.leftPanel.sizer.add(this.previewOutputGroup, compact ? 0 : 0);
+   this.leftPanel.update();
+};
+
+AstroColorMixerPOC8Dialog.prototype.refreshPreviewOutputLayout = function(compact) {
+   if (!this.previewOutputPanel)
+      return;
+   if (typeof this.previewOutputPanel.setVariableSize === "function")
+      this.previewOutputPanel.setVariableSize();
+   this.previewOutputPanel.update();
+};
+
+AstroColorMixerPOC8Dialog.prototype.toggleCompactDiagnosticsPanel = function() {
+   this.compactDiagnosticsExpanded = !this.compactDiagnosticsExpanded;
+   if (this.layoutMode === "compact") {
+      var minH = this.compactDiagnosticsExpanded ? (ACM_HOST_IS_WINDOWS ? 980 : 780) : (ACM_HOST_IS_WINDOWS ? 900 : 780);
+      this.setMinHeight(minH);
+      this.acmMinDialogHeight = minH;
+      if (this.compactDiagnosticsExpanded && typeof this.resize === "function" && this.height < minH)
+         this.resize(this.width, minH);
+   }
+   if (this.diagnosticsPanel) {
+      this.diagnosticsPanel.visible = this.compactDiagnosticsExpanded;
+      if (this.compactDiagnosticsExpanded)
+         this.diagnosticsPanel.show();
+      else
+         this.diagnosticsPanel.hide();
+   }
+   if (this.compactDiagnosticsButton)
+      this.compactDiagnosticsButton.text = this.compactDiagnosticsExpanded ? "Hide Diagnostics / Passes" : "Show Diagnostics / Passes";
+   if (this.rightPanel)
+      this.rightPanel.update();
+   this.update();
+};
+
+AstroColorMixerPOC8Dialog.prototype.refreshCompactDiagnosticsStrip = function() {
+   if (!this.compactDiagnosticsLabel)
+      return;
+   if (!ACM_HOST_IS_WINDOWS) {
+      this.compactDiagnosticsLabel.text = "";
+      return;
+   }
+   var activePass = this.getActivePassState ? this.getActivePassState() : null;
+   var rangeMask = activePass ? activePass.rangeMask : null;
+   var rangeText = rangeMask && rangeMask.enabled
+      ? ("Range " + rangeMask.low.toFixed(3) + "-" + rangeMask.high.toFixed(3))
+      : "Range Off";
+   var passText = activePass ? ("Pass " + (this.passActiveCombo ? (this.passActiveCombo.currentItem + 1) : 1) + "/" + this.editorState.passes.length + ": " + activePass.name) : "Pass: none";
+   this.compactDiagnosticsLabel.text = acmThemeRichText(passText + "  \u00b7  " + rangeText, ACM_GRAY_UI_THEME.text, false);
+   if (this.compactDiagnosticsExpanded && this.compactDiagnosticsBodyLabel)
+      this.compactDiagnosticsBodyLabel.text = this.formatCompactDiagnosticsText();
+};
+
+AstroColorMixerPOC8Dialog.prototype.formatCompactDiagnosticsText = function() {
+   var activePass = this.getActivePassState();
+   var rangeMask = activePass.rangeMask;
+   var lines = [];
+   lines.push("Preview");
+   lines.push(this.previewStatusLabel ? this.previewStatusLabel.text : "Preview status unavailable");
+   lines.push("");
+   lines.push("Probe");
+   if (this.probeData)
+      lines.push("Luminance " + this.probeData.y.toFixed(4) + "   Hue " + this.probeData.h.toFixed(1) + "\u00b0   Saturation " + this.probeData.s.toFixed(4));
+   else
+      lines.push("No probe yet. Click the preview to sample a pixel.");
+   lines.push("");
+   lines.push("Selected Band");
+   lines.push(this.selectedBandReadoutPrimary ? this.selectedBandReadoutPrimary.text : "");
+   lines.push(this.selectedBandReadoutSecondary ? this.selectedBandReadoutSecondary.text : "");
+   lines.push("");
+   lines.push("Range Mask");
+   if (rangeMask && rangeMask.enabled)
+      lines.push("Enabled   Low " + rangeMask.low.toFixed(3) + "   High " + rangeMask.high.toFixed(3) + "   Feather " + rangeMask.feather.toFixed(3));
+   else
+      lines.push("Off");
+   lines.push("");
+   lines.push("Changed / Strong");
+   if (this.previewChangeStats && this.previewChangeStats.state !== "pending" && this.previewChangeStats.active)
+      lines.push((this.previewChangeStats.changed * 100).toFixed(2) + "% changed   " + (this.previewChangeStats.strong * 100).toFixed(2) + "% strong");
+   else
+      lines.push("Pending or unavailable until the adjusted preview is current.");
+   lines.push("");
+   lines.push("Passes");
+   for (var i = 0; i < this.editorState.passes.length; ++i) {
+      var pass = this.editorState.passes[i];
+      lines.push((pass.id === this.editorState.activePassId ? "> " : "  ") + acmFormatPassViewerRowText(pass));
+   }
+   return lines.join("\n");
+};
+
+AstroColorMixerPOC8Dialog.prototype.showCompactDiagnosticsDialog = function() {
+   var owner = this;
+   var dialog = new Dialog;
+   dialog.windowTitle = "Diagnostics & Passes";
+   var title = new Label(dialog);
+   title.useRichText = true;
+   title.text = acmThemeRichText("Diagnostics & Passes", ACM_GRAY_UI_THEME.text, true);
+   var body = new Label(dialog);
+   body.wordWrapping = true;
+   body.useRichText = false;
+   body.textAlignment = TextAlign_Left|TextAlign_Top;
+   body.text = this.formatCompactDiagnosticsText();
+   body.minWidth = ACM_HOST_IS_WINDOWS ? 620 : 560;
+   body.setMinHeight(ACM_HOST_IS_WINDOWS ? 380 : 320);
+   acmApplyLightText(body);
+   var refreshButton = new PushButton(dialog);
+   refreshButton.text = "Refresh";
+   refreshButton.onClick = function() {
+      body.text = owner.formatCompactDiagnosticsText();
+   };
+   var closeButton = new PushButton(dialog);
+   closeButton.text = "Close";
+   closeButton.onClick = function() { dialog.ok(); };
+   var buttons = new HorizontalSizer;
+   buttons.addStretch();
+   buttons.add(refreshButton);
+   buttons.add(closeButton);
+   dialog.sizer = new VerticalSizer;
+   dialog.sizer.margin = 10;
+   dialog.sizer.spacing = 6;
+   dialog.sizer.add(title);
+   dialog.sizer.add(body, 100);
+   dialog.sizer.add(buttons);
+   dialog.adjustToContents();
+   dialog.execute();
+};
 
 AstroColorMixerPOC8Dialog.prototype.getActivePassState = function() {
    for (var i = 0; i < this.editorState.passes.length; ++i)
@@ -6657,13 +8041,17 @@ AstroColorMixerPOC8Dialog.prototype.showInlineHelp = function(helpKey, title, te
    box.bodyLabel.text = text;
    box.bodyLabel.textAlignment = TextAlign_Left|TextAlign_Top;
    acmApplyLightText(box.bodyLabel);
-   var targetWidth = Math.min(Math.max(260, parent.width - 24), ACM_HOST_IS_WINDOWS ? 560 : 360);
+   var targetWidth = Math.min(Math.max(ACM_HOST_IS_WINDOWS ? 360 : 260, parent.width - 24), ACM_HOST_IS_WINDOWS ? 720 : 360);
    box.bodyLabel.minWidth = Math.max(220, targetWidth - 16);
    box.bodyLabel.setMinWidth(Math.max(220, targetWidth - 16));
    var titleHeight = ACM_HOST_IS_WINDOWS ? 24 : 18;
    var bodyHeight = acmEstimateWrappedTextHeight(text, targetWidth - 16, ACM_HOST_IS_WINDOWS ? 22 : 16, ACM_HOST_IS_WINDOWS ? 56 : 36);
    box.titleLabel.setMinHeight(titleHeight);
    box.bodyLabel.setMinHeight(bodyHeight);
+   if (ACM_HOST_IS_WINDOWS) {
+      box.titleLabel.setFixedHeight(titleHeight);
+      box.bodyLabel.setFixedHeight(bodyHeight);
+   }
    box.adjustToContents();
    var x = 12;
    var y = 12;
@@ -6676,7 +8064,7 @@ AstroColorMixerPOC8Dialog.prototype.showInlineHelp = function(helpKey, title, te
       y += anchor.parent.boundsRect.y0;
    }
    var w = Math.max(targetWidth, 240);
-   var h = Math.max(titleHeight + bodyHeight + (ACM_HOST_IS_WINDOWS ? 30 : 18), 56);
+   var h = Math.max(titleHeight + bodyHeight + (ACM_HOST_IS_WINDOWS ? 44 : 18), 56);
    if (parent && parent.height)
       h = Math.min(h, Math.max(80, parent.height - 16));
    if (x + w > parent.width - 8)
@@ -6776,8 +8164,11 @@ AstroColorMixerPOC8Dialog.prototype.showDocumentation = function(kind) {
 
 AstroColorMixerPOC8Dialog.prototype.refreshPassSummary = function() {
    var activePass = this.getActivePassState();
+   var canAddPass = this.canCreateAdditionalPass(false);
    this.passEnabledCheck.checked = activePass.enabled !== false;
    this.deletePassButton.enabled = activePass.id !== "pass-1";
+   this.newPassButton.enabled = canAddPass;
+   this.duplicatePassButton.enabled = canAddPass;
    this.passSummaryLabel.text = "Active Pass: " + activePass.name + "\n" + activePass.name + " · " + acmSummarizePass(activePass) + " · " + acmSummarizePassMaskControls(activePass);
    this.passCountLabel.text = "Passes: " + acmCountEnabledPasses(this.editorState) + " enabled / " + this.editorState.passes.length + " total";
 };
@@ -6789,7 +8180,7 @@ AstroColorMixerPOC8Dialog.prototype.refreshPassControls = function() {
    var activeIndex = 0;
    for (var i = 0; i < this.editorState.passes.length; ++i) {
       var pass = this.editorState.passes[i];
-      this.passActiveCombo.addItem(pass.name);
+      this.passActiveCombo.addItem(acmPassComboDisplayName(pass, this));
       if (pass.id === this.editorState.activePassId)
          activeIndex = i;
    }
@@ -6798,12 +8189,13 @@ AstroColorMixerPOC8Dialog.prototype.refreshPassControls = function() {
    this.passComboSyncing = false;
    this.refreshPassSummary();
    this.refreshPassViewer();
+   this.refreshCompactDiagnosticsStrip();
 };
 
 AstroColorMixerPOC8Dialog.prototype.syncPendingChangesIndicator = function() {
    this.pendingChanges = acmEditorStateHasPendingChanges(this.editorState);
    if (this.pendingChangesLabel)
-      this.pendingChangesLabel.text = this.pendingChanges ? "Pending changes" : "";
+      this.pendingChangesLabel.text = ACM_HOST_IS_WINDOWS ? "" : (this.pendingChanges ? "Pending changes" : "");
 };
 
 AstroColorMixerPOC8Dialog.prototype.refreshAvailableTargets = function(reloadCurrent) {
@@ -6858,6 +8250,12 @@ AstroColorMixerPOC8Dialog.prototype.refreshAvailableTargets = function(reloadCur
    }
    this.targetImageCombo.currentItem = selectedIndex;
    this.targetImageCombo.enabled = true;
+   if (this.availableTargets[selectedIndex]) {
+      var fullTargetToolTip = "Full target image name: " + this.availableTargets[selectedIndex].label;
+      this.targetImageCombo.toolTip = fullTargetToolTip;
+      if (this.targetImageLabel)
+         this.targetImageLabel.toolTip = fullTargetToolTip;
+   }
    this.targetComboSyncing = false;
 
    if (!this.targetViewId || !acmFindViewForViewId(this.targetViewId))
@@ -6886,6 +8284,10 @@ AstroColorMixerPOC8Dialog.prototype.handleTargetSelectionChange = function(index
    var target = this.availableTargets[index];
    if (!target || !target.viewId)
       return;
+   var fullTargetToolTip = "Full target image name: " + target.label;
+   this.targetImageCombo.toolTip = fullTargetToolTip;
+   if (this.targetImageLabel)
+      this.targetImageLabel.toolTip = fullTargetToolTip;
    if (target.viewId === this.targetViewId)
       return;
    this.switchTargetImage(target.viewId);
@@ -7013,32 +8415,36 @@ AstroColorMixerPOC8Dialog.prototype.refreshPassViewer = function() {
    this.passViewerBody.sizer.spacing = 1;
    this.passViewerHost.viewport.sizer.add(this.passViewerBody);
    this.passViewerRows = [];
+   if (ACM_HOST_IS_WINDOWS) {
+      acmConfigureWindowsPassViewerCanvas(this.passViewerBody, this);
+      this.passViewerHost.verticalScrollPosition = 0;
+      this.updatePassViewerScrollBars();
+      return;
+   }
    var self = this;
-   var passRowFont = new Font;
-   passRowFont.pixelSize = ACM_HOST_IS_WINDOWS ? 14 : 13;
+   var passViewerContentHeight = 0;
    for (var i = 0; i < this.editorState.passes.length; ++i) {
       var pass = this.editorState.passes[i];
+      var rowHost = new Control(this.passViewerBody);
+      acmSetThemePanel(rowHost, ACM_GRAY_UI_THEME.passViewer, ACM_GRAY_UI_THEME.passViewer);
       var rowBar = new HorizontalSizer;
-      rowBar.spacing = 2;
-      var rowSelect = new RadioButton(this.passViewerBody);
-      rowSelect.text = acmFormatPassViewerRowText(pass);
-      rowSelect.toolTip = rowSelect.text;
-      rowSelect.font = passRowFont;
-      rowSelect.foregroundColor = 0xff161616;
-      rowSelect.textColor = 0xff161616;
-      rowSelect.checked = pass.id === this.editorState.activePassId;
-      rowSelect.scaledMinHeight = 10;
-      rowSelect.passId = pass.id;
-      rowSelect.onCheck = function(checked) {
-         if (!checked)
-            return;
-         self.editorState.activePassId = this.passId;
+      rowBar.spacing = 4;
+      rowHost.sizer = rowBar;
+      var rowTextInfo = acmFormatPassViewerWrappedRowText(pass, this, pass.id !== "pass-1");
+      var rowSelect = new Control(rowHost);
+      var rowHeight = acmConfigurePassViewerRowControl(rowSelect, rowTextInfo, this, pass.id !== "pass-1", pass.id === this.editorState.activePassId, pass.id);
+      rowSelect.onMousePress = function() {
+         self.editorState.activePassId = this.acmPassId;
          self.refreshFromState();
          self.markPreviewStale();
       };
+      rowHost.acmPassViewerRowHeight = rowHeight;
+      rowHost.setFixedHeight(rowHeight);
+      rowHost.scaledMinHeight = rowHeight;
+      rowHost.maxHeight = rowHeight;
       rowBar.add(rowSelect, 100);
       if (pass.id !== "pass-1") {
-         var deleteButton = acmCreateTinyDeleteButton(this.passViewerBody, "Delete " + pass.name, (function(passId) {
+         var deleteButton = acmCreateTinyDeleteButton(rowHost, "Delete " + pass.name, (function(passId) {
             return function() {
                self.editorState.activePassId = passId;
                self.deleteActivePass();
@@ -7048,16 +8454,29 @@ AstroColorMixerPOC8Dialog.prototype.refreshPassViewer = function() {
          rowBar.add(deleteButton);
          rowBar.addSpacing(3);
       }
-      this.passViewerBody.sizer.add(rowBar);
+      this.passViewerBody.sizer.add(rowHost);
+      passViewerContentHeight += rowHeight + (i > 0 ? this.passViewerBody.sizer.spacing : 0);
       this.passViewerRows.push({
          passId: pass.id,
+         host: rowHost,
          select: rowSelect
       });
    }
+   var passViewerBodyHeight = acmPassViewerBodyHeight(this, passViewerContentHeight);
+   this.passViewerBody.setFixedHeight(passViewerBodyHeight);
+   this.passViewerBody.scaledMinHeight = passViewerBodyHeight;
+   this.passViewerHost.verticalScrollPosition = 0;
    this.updatePassViewerScrollBars();
 };
 
 AstroColorMixerPOC8Dialog.prototype.updatePassViewerSummaries = function() {
+   if (ACM_HOST_IS_WINDOWS && this.passViewerBody) {
+      acmConfigureWindowsPassViewerCanvas(this.passViewerBody, this);
+      this.passViewerBody.update();
+      this.passViewerHost.verticalScrollPosition = 0;
+      this.updatePassViewerScrollBars();
+      return;
+   }
    if (!(this.passViewerRows instanceof Array))
       return;
    for (var rowIndex = 0; rowIndex < this.passViewerRows.length; ++rowIndex) {
@@ -7073,13 +8492,33 @@ AstroColorMixerPOC8Dialog.prototype.updatePassViewerSummaries = function() {
       }
       if (!pass)
          continue;
-      var text = acmFormatPassViewerRowText(pass);
-      row.select.text = text;
-      row.select.toolTip = text;
-      row.select.checked = pass.id === this.editorState.activePassId;
+      var textInfo = acmFormatPassViewerWrappedRowText(pass, this, pass.id !== "pass-1");
+      row.select.toolTip = textInfo.raw;
+      if (row.select) {
+         var rowHeight = acmConfigurePassViewerRowControl(row.select, textInfo, this, pass.id !== "pass-1", pass.id === this.editorState.activePassId, pass.id);
+         if (row.host) {
+            row.host.acmPassViewerRowHeight = rowHeight;
+            row.host.setFixedHeight(rowHeight);
+            row.host.scaledMinHeight = rowHeight;
+            row.host.maxHeight = rowHeight;
+         }
+         row.select.update();
+      }
    }
-   if (this.passViewerBody)
+   if (this.passViewerBody) {
+      var passViewerContentHeight = 0;
+      for (var heightIndex = 0; heightIndex < this.passViewerRows.length; ++heightIndex) {
+         var heightRow = this.passViewerRows[heightIndex];
+         if (heightRow && heightRow.host)
+            passViewerContentHeight += (heightRow.host.acmPassViewerRowHeight || heightRow.host.height) + (heightIndex > 0 ? this.passViewerBody.sizer.spacing : 0);
+      }
+      var passViewerBodyHeight = acmPassViewerBodyHeight(this, passViewerContentHeight);
+      this.passViewerBody.setFixedHeight(passViewerBodyHeight);
+      this.passViewerBody.scaledMinHeight = passViewerBodyHeight;
+      this.passViewerHost.verticalScrollPosition = 0;
       this.passViewerBody.update();
+   }
+   this.updatePassViewerScrollBars();
 };
 
 AstroColorMixerPOC8Dialog.prototype.populateMaskPreviewCache = function(cache, sourceRgb, width, height) {
@@ -7422,7 +8861,17 @@ AstroColorMixerPOC8Dialog.prototype.makeNextPassName = function() {
    return "Pass " + (maxLabel + 1);
 };
 
+AstroColorMixerPOC8Dialog.prototype.canCreateAdditionalPass = function(showWarning) {
+   if (this.editorState.passes.length < ACM_MAX_REFINEMENT_PASSES)
+      return true;
+   if (showWarning)
+      showMessage("Astro Color Mixer is limited to " + ACM_MAX_REFINEMENT_PASSES + " passes for layout stability and preview performance.", this.windowTitle, StdIcon_Information);
+   return false;
+};
+
 AstroColorMixerPOC8Dialog.prototype.createNewPass = function() {
+   if (!this.canCreateAdditionalPass(true))
+      return;
    var pass = acmCreateDefaultPass(this.makeNextPassId(), this.makeNextPassName());
    this.editorState.passes.push(pass);
    this.editorState.activePassId = pass.id;
@@ -7431,6 +8880,8 @@ AstroColorMixerPOC8Dialog.prototype.createNewPass = function() {
 };
 
 AstroColorMixerPOC8Dialog.prototype.duplicateActivePass = function() {
+   if (!this.canCreateAdditionalPass(true))
+      return;
    var activePass = this.getActivePassState();
    var clone = acmClonePass(activePass, this.makeNextPassId(), "Copy of " + activePass.name);
    clone.enabled = true;
@@ -7477,6 +8928,8 @@ AstroColorMixerPOC8Dialog.prototype.promptRangeMaskOnActivePass = function() {
 };
 
 AstroColorMixerPOC8Dialog.prototype.createRangeMaskPassFromPrompt = function(presetName) {
+   if (!this.canCreateAdditionalPass(true))
+      return;
    var currentPass = this.getActivePassState();
    var pass = acmCreateDefaultPass(this.makeNextPassId(), this.makeNextPassName() + ": Range Mask");
    pass.rangeMask.enabled = true;
@@ -7622,11 +9075,23 @@ AstroColorMixerPOC8Dialog.prototype.refreshToolTabButtons = function() {
 
 AstroColorMixerPOC8Dialog.prototype.setActiveToolPanel = function(panelKey) {
    this.activeToolPanel = panelKey;
-   this.selectedBandPanel.visible = panelKey === "selectedBand";
-   this.rangeMaskPanel.visible = panelKey === "rangeMask";
+   var selectedVisible = panelKey === "selectedBand";
+   var rangeVisible = panelKey === "rangeMask";
+   this.selectedBandPanel.visible = selectedVisible;
+   this.rangeMaskPanel.visible = rangeVisible;
+   if (selectedVisible)
+      this.selectedBandPanel.show();
+   else
+      this.selectedBandPanel.hide();
+   if (rangeVisible)
+      this.rangeMaskPanel.show();
+   else
+      this.rangeMaskPanel.hide();
    this.diagnosticsPanel.visible = true;
    this.previewOutputPanel.visible = true;
    this.refreshToolTabButtons();
+   this.refreshLeftPanelLayout(this.layoutMode === "compact");
+   this.update();
 };
 
 AstroColorMixerPOC8Dialog.prototype.refreshSelectedBandReadoutAndVisualization = function(updateText) {
@@ -7636,21 +9101,22 @@ AstroColorMixerPOC8Dialog.prototype.refreshSelectedBandReadoutAndVisualization =
    var neutralActive = this.activeTab === ACM_TAB_LUM && this.getHighlightedRowId && this.getHighlightedRowId() === "neutral";
    var effectiveRange = acmComputeSelectedBandRange(selectedBand.center, selectedBand.width);
    if (updateText) {
+      var compactWindows = ACM_HOST_IS_WINDOWS;
       if (neutralActive) {
          this.selectedBandHelpLabel.text = acmThemeRichText("Neutral / Low-Saturation is selected by low chroma, not hue angle. Feather softens the transition into more saturated color.", ACM_GRAY_UI_THEME.muted, false);
          if (this.selectedBandReadoutPrimary)
-            acmPlainLightLabel(this.selectedBandReadoutPrimary, "Selection: Low-saturation  Hue Radius: Not used");
+            acmPlainLightLabel(this.selectedBandReadoutPrimary, compactWindows ? "Selection: Low sat  Radius: n/a" : "Selection: Low-saturation  Hue Radius: Not used");
          if (this.selectedBandReadoutSecondary)
-            acmPlainLightLabel(this.selectedBandReadoutSecondary, "Feather: " + selectedBand.feather.toFixed(2));
+            acmPlainLightLabel(this.selectedBandReadoutSecondary, compactWindows ? "Feather " + selectedBand.feather.toFixed(2) : "Feather: " + selectedBand.feather.toFixed(2));
       } else {
          var outerWidth = selectedBand.width;
          var innerWidth = selectedBand.feather <= ACM_EPSILON ? outerWidth : outerWidth * (1 - selectedBand.feather);
          innerWidth = acmClamp(innerWidth, 0, outerWidth);
          this.selectedBandHelpLabel.text = acmThemeRichText("Hue Radius sets the outer limit on each side of the hue center. Feather controls how quickly the selection falls from the strong core to that outer limit.", ACM_GRAY_UI_THEME.muted, false);
          if (this.selectedBandReadoutPrimary)
-            acmPlainLightLabel(this.selectedBandReadoutPrimary, "Hue center: " + selectedBand.center + "°  Hue Radius: ±" + acmFormatAngleDegrees(outerWidth) + "°  Strong core: ±" + acmFormatAngleDegrees(innerWidth) + "°");
+            acmPlainLightLabel(this.selectedBandReadoutPrimary, compactWindows ? ("Hue " + selectedBand.center + "°  R ±" + acmFormatAngleDegrees(outerWidth) + "°  Core ±" + acmFormatAngleDegrees(innerWidth) + "°") : ("Hue center: " + selectedBand.center + "°  Hue Radius: ±" + acmFormatAngleDegrees(outerWidth) + "°  Strong core: ±" + acmFormatAngleDegrees(innerWidth) + "°"));
          if (this.selectedBandReadoutSecondary)
-            acmPlainLightLabel(this.selectedBandReadoutSecondary, "Falloff: " + acmFormatAngleDegrees(innerWidth) + "°–" + acmFormatAngleDegrees(outerWidth) + "°  Affected range: " + effectiveRange.low + "°–" + effectiveRange.high + "°  Feather: " + selectedBand.feather.toFixed(2));
+            acmPlainLightLabel(this.selectedBandReadoutSecondary, compactWindows ? ("Fall " + acmFormatAngleDegrees(innerWidth) + "–" + acmFormatAngleDegrees(outerWidth) + "°  Range " + effectiveRange.low + "–" + effectiveRange.high + "°  F " + selectedBand.feather.toFixed(2)) : ("Falloff: " + acmFormatAngleDegrees(innerWidth) + "°–" + acmFormatAngleDegrees(outerWidth) + "°  Affected range: " + effectiveRange.low + "°–" + effectiveRange.high + "°  Feather: " + selectedBand.feather.toFixed(2)));
       }
    }
    this.setHighlightedRowId(this.getHighlightedRowId());
@@ -8167,6 +9633,7 @@ AstroColorMixerPOC8Dialog.prototype.computeDeferredPreviewChangeStats = function
       return;
    this.previewChangeStats = stats;
    this.refreshPolarInfoReadout();
+   this.refreshCompactDiagnosticsStrip();
 };
 
 AstroColorMixerPOC8Dialog.prototype.refreshPolarInfoReadout = function() {
@@ -8206,6 +9673,7 @@ AstroColorMixerPOC8Dialog.prototype.refreshHistogramRangeMaskOverlay = function(
       this.histogramControl.update();
    if (this.histogramRampControl)
       this.histogramRampControl.update();
+   this.refreshCompactDiagnosticsStrip();
 };
 
 AstroColorMixerPOC8Dialog.prototype.ensurePreviewSourceHsl = function() {
@@ -8386,6 +9854,7 @@ AstroColorMixerPOC8Dialog.prototype.refreshDiagnosticsData = function() {
       this.selectedBandViz.update();
    this.histogramControl.update();
    this.polarControl.update();
+   this.refreshCompactDiagnosticsStrip();
 };
 
 AstroColorMixerPOC8Dialog.prototype.setProbeFromPreviewClick = function(x, y) {
@@ -8617,13 +10086,27 @@ AstroColorMixerPOC8Dialog.prototype.refreshBandControls = function() {
    var range = acmParameterRangeForTab(this.activeTab, this.editorState.sensitivity);
    this.bandSectionLabel.text = acmThemeRichText(tabLabel + " Controls", ACM_GRAY_UI_THEME.text, true);
    var activePass = this.getActivePassState();
-   var compactLumRows = this.activeTab === ACM_TAB_LUM;
+   var compactLumRows = this.activeTab === ACM_TAB_LUM || this.layoutMode === "compact";
 
    if (this.bandControlsHost && this.bandControlsHost.sizer)
-      this.bandControlsHost.sizer.spacing = compactLumRows ? 0 : 1;
+      this.bandControlsHost.sizer.spacing = (ACM_HOST_IS_WINDOWS && this.layoutMode !== "compact") ? 0 : (compactLumRows ? 0 : 1);
    this.neutralRowHost.visible = this.activeTab === ACM_TAB_LUM;
-   this.colorMixerPanel.scaledMinHeight = this.activeTab === ACM_TAB_LUM ? 366 : 306;
-   acmSetMixerFieldRowDensity(this.neutralControl, compactLumRows);
+   if (ACM_HOST_IS_WINDOWS && this.layoutMode !== "compact" && this.neutralRowHost) {
+      if (this.activeTab === ACM_TAB_LUM) {
+         this.neutralRowHost.setFixedHeight(32);
+         this.neutralRowHost.scaledMinHeight = 32;
+      } else {
+         this.neutralRowHost.setFixedHeight(0);
+         this.neutralRowHost.scaledMinHeight = 0;
+      }
+   }
+   if (this.activeTab === ACM_TAB_LUM || this.layoutMode === "compact")
+      acmSetMixerFieldRowDensity(this.neutralControl, compactLumRows);
+   if (ACM_HOST_IS_WINDOWS && this.layoutMode !== "compact" && this.activeTab !== ACM_TAB_LUM && this.neutralRowHost) {
+      this.neutralRowHost.setFixedHeight(0);
+      this.neutralRowHost.scaledMinHeight = 0;
+      this.neutralRowHost.update();
+   }
    if (this.activeTab === ACM_TAB_LUM) {
       var neutralRange = acmNeutralRangeForSensitivity(this.editorState.sensitivity);
       this.neutralControl.setRange(-neutralRange, neutralRange);
@@ -8646,6 +10129,38 @@ AstroColorMixerPOC8Dialog.prototype.refreshBandControls = function() {
       control.numeric.setSecondaryLabel("Center " + (bandDef && bandDef.center != null ? bandDef.center : 0) + "\u00b0");
       control.rowHost.update();
    }
+
+   if (this.bandControlsHost && ACM_HOST_IS_WINDOWS && this.layoutMode !== "compact") {
+      var visibleRows = this.activeTab === ACM_TAB_LUM ? 9 : 8;
+      var rowHeight = 24;
+      var fixedBandControlsHeight = visibleRows * rowHeight + 4;
+      this.bandControlsHost.scaledMinHeight = fixedBandControlsHeight;
+      if (typeof this.bandControlsHost.setMinHeight === "function")
+         this.bandControlsHost.setMinHeight(fixedBandControlsHeight);
+      if (typeof this.bandControlsHost.setFixedHeight === "function")
+         this.bandControlsHost.setFixedHeight(fixedBandControlsHeight);
+   } else if (this.bandControlsHost && typeof this.bandControlsHost.setVariableHeight === "function") {
+      this.bandControlsHost.setVariableHeight();
+   }
+   var mixerMinHeight = this.layoutMode === "compact"
+      ? (this.activeTab === ACM_TAB_LUM ? 230 : 190)
+      : (ACM_HOST_IS_WINDOWS ? (this.activeTab === ACM_TAB_LUM ? 296 : 283) : 306);
+   this.colorMixerPanel.scaledMinHeight = mixerMinHeight;
+   if (typeof this.colorMixerPanel.setMinHeight === "function")
+      this.colorMixerPanel.setMinHeight(mixerMinHeight);
+   if (ACM_HOST_IS_WINDOWS && this.layoutMode !== "compact" && typeof this.colorMixerPanel.setFixedHeight === "function")
+      this.colorMixerPanel.setFixedHeight(mixerMinHeight);
+   if (this.colorMixerGroup && ACM_HOST_IS_WINDOWS && this.layoutMode !== "compact") {
+      var mixerGroupMinHeight = this.activeTab === ACM_TAB_LUM ? 324 : 311;
+      this.colorMixerGroup.scaledMinHeight = mixerGroupMinHeight;
+      if (typeof this.colorMixerGroup.setMinHeight === "function")
+         this.colorMixerGroup.setMinHeight(mixerGroupMinHeight);
+      if (typeof this.colorMixerGroup.setFixedHeight === "function")
+         this.colorMixerGroup.setFixedHeight(mixerGroupMinHeight);
+   }
+   if (this.bandControlsHost)
+      this.bandControlsHost.update();
+   this.colorMixerPanel.update();
 
    var hueActive = this.activeTab === ACM_TAB_HUE;
    var saturationActive = this.activeTab === ACM_TAB_SAT;
@@ -9017,6 +10532,8 @@ try {
    if (!(error && error.__acmHandled)) {
       var message = "Unexpected dialog failure: " + (error && error.message ? error.message : String(error));
       console.criticalln(message);
-      showMessage(message, "Astro Color Mixer v0.9.7.8-beta", StdIcon_Error);
+      showMessage(message, "Astro Color Mixer v0.9.7.9-beta", StdIcon_Error);
    }
 }
+
+#endif

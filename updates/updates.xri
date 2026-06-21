@@ -9,17 +9,18 @@
   <platform os="all" arch="noarch" version="1.8.0:1.9.9">
 
     <package
-      fileName="AstroColorMixer-0.9.7.9-beta.zip"
-      sha1="c800f4f2aa1c0b2a8b40fba5877a4d9f44b0c8db"
+      fileName="AstroColorMixer-0.9.7.10-beta.zip"
+      sha1="9cfe4220544c60278728fe6106552825c326156b"
       type="script"
       releaseDate="20260621"
       remove="src/scripts/CosgrovesCosmos/AstroColorMixer.js">
 
-      <title>Astro Color Mixer v0.9.7.9-beta</title>
+      <title>Astro Color Mixer v0.9.7.10-beta</title>
 
       <description>
         <p>Astro Color Mixer is a PixInsight script for nonlinear RGB color and luminance refinement in astrophotography.</p>
-        <p><b>What's new:</b> Compact mode now opens at 1360 x 780 on Mac so the Luminance tab remains visible, while Windows compact and standard target sizes are unchanged.</p>
+        <p><b>What's new:</b> Corrects the PixInsight script-menu icon metadata so Astro Color Mixer uses its bundled menu icon instead of the generic script icon.</p>
+        <p>Compact mode now opens at 1360 x 780 on Mac so the Luminance tab remains visible, while Windows compact and standard target sizes are unchanged.</p>
         <p>This beta includes the new Astro Color Mixer PixInsight menu icon, Compact and Standard layouts, Difference preview, Plot Info diagnostics, visible Protect Stars and Protect Low Sat controls, Star Protection Mask preview, Selected Band and Range Mask Blur/Boost shaping, faster high-resolution output, smoother full-resolution mask output, and updated FAQ/About/Technical Appendix content.</p>
         <p>This is a beta release for testing. PixInsight 1.9.4 or newer is recommended; Apple Silicon Mac users should use the ARM64/Apple-Silicon PixInsight build.</p>
       </description>

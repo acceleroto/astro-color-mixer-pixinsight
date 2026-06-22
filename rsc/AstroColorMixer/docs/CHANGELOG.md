@@ -1,5 +1,23 @@
 # Astro Color Mixer Changelog
 
+## v0.9.7.11-beta
+
+Adds display workspace warnings for systems where PixInsight reports a workspace smaller than Astro Color Mixer's layout target.
+
+Includes:
+
+- Windows warning for constrained workspaces, with guidance for Windows Settings > System > Display > Scale
+- explicit mention that Windows Scale may be above 100%, Recommended, or Auto
+- macOS warning for constrained display workspaces, with guidance for System Settings > Displays
+- updated FAQ, About text, and Technical Appendix content for display scaling/workspace troubleshooting
+- package update to include the Astro Color Mixer script-menu icon at the flat PixInsight script icon path as well as the previous nested resource path
+
+Unchanged:
+
+- processing math
+- masks, probe behavior, histogram and polar plot math
+- recipes, preview behavior, passes, layout target sizes, and output behavior
+
 ## v0.9.3-beta
 
 First beta distribution package.

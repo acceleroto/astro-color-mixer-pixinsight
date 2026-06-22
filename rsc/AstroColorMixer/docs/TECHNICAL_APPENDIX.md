@@ -36,6 +36,16 @@ source RGB
   -> output image
 ```
 
+## 2A. Display workspace detection
+
+Astro Color Mixer uses the screen workspace size exposed by PixInsight to decide whether to show a display warning. The script does not directly read the Windows or macOS display scaling percentage. Instead, it detects the practical failure condition: PixInsight reports an available workspace smaller than the layout target.
+
+On Windows, the warning is shown when the reported workspace is below `1700 x 900`. This often corresponds to Windows Display Scaling above `100%`, `Recommended`, or `Auto` on a 1920 x 1080 laptop. A physical 1920 x 1080 display at 125% scaling can be reported to PixInsight as roughly `1536 x 864` logical pixels.
+
+On macOS, the warning is shown when the reported workspace is below `1360 x 780`. This can happen when macOS display scaling is set to a mode that provides less screen space.
+
+The warning is informational only. It does not change processing, preview math, masks, recipes, passes, output behavior, or layout sizes. It tells the user where to change the operating system display setting and recommends restarting PixInsight so the script sees the updated workspace.
+
 ## 3. Luminance model
 
 Astro Color Mixer uses a Rec. 709 style luminance estimate:

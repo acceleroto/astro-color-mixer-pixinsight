@@ -35,6 +35,18 @@ The tool works on stars-present and starless images. The `Image Type` setting te
 
 This setting does not remove stars and does not create a star mask. It only changes protection behavior used while applying adjustments.
 
+## Why am I seeing a display scaling warning?
+
+Astro Color Mixer checks the display workspace size that PixInsight reports when the script starts. On some systems, especially Windows laptops, the operating system can scale the display so PixInsight reports a smaller logical workspace than the physical monitor resolution might suggest.
+
+For example, a 1920 x 1080 Windows laptop using 125% scaling may be reported to PixInsight as roughly 1536 x 864. That can make a window designed for a larger workspace appear clipped, too large, or difficult to resize.
+
+On Windows, check `Windows Settings > System > Display > Scale`. If Scale is above `100%`, `Recommended`, or `Auto`, set it to `100%`, then restart PixInsight and run Astro Color Mixer again.
+
+On macOS, check `System Settings > Displays` and choose a setting that provides more screen space, then restart PixInsight.
+
+This is an operating system display setting. It is not a PixInsight setting and not an Astro Color Mixer setting.
+
 ## Basic workflow
 
 1. Open a nonlinear RGB image.
@@ -156,6 +168,7 @@ They are useful for repeatability, documentation, sharing, and complex multi-pas
 - Doing highly targeted work in Base Pass instead of a new Refinement Pass.
 - Trusting hue in neutral or low-saturation background regions.
 - Using selected-band Blur as if it were star protection. It is only active for starless work.
+- Ignoring a display workspace warning when the operating system is using Windows Display Scaling, Recommended, Auto, or a macOS display mode with reduced screen space.
 - Forgetting that the preview is stale after changing controls.
 - Using `Apply to Target` when a new output image would be safer.
 - Treating band names as strict physical classifications instead of practical editing regions.

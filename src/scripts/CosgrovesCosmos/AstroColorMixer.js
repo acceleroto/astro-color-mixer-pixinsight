@@ -13,13 +13,13 @@ throw new Error("Astro Color Mixer requires PixInsight 1.9.4 or newer.");
 
 #feature-id    Cosgrove's Cosmos > Astro Color Mixer
 #feature-icon  @script_icons_dir/AstroColorMixer.svg
-#feature-info  Astro Color Mixer v0.9.7.10-beta. Nonlinear RGB color and luminance refinement for astrophotography.
+#feature-info  Astro Color Mixer v0.9.7.11-beta. Nonlinear RGB color and luminance refinement for astrophotography.
 
 /*
  * Astro Color Mixer for PixInsight
  *
  * Beta build:
- * Astro Color Mixer v0.9.7.10-beta
+ * Astro Color Mixer v0.9.7.11-beta
  */
 
 #include <pjsr/UndoFlag.jsh>
@@ -34,7 +34,7 @@ throw new Error("Astro Color Mixer requires PixInsight 1.9.4 or newer.");
 CoreApplication.ensureMinimumVersion( 1, 9, 4 );
 
 function showMessage(text, title, icon) {
-   (new MessageBox(text, title || "Astro Color Mixer v0.9.7.10-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
+   (new MessageBox(text, title || "Astro Color Mixer v0.9.7.11-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
 }
 
 var acmHelpHostDialog = null;
@@ -49,10 +49,16 @@ function showHelpTopic(title, text) {
 
 function fail(text) {
    console.criticalln(text);
-   showMessage(text, "Astro Color Mixer v0.9.7.10-beta", StdIcon_Error);
+   showMessage(text, "Astro Color Mixer v0.9.7.11-beta", StdIcon_Error);
    var error = new Error(text);
    error.__acmHandled = true;
    throw error;
+}
+
+function acmFormatScreenSizeForWarning(size) {
+   if (!size)
+      return "unavailable";
+   return Math.round(size.width || 0) + " x " + Math.round(size.height || 0);
 }
 
 var ACM_GRAY_UI_THEME = {
@@ -339,6 +345,68 @@ function acmGetDialogAvailableScreenSize(dialog) {
    return null;
 }
 
+function acmGetSmallDisplayWorkspaceWarning(dialog) {
+   var screenSize = acmGetDialogAvailableScreenSize(dialog);
+   if (!screenSize)
+      return null;
+   var width = Math.round(screenSize.width || 0);
+   var height = Math.round(screenSize.height || 0);
+   var isWindows = acmHostIsWindows();
+   var warn = isWindows ? (width < 1700 || height < 900) : (width < 1360 || height < 780);
+   if (!warn)
+      return null;
+
+   var text;
+   if (isWindows) {
+      text = "Astro Color Mixer detected a small Windows display workspace.\n\n";
+      text += "PixInsight reports the available screen workspace as " + acmFormatScreenSizeForWarning(screenSize) + ", which is smaller than this tool's Windows layout target. This often happens when the Windows operating system is using Display Scaling above 100%, Recommended, or Auto.\n\n";
+      text += "If the Astro Color Mixer window is clipped, too large, or cannot be resized, change this in Windows:\n\n";
+      text += "Windows Settings > System > Display > Scale\n\n";
+      text += "Set Scale to 100%, then restart PixInsight and run Astro Color Mixer again.\n\n";
+      text += "This is a Windows operating system display setting. It is not a PixInsight setting and not an Astro Color Mixer setting.";
+      return {
+         title: "Astro Color Mixer Display Scaling Notice",
+         text: text,
+         platform: "Windows",
+         width: width,
+         height: height
+      };
+   }
+
+   text = "Astro Color Mixer detected a small macOS display workspace.\n\n";
+   text += "PixInsight reports the available screen workspace as " + acmFormatScreenSizeForWarning(screenSize) + ", which may be smaller than this tool's Mac layout target. This can happen when macOS display scaling is set to a mode that provides less screen space.\n\n";
+   text += "If the Astro Color Mixer window is clipped, too large, or cannot be resized, change this in macOS:\n\n";
+   text += "System Settings > Displays\n\n";
+   text += "Choose a setting that provides more screen space, then restart PixInsight and run Astro Color Mixer again.\n\n";
+   text += "This is a macOS display setting. It is not a PixInsight setting and not an Astro Color Mixer setting.";
+   return {
+      title: "Astro Color Mixer Display Scaling Notice",
+      text: text,
+      platform: "macOS",
+      width: width,
+      height: height
+   };
+}
+
+function acmShowSmallDisplayWorkspaceWarningIfNeeded(dialog) {
+   var warning = acmGetSmallDisplayWorkspaceWarning(dialog);
+   if (!warning)
+      return false;
+   console.writeln("");
+   console.writeln("Astro Color Mixer display workspace warning:");
+   console.writeln(warning.platform + " available screen workspace reported by PixInsight: " + warning.width + " x " + warning.height);
+   if (warning.platform === "Windows") {
+      console.writeln("If the window is clipped or cannot be resized, check Windows Settings > System > Display > Scale.");
+      console.writeln("Set Scale to 100%, especially if Scale is above 100%, Recommended, or Auto.");
+      console.writeln("This is a Windows operating system display setting, not a PixInsight or Astro Color Mixer setting.");
+   } else {
+      console.writeln("If the window is clipped or cannot be resized, check System Settings > Displays and choose a setting that provides more screen space.");
+      console.writeln("This is a macOS display setting, not a PixInsight or Astro Color Mixer setting.");
+   }
+   showMessage(warning.text, warning.title, StdIcon_Warning);
+   return true;
+}
+
 function acmGetControlPositionRelativeToDialog(control, dialog) {
    var x = 0;
    var y = 0;
@@ -384,7 +452,7 @@ function acmConfigureResponsiveDialogBounds(dialog) {
    dialog.acmDefaultDialogHeight = height;
 }
 
-var ACM_WINDOW_SIZE_SETTINGS_PREFIX = "AstroColorMixer/windowSize/v99_release_0979/";
+var ACM_WINDOW_SIZE_SETTINGS_PREFIX = "AstroColorMixer/windowSize/v103_release_09711/";
 var ACM_LEGACY_WINDOW_SIZE_SETTINGS_PREFIX = "AstroColorMixer/windowSize/v10/";
 var ACM_OLDER_WINDOW_SIZE_SETTINGS_PREFIX = "AstroColorMixer/windowSize/v9/";
 var ACM_OLDEST_WINDOW_SIZE_SETTINGS_PREFIX = "AstroColorMixer/windowSize/v7/";
@@ -562,7 +630,7 @@ function acmCreateInfoBox(parent) {
    return box;
 }
 
-console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.7.10-beta</b>");
+console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.7.11-beta</b>");
 
 // -------------------------------------------------------------------------
 // Minimal copied core logic
@@ -2613,6 +2681,18 @@ var ACM_FAQ_TEXT = [
    "",
    "Standard and Compact remember their window sizes separately so changing modes should not require recovering an old stale window size.",
    "",
+   "3D. WHY AM I SEEING A DISPLAY SCALING WARNING?",
+   "",
+   "Astro Color Mixer checks the display workspace size that PixInsight reports when the script starts. On some systems, especially Windows laptops, the operating system can scale the display so PixInsight reports a smaller logical workspace than the physical monitor resolution might suggest.",
+   "",
+   "For example, a 1920 x 1080 Windows laptop using 125% scaling may be reported to PixInsight as roughly 1536 x 864. That can make a window designed for a larger workspace appear clipped, too large, or difficult to resize.",
+   "",
+   "On Windows, check Windows Settings > System > Display > Scale. If Scale is above 100%, Recommended, or Auto, set it to 100%, then restart PixInsight and run Astro Color Mixer again.",
+   "",
+   "On macOS, check System Settings > Displays and choose a setting that provides more screen space, then restart PixInsight.",
+   "",
+   "This is an operating system display setting. It is not a PixInsight setting and not an Astro Color Mixer setting.",
+   "",
    "4. BASIC WORKFLOW",
    "",
    "  1. Open a nonlinear RGB image.",
@@ -2730,6 +2810,7 @@ var ACM_FAQ_TEXT = [
    "  - Expecting Protect Stars to replace a true starless workflow for aggressive galaxy color extraction.",
    "  - Trying to do one huge low-color rescue pass when several smaller passes would be cleaner.",
    "  - Using mask blurring as if it were star protection. It is only active for starless or starless work.",
+   "  - Ignoring a display workspace warning when the operating system is using Windows Display Scaling, Recommended, Auto, or a macOS display mode with reduced screen space.",
    "  - Forgetting that the preview is stale after changing controls.",
    "  - Using Apply to Target when a new output image would be safer.",
    "  - Treating the band names as strict physical classifications instead of practical editing regions.",
@@ -2789,6 +2870,16 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
    "High-level pipeline:",
    "",
    "source RGB -> preview/full-resolution working copy -> enabled pass loop -> band and neutral masks -> chroma/luminance adjustment -> clamp -> output image",
+   "",
+   "2A. DISPLAY WORKSPACE DETECTION",
+   "",
+   "Astro Color Mixer uses the screen workspace size exposed by PixInsight to decide whether to show a display warning. The script does not directly read the Windows or macOS display scaling percentage. Instead, it detects the practical failure condition: PixInsight reports an available workspace smaller than the layout target.",
+   "",
+   "On Windows, the warning is shown when the reported workspace is below 1700 x 900. This often corresponds to Windows Display Scaling above 100%, Recommended, or Auto on a 1920 x 1080 laptop. A physical 1920 x 1080 display at 125% scaling can be reported to PixInsight as roughly 1536 x 864 logical pixels.",
+   "",
+   "On macOS, the warning is shown when the reported workspace is below 1360 x 780. This can happen when macOS display scaling is set to a mode that provides less screen space.",
+   "",
+   "The warning is informational only. It does not change processing, preview math, masks, recipes, passes, output behavior, or layout sizes. It tells the user where to change the operating system display setting and recommends restarting PixInsight so the script sees the updated workspace.",
    "",
    "3. LUMINANCE MODEL",
    "",
@@ -3017,11 +3108,11 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
 
 var ACM_ABOUT_TEXT =
       "About Astro Color Mixer\n\n" +
-"Astro Color Mixer v0.9.7.10-beta\n\n" +
+"Astro Color Mixer v0.9.7.11-beta\n\n" +
 "A Cosgrove's Cosmos tool for nonlinear RGB chroma-vector color control in astrophotography.\n\n" +
 "Version 2 feature highlights since v0.9.7.7-beta:\n\n" +
 "Latest Feature\n" +
-"- Added Compact mode as a space-saving layout for smaller or crowded PixInsight workspaces while preserving the same processing, preview, masks, passes, diagnostics, and output behavior as Standard mode.\n\n" +
+"- Added a display workspace warning for Windows and macOS systems where PixInsight reports a workspace smaller than Astro Color Mixer's layout target, including guidance for Windows Display Scaling and macOS Displays settings.\n\n" +
 "Preview / Diagnostics\n" +
 "- Added Difference preview mode to show where the current adjustment changes the image.\n" +
 "- Added Plot Info beside the polar plot with probe, selected band, Range Mask, and delayed Changed / Strong readouts.\n" +
@@ -4976,7 +5067,7 @@ constructor() {
    acmHelpHostDialog = this;
 
    var self = this;
-   this.windowTitle = "Astro Color Mixer v0.9.7.10-beta";
+   this.windowTitle = "Astro Color Mixer v0.9.7.11-beta";
    this.recipeFilePath = "";
    this.activeTab = ACM_TAB_SAT;
    this.activeToolPanel = "selectedBand";
@@ -5170,7 +5261,7 @@ constructor() {
       g.brush = new Brush(ACM_GRAY_UI_THEME.header);
       g.fillRect(0, 0, this.width, this.height, g.brush);
       var mainTitle = "Astro Color Mixer";
-      var versionText = "v0.9.7.10-beta";
+      var versionText = "v0.9.7.11-beta";
       var compactHeader = dialog.layoutMode === "compact" || this.height < 60;
       var titleFont = new Font;
       titleFont.bold = true;
@@ -10528,12 +10619,13 @@ AstroColorMixerPOC8Dialog.prototype.applyToTargetImage = function() {
 
 try {
    var dialog = new AstroColorMixerUI03Dialog;
+   acmShowSmallDisplayWorkspaceWarningIfNeeded(dialog);
    dialog.execute();
 } catch (error) {
    if (!(error && error.__acmHandled)) {
       var message = "Unexpected dialog failure: " + (error && error.message ? error.message : String(error));
       console.criticalln(message);
-      showMessage(message, "Astro Color Mixer v0.9.7.10-beta", StdIcon_Error);
+      showMessage(message, "Astro Color Mixer v0.9.7.11-beta", StdIcon_Error);
    }
 }
 

@@ -39,6 +39,15 @@
     </section>
 
     <section>
+      <h2>Why am I seeing a display scaling warning?</h2>
+      <p>Astro Color Mixer checks the display workspace size that PixInsight reports when the script starts. On some systems, especially Windows laptops, the operating system can scale the display so PixInsight reports a smaller logical workspace than the physical monitor resolution might suggest.</p>
+      <p>For example, a 1920 x 1080 Windows laptop using 125% scaling may be reported to PixInsight as roughly 1536 x 864. That can make a window designed for a larger workspace appear clipped, too large, or difficult to resize.</p>
+      <p>On Windows, check <strong>Windows Settings &gt; System &gt; Display &gt; Scale</strong>. If Scale is above 100%, Recommended, or Auto, set it to 100%, then restart PixInsight and run Astro Color Mixer again.</p>
+      <p>On macOS, check <strong>System Settings &gt; Displays</strong> and choose a setting that provides more screen space, then restart PixInsight.</p>
+      <p>This is an operating system display setting. It is not a PixInsight setting and not an Astro Color Mixer setting.</p>
+    </section>
+
+    <section>
       <h2>What is the basic workflow?</h2>
       <ol>
         <li>Open a nonlinear RGB image.</li>

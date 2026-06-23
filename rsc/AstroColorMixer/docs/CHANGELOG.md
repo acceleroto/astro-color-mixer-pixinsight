@@ -4,6 +4,11 @@
 
 Adds display workspace warnings for systems where PixInsight reports a workspace smaller than Astro Color Mixer's layout target.
 
+Release basis:
+
+- Built from v0.9.7.10-beta as the baseline release script.
+- The release intentionally preserves v0.9.7.10-beta processing, preview, masks, probes, histogram/polar diagnostics, recipes, passes, layout target sizes, and output behavior.
+
 Includes:
 
 - Windows warning for constrained workspaces, with guidance for Windows Settings > System > Display > Scale

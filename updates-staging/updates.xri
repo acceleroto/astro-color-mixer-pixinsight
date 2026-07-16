@@ -9,17 +9,17 @@
   <platform os="all" arch="noarch" version="1.8.0:1.9.9">
 
     <package
-      fileName="AstroContrastEnhancer-0.9.414.zip"
-      sha1="68cfb1a556f87b290f77a22c7695e9b26e277acd"
+      fileName="AstroContrastEnhancer-0.9.430.zip"
+      sha1="052979d748119d1f3d9850c4807ebabaa0aad6d6"
       type="script"
-      releaseDate="20260714"
+      releaseDate="20260715"
       remove="src/scripts/CosgrovesCosmos/AstroContrastEnhancer/AstroContrastEnhancer.js">
 
-      <title>Astro Contrast Enhancer v0.9.414</title>
+      <title>Astro Contrast Enhancer v0.9.430</title>
 
       <description>
         <p>Astro Contrast Enhancer provides protected Texture, Clarity, Dehaze, and lasso-based local contrast control for stretched astrophotography images.</p>
-        <p>This release installs into src/scripts/CosgrovesCosmos/AstroContrastEnhancer/ and uses the same Cosgrove's Cosmos menu metadata form as Astro Color Mixer.</p>
+        <p>This release installs into src/scripts/CosgrovesCosmos/AstroContrastEnhancer/, uses the same Cosgrove's Cosmos menu metadata form as Astro Color Mixer, and includes a 24 px script icon resource.</p>
       </description>
 
     </package>

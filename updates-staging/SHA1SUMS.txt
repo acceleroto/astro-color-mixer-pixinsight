@@ -1,1 +1,1 @@
-4ecc7e72b2c29649329a5e8b02b5fba0bee29cf8  AstroContrastEnhancer-0.9.551-nested-svg-feature-name.zip
+272783b117ca1ebf6802a585d9dc6f114654e8be  AstroContrastEnhancer-0.9.552-colon-nested-svg.zip

@@ -3,22 +3,22 @@
 <xri version="1.0">
 
   <description>
-    <p>ACE icon experiment nested-svg-feature-name</p>
+    <p>ACE icon experiment colon-nested-svg</p>
   </description>
 
   <platform os="all" arch="noarch" version="1.8.0:1.9.9">
 
     <package
-      fileName="AstroContrastEnhancer-0.9.551-nested-svg-feature-name.zip"
-      sha1="4ecc7e72b2c29649329a5e8b02b5fba0bee29cf8"
+      fileName="AstroContrastEnhancer-0.9.552-colon-nested-svg.zip"
+      sha1="272783b117ca1ebf6802a585d9dc6f114654e8be"
       type="script"
       releaseDate="20260722"
       remove="src/scripts/CosgrovesCosmos/AstroContrastEnhancer/AstroContrastEnhancer.js">
 
-      <title>Astro Contrast Enhancer v0.9.551 nested-svg-feature-name</title>
+      <title>Astro Contrast Enhancer v0.9.552 colon-nested-svg</title>
 
       <description>
-        <p>Icon experiment nested-svg-feature-name: @script_icons_dir/AstroContrastEnhancer/AstroContrastEnhancer.svg</p>
+        <p>Icon experiment colon-nested-svg: @script_icons_dir/AstroContrastEnhancer/AstroContrastEnhancer.svg</p>
       </description>
 
     </package>

@@ -3,23 +3,22 @@
 <xri version="1.0">
 
   <description>
-    <p>Cosgrove's Cosmos PixInsight script repository</p>
+    <p>ACE icon experiment flat-svg</p>
   </description>
 
   <platform os="all" arch="noarch" version="1.8.0:1.9.9">
 
     <package
-      fileName="AstroContrastEnhancer-0.9.547.zip"
-      sha1="497d5fcc3a059df5660c41d8d3cf870c07935522"
+      fileName="AstroContrastEnhancer-0.9.548-flat-svg.zip"
+      sha1="c37d51cf93a48d28487da929cf8b6df1566bfe58"
       type="script"
-      releaseDate="20260721"
+      releaseDate="20260722"
       remove="src/scripts/CosgrovesCosmos/AstroContrastEnhancer/AstroContrastEnhancer.js">
 
-      <title>Astro Contrast Enhancer v0.9.547</title>
+      <title>Astro Contrast Enhancer v0.9.548 flat-svg</title>
 
       <description>
-        <p>Astro Contrast Enhancer provides protected Texture, Clarity, Dehaze, and lasso-based local contrast control for stretched astrophotography images.</p>
-        <p>This release installs into src/scripts/CosgrovesCosmos/AstroContrastEnhancer/, uses the same Cosgrove's Cosmos menu metadata form as Astro Color Mixer, and includes a 24 px script icon resource.</p>
+        <p>Icon experiment flat-svg: @script_icons_dir/AstroContrastEnhancer.svg</p>
       </description>
 
     </package>

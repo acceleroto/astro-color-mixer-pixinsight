@@ -1,1 +1,1 @@
-c37d51cf93a48d28487da929cf8b6df1566bfe58  AstroContrastEnhancer-0.9.548-flat-svg.zip
+d5efbcc6dddb3d3c14c812fcbe144ae4b712d622  AstroContrastEnhancer-0.9.550-flat-png-feature-name.zip

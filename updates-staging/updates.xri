@@ -3,22 +3,22 @@
 <xri version="1.0">
 
   <description>
-    <p>ACE icon experiment flat-svg</p>
+    <p>ACE icon experiment flat-png-feature-name</p>
   </description>
 
   <platform os="all" arch="noarch" version="1.8.0:1.9.9">
 
     <package
-      fileName="AstroContrastEnhancer-0.9.548-flat-svg.zip"
-      sha1="c37d51cf93a48d28487da929cf8b6df1566bfe58"
+      fileName="AstroContrastEnhancer-0.9.550-flat-png-feature-name.zip"
+      sha1="d5efbcc6dddb3d3c14c812fcbe144ae4b712d622"
       type="script"
       releaseDate="20260722"
       remove="src/scripts/CosgrovesCosmos/AstroContrastEnhancer/AstroContrastEnhancer.js">
 
-      <title>Astro Contrast Enhancer v0.9.548 flat-svg</title>
+      <title>Astro Contrast Enhancer v0.9.550 flat-png-feature-name</title>
 
       <description>
-        <p>Icon experiment flat-svg: @script_icons_dir/AstroContrastEnhancer.svg</p>
+        <p>Icon experiment flat-png-feature-name: @script_icons_dir/AstroContrastEnhancer.png</p>
       </description>
 
     </package>

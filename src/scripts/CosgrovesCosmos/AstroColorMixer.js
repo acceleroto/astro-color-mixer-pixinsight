@@ -1,7 +1,7 @@
 #iflt __PI_VERSION__ 01.09.04
 
-#feature-id    Cosgrove's Cosmos > Astro Color Mixer
-#feature-icon  @script_icons_dir/AstroColorMixer/astro_color_mixer_24.png
+#feature-id    AstroColorMixer : Cosgrove's Cosmos > Astro Color Mixer
+#feature-icon  @script_icons_dir/AstroColorMixer.svg
 #feature-info  Astro Color Mixer requires PixInsight 1.9.4 or newer.
 
 console.criticalln("Astro Color Mixer requires PixInsight 1.9.4 or newer. This installed PixInsight version is too old to run the V8 JavaScript engine required by this script. Please update PixInsight and try again.");
@@ -11,8 +11,8 @@ throw new Error("Astro Color Mixer requires PixInsight 1.9.4 or newer.");
 
 #engine v8
 
-#feature-id    Cosgrove's Cosmos > Astro Color Mixer
-#feature-icon  @script_icons_dir/AstroColorMixer/astro_color_mixer_24.png
+#feature-id    AstroColorMixer : Cosgrove's Cosmos > Astro Color Mixer
+#feature-icon  @script_icons_dir/AstroColorMixer.svg
 #feature-info  Astro Color Mixer v0.9.7.12-beta. Script menu icon packaging update.
 
 /*

@@ -1,5 +1,22 @@
 # Astro Color Mixer Changelog
 
+## v0.9.7.12-beta
+
+Packages the Astro Color Mixer script-menu icon using the same nested PixInsight script-icon resource method validated for Astro Contrast Enhancer.
+
+Includes:
+
+- `#feature-icon @script_icons_dir/AstroColorMixer/astro_color_mixer_24.png`
+- bundled icon resource at `rsc/icons/script/AstroColorMixer/astro_color_mixer_24.png`
+- removal of the previous flat and nested SVG icon package variants from the release zip
+
+Unchanged:
+
+- processing math
+- masks, probe behavior, histogram and polar plot math
+- recipes, preview behavior, passes, layout target sizes, and output behavior
+- display scaling warning behavior from v0.9.7.11-beta
+
 ## v0.9.7.11-beta
 
 Adds display workspace warnings for systems where PixInsight reports a workspace smaller than Astro Color Mixer's layout target.

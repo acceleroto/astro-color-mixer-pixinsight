@@ -25,17 +25,17 @@
     </package>
 
     <package
-      fileName="AstroContrastEnhancer-0.9.562.zip"
-      sha1="e2d2ca687f5282cd08f0befd50eaeb0f8157c28e"
+      fileName="AstroContrastEnhancer-0.9.574.zip"
+      sha1="12414b20adcf8ee15a31348ebb009e2f585f3784"
       type="script"
       releaseDate="20260727"
       remove="src/scripts/CosgrovesCosmos/AstroContrastEnhancer/AstroContrastEnhancer.js">
 
-      <title>Astro Contrast Enhancer v0.9.562</title>
+      <title>Astro Contrast Enhancer v0.9.574</title>
 
       <description>
         <p>Astro Contrast Enhancer provides protected Texture, Clarity, Dehaze, and lasso-based local contrast control for stretched astrophotography images.</p>
-        <p><b>What's new:</b> Bug fixes and release packaging maintenance.</p>
+        <p><b>What's new:</b> Fixes high-zoom slider detail refresh state so 200%+ previews update reliably after Texture, Clarity, and Dehaze changes.</p>
       </description>
 
     </package>

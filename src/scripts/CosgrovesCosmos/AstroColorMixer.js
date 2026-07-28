@@ -1,7 +1,7 @@
 #iflt __PI_VERSION__ 01.09.04
 
-#feature-id    Cosgrove's Cosmos > Astro Color Mixer
-#feature-icon  @script_icons_dir/AstroColorMixer/astro_color_mixer_24.png
+#feature-id    AstroColorMixer : Cosgrove's Cosmos > Astro Color Mixer
+#feature-icon  @script_icons_dir/AstroColorMixer.svg
 #feature-info  Astro Color Mixer requires PixInsight 1.9.4 or newer.
 
 console.criticalln("Astro Color Mixer requires PixInsight 1.9.4 or newer. This installed PixInsight version is too old to run the V8 JavaScript engine required by this script. Please update PixInsight and try again.");
@@ -11,15 +11,15 @@ throw new Error("Astro Color Mixer requires PixInsight 1.9.4 or newer.");
 
 #engine v8
 
-#feature-id    Cosgrove's Cosmos > Astro Color Mixer
-#feature-icon  @script_icons_dir/AstroColorMixer/astro_color_mixer_24.png
-#feature-info  Astro Color Mixer v0.9.7.13-beta. Script menu icon restore.
+#feature-id    AstroColorMixer : Cosgrove's Cosmos > Astro Color Mixer
+#feature-icon  @script_icons_dir/AstroColorMixer.svg
+#feature-info  Astro Color Mixer v0.9.7.14-beta. Script menu icon restore.
 
 /*
  * Astro Color Mixer for PixInsight
  *
  * Beta build:
- * Astro Color Mixer v0.9.7.13-beta
+ * Astro Color Mixer v0.9.7.14-beta
  */
 
 #include <pjsr/UndoFlag.jsh>
@@ -34,7 +34,7 @@ throw new Error("Astro Color Mixer requires PixInsight 1.9.4 or newer.");
 CoreApplication.ensureMinimumVersion( 1, 9, 4 );
 
 function showMessage(text, title, icon) {
-   (new MessageBox(text, title || "Astro Color Mixer v0.9.7.13-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
+   (new MessageBox(text, title || "Astro Color Mixer v0.9.7.14-beta", icon || StdIcon_Information, StdButton_Ok)).execute();
 }
 
 var acmHelpHostDialog = null;
@@ -49,7 +49,7 @@ function showHelpTopic(title, text) {
 
 function fail(text) {
    console.criticalln(text);
-   showMessage(text, "Astro Color Mixer v0.9.7.13-beta", StdIcon_Error);
+   showMessage(text, "Astro Color Mixer v0.9.7.14-beta", StdIcon_Error);
    var error = new Error(text);
    error.__acmHandled = true;
    throw error;
@@ -630,7 +630,7 @@ function acmCreateInfoBox(parent) {
    return box;
 }
 
-console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.7.13-beta</b>");
+console.writeln("<end><cbr><br><b>Astro Color Mixer v0.9.7.14-beta</b>");
 
 // -------------------------------------------------------------------------
 // Minimal copied core logic
@@ -3108,7 +3108,7 @@ var ACM_TECHNICAL_APPENDIX_TEXT = [
 
 var ACM_ABOUT_TEXT =
       "About Astro Color Mixer\n\n" +
-"Astro Color Mixer v0.9.7.13-beta\n\n" +
+"Astro Color Mixer v0.9.7.14-beta\n\n" +
 "A Cosgrove's Cosmos tool for nonlinear RGB chroma-vector color control in astrophotography.\n\n" +
 "Version 2 feature highlights since v0.9.7.7-beta:\n\n" +
 "Latest Feature\n" +
@@ -5067,7 +5067,7 @@ constructor() {
    acmHelpHostDialog = this;
 
    var self = this;
-   this.windowTitle = "Astro Color Mixer v0.9.7.13-beta";
+   this.windowTitle = "Astro Color Mixer v0.9.7.14-beta";
    this.recipeFilePath = "";
    this.activeTab = ACM_TAB_SAT;
    this.activeToolPanel = "selectedBand";
@@ -5261,7 +5261,7 @@ constructor() {
       g.brush = new Brush(ACM_GRAY_UI_THEME.header);
       g.fillRect(0, 0, this.width, this.height, g.brush);
       var mainTitle = "Astro Color Mixer";
-      var versionText = "v0.9.7.13-beta";
+      var versionText = "v0.9.7.14-beta";
       var compactHeader = dialog.layoutMode === "compact" || this.height < 60;
       var titleFont = new Font;
       titleFont.bold = true;
@@ -10625,7 +10625,7 @@ try {
    if (!(error && error.__acmHandled)) {
       var message = "Unexpected dialog failure: " + (error && error.message ? error.message : String(error));
       console.criticalln(message);
-      showMessage(message, "Astro Color Mixer v0.9.7.13-beta", StdIcon_Error);
+      showMessage(message, "Astro Color Mixer v0.9.7.14-beta", StdIcon_Error);
    }
 }
 

@@ -1,5 +1,16 @@
 # Astro Color Mixer Changelog
 
+## v0.9.7.14-beta
+
+Restores the Astro Color Mixer PixInsight script-menu icon after v0.9.7.13-beta regressed to the obsolete nested PNG icon package.
+
+Includes:
+
+- `#feature-id AstroColorMixer : Cosgrove's Cosmos > Astro Color Mixer`
+- `#feature-icon @script_icons_dir/AstroColorMixer.svg`
+- bundled icon resource at `rsc/icons/script/AstroColorMixer.svg`
+- release-package validation that rejects the old nested `AstroColorMixer/astro_color_mixer_24.png` icon path
+
 ## v0.9.7.12-beta
 
 Packages the Astro Color Mixer script-menu icon using the same colon feature-id and flat SVG script-icon resource method validated for Astro Contrast Enhancer.

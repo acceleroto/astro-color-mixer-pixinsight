@@ -9,17 +9,20 @@
   <platform os="all" arch="noarch" version="1.8.0:1.9.9">
 
     <package
-      fileName="AstroColorMixer-0.9.7.13-beta.zip"
-      sha1="f621612b124ccbf6eaa1f79919285f3788d4571a"
+      fileName="AstroColorMixer-0.9.7.14-beta.zip"
+      sha1="3a03a72b5130b058593eacb27a3329c58141b9dc"
       type="script"
       releaseDate="20260727"
       remove="src/scripts/CosgrovesCosmos/AstroColorMixer.js">
 
-      <title>Astro Color Mixer v0.9.7.13-beta</title>
+      <title>Astro Color Mixer v0.9.7.14-beta</title>
 
       <description>
         <p>Astro Color Mixer is a PixInsight script for nonlinear RGB color and luminance refinement in astrophotography.</p>
-        <p><b>What's new:</b> Bug fixes and release packaging maintenance.</p>
+        <p><b>What's new:</b> Restores the Astro Color Mixer script menu icon using the validated colon feature-id plus flat SVG script icon package.</p>
+        <p>The installed script declares #feature-id AstroColorMixer : Cosgrove's Cosmos &gt; Astro Color Mixer and #feature-icon @script_icons_dir/AstroColorMixer.svg.</p>
+        <p>Processing math, masks, probe behavior, histogram and polar plot math, recipes, preview behavior, passes, layout target sizes, output behavior, and the display scaling warning from v0.9.7.11-beta are unchanged.</p>
+        <p>This is a beta release for testing. PixInsight 1.9.4 or newer is recommended; Apple Silicon Mac users should use the ARM64/Apple-Silicon PixInsight build.</p>
       </description>
 
     </package>

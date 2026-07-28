@@ -28,17 +28,18 @@
     </package>
 
     <package
-      fileName="AstroContrastEnhancer-0.9.575.zip"
-      sha1="aa02ca7f6d21cb86b5b45c66420c96bb61feb92b"
+      fileName="AstroContrastEnhancer-0.9.584.zip"
+      sha1="522633bcfa88b3c35fa0abc50d28174b3364a924"
       type="script"
-      releaseDate="20260727"
+      releaseDate="20260728"
       remove="src/scripts/CosgrovesCosmos/AstroContrastEnhancer/AstroContrastEnhancer.js">
 
-      <title>Astro Contrast Enhancer v0.9.575</title>
+      <title>Astro Contrast Enhancer v0.9.584</title>
 
       <description>
         <p>Astro Contrast Enhancer provides protected Texture, Clarity, Dehaze, and lasso-based local contrast control for stretched astrophotography images.</p>
-        <p><b>What's new:</b> Fixes high-zoom slider detail refresh state and restores the ACE menu icon.</p>
+        <p><b>What's new:</b> Fixes ACE preview/detail state-machine refresh behavior and modestly refines high-end Dehaze processing.</p>
+        <p>This release changes ACE state-machine behavior and Dehaze processing only. It does not change PixInsight package paths, feature-id, menu placement, or icon path.</p>
       </description>
 
     </package>

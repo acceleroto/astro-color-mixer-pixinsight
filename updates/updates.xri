@@ -28,17 +28,18 @@
     </package>
 
     <package
-      fileName="AstroContrastEnhancer-0.9.597.zip"
-      sha1="eb94b86a1f00650227132b5681b5a289be40a650"
+      fileName="AstroContrastEnhancer-0.9.598.zip"
+      sha1="7840c01253cd744fca8ce10bf0300e403720ac92"
       type="script"
-      releaseDate="20260730">
+      releaseDate="20260802">
 
-      <title>Astro Contrast Enhancer v0.9.597</title>
+      <title>Astro Contrast Enhancer v0.9.598</title>
 
       <description>
         <p>Astro Contrast Enhancer provides protected Texture, Clarity, Dehaze, and lasso-based local contrast control for stretched astrophotography images.</p>
-        <p><b>What's new:</b> Adds mouse zoom enable control.</p>
-        <p>Adds mouse zoom enable control. Does not change PixInsight package paths, feature-id, menu placement, or icon path.</p>
+        <p><b>What's new:</b> Fixes preview state handling after loupe/diagnostic transitions and avoids unnecessary detail preparation for lasso selections without pending adjustments.</p>
+        <p>This release includes the Cosgrove's Cosmos Non-Commercial Source License. Personal, educational, research, and other non-commercial use is permitted with attribution. Commercial use requires prior written permission from Patrick A. Cosgrove.</p>
+        <p>This release changes ACE preview state-machine behavior only. It does not change PixInsight package paths, feature-id, menu placement, or icon path.</p>
       </description>
 
     </package>
